@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CRM Energia Solar</title>
+
+  <!-- Inter / Bootstrap / FA -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" xintegrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  
+  <!-- **CORREÇÃO AQUI** (Caminho relativo) -->
+  <link href="./assets/css/styles.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+  <!-- ===========================
+  Spinner de Carregamento 
+  =========================== -->
+  <div id="loading-spinner" class="vh-100 d-flex justify-content-center align-items-center">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+
+  <!-- ===========================
+  SECÇÃO DE LOGIN (Escondida por defeito)
+  =========================== -->
+  <main id="login-section" class="d-none">
+    <div class="login-container">
+      <div class="card login-card p-4 shadow-sm">
+        <div class="card-body">
+          
+          <!-- Formulário de Login -->
+          <form id="loginForm">
+            <div class="text-center mb-4">
+              <i class="fa-solid fa-bolt-lightning text-primary fa-2x"></i>
+              <h4 class="mt-2 mb-1">CRM Energia</h4>
+              <p class="text-secondary">Acesso restrito</p>
+            </div>
+            <div class="alert alert-danger d-none" id="login-auth-alert"></div>
+            <div class="mb-3">
+              <label for="loginEmail" class="form-label">Seu E-mail</label>
+              <input type="email" class="form-control" id="loginEmail" required>
+            </div>
+            <div class="mb-3">
+              <label for="loginPassword" class="form-label">Sua Senha</label>
+              <input type="password" class="form-control" id="loginPassword" required>
+            </div>
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">Entrar</button>
+            </div>
+            <div class="text-center mt-3">
+              <a href="#" id="showCreateAccountLink">Não tem uma conta? Crie uma aqui.</a>
+            </div>
+          </form>
+
+          <!-- Formulário de Criar Conta (Escondido) -->
+          <form id="createAccountForm" class="d-none">
+            <div class="text-center mb-4">
+              <i class="fa-solid fa-bolt-lightning text-primary fa-2x"></i>
+              <h4 class="mt-2 mb-1">Criar Conta</h4>
+              <p class="text-secondary">Crie uma conta para aceder ao CRM.</p>
+            </div>
+            <div class="alert alert-danger d-none" id="create-auth-alert"></div>
+            <div class="mb-3">
+              <label for="createEmail" class="form-label">Seu E-mail</label>
+              <input type="email" class="form-control" id="createEmail" required>
+            </div>
+            <div class="mb-3">
+              <label for="createPassword" class="form-label">Crie uma Senha (min. 6)</label>
+              <input type="password" class="form-control" id="createPassword" required>
+            </div>
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">Confirmar e Criar Conta</button>
+            </div>
+            <div class="text-center mt-3">
+              <a href="#" id="showLoginLink">Já tem uma conta? Voltar para o Login.</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </main>
+  
+  <!-- ===========================
+  APP PRINCIPAL (Escondido por defeito)
+  =========================== -->
+  
+  <!-- 1. Sidebar -->
+  <nav id="mainNavApp" class="sidebar d-none">
+    <!-- Cabeçalho da Sidebar -->
+    <div class="sidebar-header">
+      <a class="navbar-brand text-primary" href="#">
+        <i class="fa-solid fa-bolt-lightning"></i>
+        CRM Energia
+      </a>
+    </div>
+
+    <!-- Links de Navegação -->
+    <ul class="nav nav-pills flex-column">
+      <li class="nav-item">
+        <a class="nav-link active" href="#" data-section="dashboard">
+          <i class="fa-solid fa-chart-pie me-2"></i>Dashboard
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-section="clients">
+          <i class="fa-solid fa-users me-2"></i>Clientes
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-section="finance">
+          <i class="fa-solid fa-coins me-2"></i>Financeiro
+        </a>
+      </li>
+    </ul>
+
+    <!-- Rodapé da Sidebar (Usuário) -->
+    <div class="sidebar-footer">
+      <div class="dropdown">
+        <a href="#" class="d-flex align-items-center dropdown-toggle text-decoration-none" data-bs-toggle="dropdown">
+          <i class="fa-solid fa-user-circle fa-lg me-2 text-secondary"></i>
+          <span id="navbarUserEmail">...</span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
+          <li>
+            <a class="dropdown-item" href="#" id="logoutButton">
+              <i class="fa-solid fa-right-from-bracket me-2"></i>Sair
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- 2. Área de Conteúdo -->
+  <main id="mainContentApp" class="content-area d-none">
+
+    <!-- Cabeçalho do Conteúdo (com Ações Rápidas) -->
+    <header class="content-header bg-white">
+      <h2 id="sectionTitle" class="h4 mb-0 text-primary">Dashboard</h2>
+      
+      <!-- Ações (só para Editores) -->
+      <div class="d-flex gap-2">
+        <button class="btn btn-outline-primary" id="importExcelButton">
+          <i class="fas fa-file-excel me-2"></i>Importar Excel
+        </button>
+        <button class="btn btn-primary" id="addClientButton">
+          <i class="fas fa-plus me-2"></i>Novo Cliente
+        </button>
+        <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="d-none">
+      </div>
+    </header>
+    
+    <!-- Conteúdo das Seções (Injetado) -->
+    <div class="p-4">
+      
+      <!-- Secção Dashboard -->
+      <section id="dashboard-section" class="section-content active">
+        <!-- 1. KPIs -->
+        <div class="row mb-4">
+          <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card kpi-card kpi-total">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-total-clients">0</div>
+                  <div class="kpi-label">Total de Clientes</div>
+                </div>
+                <i class="fas fa-users kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card kpi-card kpi-ativos">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-active-clients">0</div>
+                  <div class="kpi-label">Clientes Ativos</div>
+                </div>
+                <i class="fas fa-user-check kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card kpi-card kpi-inadimplentes">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-overdue-clients">0</div>
+                  <div class="kpi-label">Inadimplentes</div>
+                </div>
+                <i class="fas fa-user-times kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card kpi-card kpi-faturamento">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-monthly-revenue">R$ 0</div>
+                  <div class="kpi-label">Faturamento (aprox.)</div>
+                </div>
+                <i class="fas fa-dollar-sign kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 2. Gráficos -->
+        <div class="row">
+          <div class="col-lg-8 mb-4">
+            <div class="card">
+              <div class="card-header">
+                Novos Clientes (Últimos 6 Meses)
+              </div>
+              <div class="card-body" style="height: 350px;">
+                <canvas id="clientsChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4 mb-4">
+            <div class="card">
+              <div class="card-header">
+                Clientes por Status
+              </div>
+              <div class="card-body" style="height: 350px;">
+                <canvas id="statusChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Secção Clientes -->
+      <section id="clients-section" class="section-content">
+        <div class="card">
+          <div class="card-header">
+            <!-- Filtros -->
+            <div class="row g-2 align-items-center">
+              <div class="col-lg-3">
+                <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nome, doc ou e-mail...">
+              </div>
+              <div class="col-lg-2">
+                <select id="statusFilter" class="form-select">
+                  <option value="">Todo Status</option>
+                  <option value="ATIVO">Ativo</option>
+                  <option value="INATIVO">Inativo</option>
+                  <option value="PENDENTE">Pendente</option>
+                  <option value="EM_CANCELAMENTO">Em Cancelamento</option>
+                </select>
+              </div>
+              <div class="col-lg-2">
+                <select id="typeFilter" class="form-select">
+                  <option value="">Todo Tipo</option>
+                  <option value="PF">PF</option>
+                  <option value="PJ">PJ</option>
+                </select>
+              </div>
+              <div class="col-lg-2">
+                <input type="text" id="cityFilter" class="form-control" placeholder="Cidade...">
+              </div>
+              <div class="col-lg-1">
+                <button class="btn btn-outline-secondary w-100" id="clearFiltersButton" title="Limpar Filtros">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="col-lg-2 text-end">
+                <div class="dropdown">
+                  <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                    Exportar
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end">
+                    <li><button class="dropdown-item" id="exportDataButton"><i class="fas fa-file-code me-2"></i>Exportar JSON</button></li>
+                    <li><button class="dropdown-item" id="exportExcelButton"><i class="fas fa-file-download me-2"></i>Exportar Excel</button></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <!-- Tabela -->
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead>
+                  <tr>
+                    <th class="ps-3">Cliente</th>
+                    <th>Documento</th>
+                    <th>Status</th>
+                    <th>Localização</th>
+                    <th>Consumo Médio</th>
+                    <th class="text-end pe-3">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="clientsTableBody">
+                  <!-- Linhas inseridas via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Paginação -->
+          <div class="card-footer d-flex justify-content-between align-items-center">
+            <small class="text-secondary" id="pagination-summary">Mostrando 0-0 de 0</small>
+            <nav id="pagination-nav"></nav>
+          </div>
+        </div>
+      </section>
+
+      <!-- Secção Financeiro -->
+      <section id="finance-section" class="section-content">
+        <!-- KPIs -->
+        <div class="row mb-4">
+          <div class="col-lg-2 col-md-4 mb-3">
+            <div class="card kpi-card kpi-faturamento">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-emitido">R$ 0</div>
+                  <div class="kpi-label">Emitido (mês)</div>
+                </div>
+                <i class="fas fa-file-invoice-dollar kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-2 col-md-4 mb-3">
+            <div class="card kpi-card kpi-ativos">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-pago">R$ 0</div>
+                  <div class="kpi-label">Pago (mês)</div>
+                </div>
+                <i class="fas fa-check-circle kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-2 col-md-4 mb-3">
+            <div class="card kpi-card kpi-inadimplentes">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-inad">0%</div>
+                  <div class="kpi-label">Inadimplência</div>
+                </div>
+                <i class="fas fa-exclamation-triangle kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-2 col-md-4 mb-3">
+            <div class="card kpi-card kpi-total">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-dso">0 d</div>
+                  <div class="kpi-label">DSO</div>
+                </div>
+                <i class="fas fa-clock kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4 col-md-8 mb-3">
+            <div class="card kpi-card kpi-ativos">
+              <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                  <div class="kpi-value" id="kpi-energia">0 kWh</div>
+                  <div class="kpi-label">Energia faturada</div>
+                </div>
+                <i class="fas fa-bolt kpi-icon"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="row">
+          <div class="col-lg-8 mb-4">
+            <div class="card">
+              <div class="card-header">Emitido x Pago x Inadimplência (por REF)</div>
+              <div class="card-body" style="height: 420px;">
+                <canvas id="revenueTrend"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-4 mb-4">
+            <div class="card">
+              <div class="card-header">Aging de Recebíveis</div>
+              <div class="card-body" style="height: 420px;">
+                <canvas id="agingChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Modal Cliente (Novo/Editar) -->
+  <div class="modal fade" id="clientModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="clientModalTitle">Novo Cliente</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="clientForm">
+            <input type="hidden" id="clientId">
+             <div class="row">
+              <div class="col-md-8 mb-3">
+                <label for="clientName" class="form-label">Nome Completo / Razão Social</label>
+                <input type="text" class="form-control" id="clientName">
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="clientExternalId" class="form-label">ID Externo</label>
+                <input type="text" class="form-control" id="clientExternalId">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="clientCpf" class="form-label">CPF</label>
+                <input type="text" class="form-control" id="clientCpf">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="clientCnpj" class="form-label">CNPJ</label>
+                <input type="text" class="form-control" id="clientCnpj">
+              </div>
+            </div>
+            <hr>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="clientEmail" class="form-label">E-mail</label>
+                <input type="email" class="form-control" id="clientEmail">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="clientPhone" class="form-label">Telefone</label>
+                <input type="text" class="form-control" id="clientPhone">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label for="clientCep" class="form-label">CEP</label>
+                <input type="text" class="form-control" id="clientCep">
+              </div>
+              <div class="col-md-8 mb-3">
+                <label for="clientAddress" class="form-label">Endereço Completo</label>
+                <input type="text" class="form-control" id="clientAddress">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label for="clientCity" class="form-label">Cidade</label>
+                <input type="text" class="form-control" id="clientCity">
+              </div>
+              <div class="col-md-2 mb-3">
+                <label for="clientState" class="form-label">UF</label>
+                <input type="text" class="form-control" id="clientState">
+              </div>
+            </div>
+            <hr>
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <label for="clientStatus" class="form-label">Status do Cliente</label>
+                <select id="clientStatus" class="form-select">
+                  <option value="ATIVO">Ativo</option>
+                  <option value="INATIVO">Inativo</option>
+                  <option value="PENDENTE">Pendente</option>
+                  <option value="EM_CANCELAMENTO">Em Cancelamento</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="clientContractType" class="form-label">Tipo Contrato (PF/PJ)</label>
+                <select id="clientContractType" class="form-select">
+                  <option value="PF">PF</option>
+                  <option value="PJ">PJ</option>
+                </select>
+              </div>
+              <div class="col-md-4 mb-3">
+                <label for="clientJoinDate" class="form-label">Data de Adesão</label>
+                <input type="date" class="form-control" id="clientJoinDate">
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="clientConsumption" class="form-label">Média Consumo (kWh)</label>
+                <input type="number" class="form-control" id="clientConsumption">
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="clientDiscount" class="form-label">Desconto (%)</label>
+                <input type="number" class="form-control" id="clientDiscount">
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="clientModalSaveButton" form="clientForm">Salvar Cliente</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container position-fixed top-0 end-0 p-3"></div>
+  
+  <!-- Scripts de terceiros (bundle prontos) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App (ES modules) -->
+  <!-- **CORREÇÃO AQUI** (Caminho relativo) -->
+  <script type="module" src="./app/core/firebase.js"></script>
+</body>
+</html>
+
