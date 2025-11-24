@@ -69,5 +69,8 @@ node_modules/
 firebase-key.json
 *-firebase-adminsdk-*.json
 
+# Dados sensíveis de clientes (arquivos antigos)
+old/
+
 # dataconnect generated files
 .dataconnect
