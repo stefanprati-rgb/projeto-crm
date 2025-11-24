@@ -1,37 +1,35 @@
 export const clientMapping = {
-  // === Identificação ===
-  'INSTALAÇÃO': 'instalacao',           // UC
+  // Identificação e Contato
+  'INSTALAÇÃO': 'instalacao',
   'ID EXTERNO': 'externalId',
   'NOME COMPLETO OU RAZÃO SOCIAL': 'name',
   'CPF': 'cpf',
   'CNPJ': 'cnpj',
-  'DOC': 'doc',                         // Campo auxiliar de documento encontrado
+  'DOC': 'doc', // Campo extra encontrado
+  'E-MAIL': 'email',
+  'TELEFONE': 'phone',
 
-  // === Contrato e Status ===
+  // Contrato e Status
   'TIPO CONTRATO': 'contractType',
   'STATUS DO CLIENTE': 'status',
-  'STATUS RATEIO': 'statusRateio',      // Confirmado no arquivo
+  'STATUS RATEIO': 'statusRateio',
   'DATA DE ADESÃO': 'joinDate',
   'DATA CANCELAMENTO': 'dataCancelamento',
   'MOTIVO CANCELAMENTO': 'motivoCancelamento',
 
-  // === Técnico e Comercial ===
-  'FORNECIMENTO': 'connectionType',     // CORREÇÃO: Monofásico, Bifásico, etc.
-  'EMPRESA NO CONTRATO': 'projeto',     // Confirmado: Consórcio/Usina
-  'PARCEIRO COMERCIAL': 'partner',      // Novo campo útil
-  'CANAL DE ENTRADA': 'channel',        // Novo campo útil
-
-  // === Financeiro e Consumo ===
-  'DESCONTO CONTRATADO': 'discount',
-  'MÉDIA DE CONSUMO MÓVEL KWH': 'consumption',
-  'PARTICIPAÇÃO DISPONÍVEL': 'participation',
-  'DATA FIXA VENCIMENTO': 'dueDate',
-
-  // === Endereço ===
-  'E-MAIL': 'email',
-  'TELEFONE': 'phone',
+  // Endereço
   'CIDADE': 'city',
   'UF': 'state',
   'CEP': 'cep',
-  'ENDEREÇO COMPLETO': 'address'
+  'ENDEREÇO COMPLETO': 'address',
+
+  // Dados Técnicos e Financeiros
+  'FORNECIMENTO': 'connectionType', // Ex: Monofásico, Bifásico
+  'EMPRESA NO CONTRATO': 'projeto', // Ex: Consorcio Era Verde
+  'DESCONTO CONTRATADO': 'discount',
+  'PARTICIPAÇÃO DISPONÍVEL': 'participation',
+  'MÉDIA DE CONSUMO MÓVEL KWH': 'consumption',
+  'DATA FIXA VENCIMENTO': 'dueDate',
+  'PARCEIRO COMERCIAL': 'partner',
+  'CANAL DE ENTRADA': 'channel'
 };
