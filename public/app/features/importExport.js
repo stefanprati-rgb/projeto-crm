@@ -66,39 +66,69 @@ class ExcelProcessor {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
 
-        const client = { id: this.generateId(), source: 'IMPORT', createdAt: new Date().toISOString() };
+          const result = { clients: [], contracts: [], plants: [] };
 
-        // ... resto do loop de mapeamento igual ao anterior ...
-        // ...
-        for (const [excelField, appField] of Object.entries(mapping)) {
-          if (row[excelField] !== undefined) {
-            if (appField === 'joinDate') client[appField] = this.parseDate(row[excelField]);
-            else if (appField === 'cpf' || appField === 'cnpj') client[appField] = this.cleanDoc(row[excelField]);
-            else client[appField] = row[excelField];
-          }
-        }
-        result.clients.push(client);
-      });
-  }
+          // Processar Abas
+          workbook.SheetNames.forEach(sheetName => {
+            // Ajuste: A planilha 'BASE DE CLIENTES V1' tem o cabeçalho na linha 2 (índice 1)
+            // Usamos 'range: 1' para pular a primeira linha vazia se for esta aba.
+            let options = { defval: "" }; // defval garante que células vazias venham como string vazia
 
-  // Lógica para 'MODELO CAD PORTAL GD' (Exemplo simplificado)
-  if(sheetName.toUpperCase().includes('PORTAL GD')) {
-  const mapping = this.fieldMappings['MODELO CAD PORTAL GD'];
-  jsonData.forEach(row => {
-    // Aqui você pode expandir para separar Cliente, Contrato e Usina conforme seu script original
-    // Para simplificar o teste inicial, vamos focar nos clientes
-    const client = { id: this.generateId(), source: 'GD_IMPORT', createdAt: new Date().toISOString() };
-    if (row['Nome ou Razão Social']) client.name = row['Nome ou Razão Social'];
-    result.clients.push(client);
-  });
-}
-      });
+            if (sheetName.toUpperCase().includes('BASE DE CLIENTES')) {
+              options.range = 1; // Pula a primeira linha (linha 0), começa na linha 1
+            }
 
-resolve(result);
-  } catch (err) { reject(err); }
-};
-reader.readAsArrayBuffer(file);
+            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], options);
+
+            // Debug: Verifique no console se os dados estão vindo corretamente
+            if (jsonData.length > 0) {
+              console.log(`Aba ${sheetName}: Primeira linha processada:`, jsonData[0]);
+            }
+
+            // Lógica para 'BASE DE CLIENTES V1'
+            if (sheetName.toUpperCase().includes('BASE DE CLIENTES')) {
+              const mapping = this.fieldMappings['BASE DE CLIENTES V1']; // Certifique-se de atualizar o constructor com o mapping novo
+
+              jsonData.forEach(row => {
+                // Validação básica: se não tiver nome nem instalação, ignora (linha vazia)
+                if (!row['NOME COMPLETO OU RAZÃO SOCIAL'] && !row['INSTALAÇÃO']) return;
+
+                const client = { id: this.generateId(), source: 'IMPORT', createdAt: new Date().toISOString() };
+
+                // ... resto do loop de mapeamento igual ao anterior ...
+                // ...
+                for (const [excelField, appField] of Object.entries(mapping)) {
+                  if (row[excelField] !== undefined) {
+                    if (appField === 'joinDate') client[appField] = this.parseDate(row[excelField]);
+                    else if (appField === 'cpf' || appField === 'cnpj') client[appField] = this.cleanDoc(row[excelField]);
+                    else client[appField] = row[excelField];
+                  }
+                }
+                result.clients.push(client);
+              });
+            }
+
+            // Lógica para 'MODELO CAD PORTAL GD' (Exemplo simplificado)
+            if (sheetName.toUpperCase().includes('PORTAL GD')) {
+              const mapping = this.fieldMappings['MODELO CAD PORTAL GD'];
+              jsonData.forEach(row => {
+                // Aqui você pode expandir para separar Cliente, Contrato e Usina conforme seu script original
+                // Para simplificar o teste inicial, vamos focar nos clientes
+                const client = { id: this.generateId(), source: 'GD_IMPORT', createdAt: new Date().toISOString() };
+                if (row['Nome ou Razão Social']) client.name = row['Nome ou Razão Social'];
+                result.clients.push(client);
+              });
+            }
+          });
+
+          resolve(result);
+        } catch (err) { reject(err); }
+      };
+      reader.readAsArrayBuffer(file);
     });
   }
 }
