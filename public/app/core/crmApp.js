@@ -1,7 +1,7 @@
 import { ClientService } from "../services/clientService.js";
 import { ClientsTable } from "../features/clientsTable.js";
 import { renderKPIs, renderClientsChart, renderStatusChart } from "../features/dashboard.js";
-import { readExcelFile, mapRowToClient, exportJSON, exportExcel } from "../features/importExport.js";
+import { readExcelFile, exportJSON, exportExcel } from "../features/importExport.js";
 import { showToast } from "../ui/toast.js";
 import { renderFinanceKPIs, renderRevenueTrend, renderAgingChart } from "../features/financeDashboard.js";
 import { InvoiceService } from "../services/invoiceService.js";
@@ -9,7 +9,7 @@ import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 
 // ESTA É A CLASSE PRINCIPAL DO APP
 export class CRMApp {
-  
+
   // O constructor agora aceita db, auth, e o NOVO userRole
   constructor(db, auth, userRole) {
     this.clients = [];
@@ -43,7 +43,7 @@ export class CRMApp {
 
     this.bindNav();
     this.bindActions();
-    
+
     // Guardamos a função "unsubscribe" para usar no destroy()
     this.unsubscribe = this.service.listen(
       (data) => { this.clients = data; this.refreshUI(); },
@@ -79,7 +79,7 @@ export class CRMApp {
     if (this.userRole === 'visualizador') {
       document.getElementById('importExcelButton')?.classList.add('d-none');
       document.getElementById('addClientButton')?.classList.add('d-none');
-      
+
       // Também podemos fazer o modal ser "read-only" (a Tabela já vai esconder o botão de editar)
       // Por segurança, vamos esconder o botão de salvar do modal
       document.getElementById('clientModalSaveButton')?.classList.add('d-none');
@@ -145,7 +145,7 @@ export class CRMApp {
     document.getElementById('clientsTableBody')?.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-action]');
       if (!btn) return;
-      
+
       const id = btn.dataset.id;
       const action = btn.dataset.action;
 
@@ -153,7 +153,7 @@ export class CRMApp {
         // Se for "Editor", abre para editar. Se for "Visualizador", abre para ver (o showClientModal trata disso)
         this.showClientModal(id);
       }
-      
+
       if (action === 'delete') {
         // Verificação dupla de segurança
         if (this.userRole !== 'editor') {
@@ -174,28 +174,28 @@ export class CRMApp {
     if (titleEl) {
       titleEl.textContent =
         sectionId === 'dashboard' ? 'Dashboard' :
-        sectionId === 'clients'   ? 'Clientes'  :
-        sectionId === 'finance'   ? 'Financeiro' :
-        titleEl.textContent;
+          sectionId === 'clients' ? 'Clientes' :
+            sectionId === 'finance' ? 'Financeiro' :
+              titleEl.textContent;
     }
 
     // Ativa a secção correta
     document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
     document.getElementById(`${sectionId}-section`)?.classList.add('active');
-    
+
     // Ativa o link da sidebar correto
     document.querySelectorAll('.nav-link[data-section]').forEach(a => a.classList.toggle('active', a.dataset.section === sectionId));
-    
+
     // Atualiza os dados da secção
     if (sectionId === 'dashboard') this.updateDashboard();
-    if (sectionId === 'clients')   this.table.applyFilters(this.clients);
-    if (sectionId === 'finance')   this.updateFinance(); // <<< NOVO
+    if (sectionId === 'clients') this.table.applyFilters(this.clients);
+    if (sectionId === 'finance') this.updateFinance(); // <<< NOVO
   }
 
   refreshUI() {
     if (this.activeSection === 'dashboard') this.updateDashboard();
-    if (this.activeSection === 'clients')   this.table.applyFilters(this.clients);
-    if (this.activeSection === 'finance')   this.updateFinance(); // <<< NOVO
+    if (this.activeSection === 'clients') this.table.applyFilters(this.clients);
+    if (this.activeSection === 'finance') this.updateFinance(); // <<< NOVO
   }
 
   updateDashboard() {
@@ -207,9 +207,9 @@ export class CRMApp {
     }, this.clients);
 
     const ctxLine = document.getElementById('clientsChart')?.getContext('2d');
-    const ctxPie  = document.getElementById('statusChart')?.getContext('2d');
+    const ctxPie = document.getElementById('statusChart')?.getContext('2d');
     if (ctxLine) renderClientsChart(ctxLine, this.clients, this.clientsChartRef);
-    if (ctxPie)  renderStatusChart(ctxPie, this.clients, this.statusChartRef);
+    if (ctxPie) renderStatusChart(ctxPie, this.clients, this.statusChartRef);
   }
 
   // === NOVO MÉTODO: DASHBOARD FINANCEIRO ===
@@ -232,7 +232,7 @@ export class CRMApp {
     f.reset();
     document.getElementById('clientId').value = '';
     const title = document.getElementById('clientModalTitle');
-    
+
     // **NOVO**: Se for visualizador, mude o título e desative o formulário
     if (this.userRole === 'visualizador') {
       title.textContent = 'Ver Cliente';
@@ -248,12 +248,12 @@ export class CRMApp {
       const c = this.clients.find(x => x.id === id);
       if (c) {
         document.getElementById('clientId').value = c.id;
-        ['Name','ExternalId','Cpf','Cnpj','Email','Phone','Cep','Address','State','City','Status','ContractType','JoinDate','Consumption','Discount']
+        ['Name', 'ExternalId', 'Cpf', 'Cnpj', 'Email', 'Phone', 'Cep', 'Address', 'State', 'City', 'Status', 'ContractType', 'JoinDate', 'Consumption', 'Discount']
           .forEach(field => {
             const el = document.getElementById(`client${field}`);
             if (!el) return;
             if (field === 'JoinDate' && c.joinDate) el.value = c.joinDate.split('T')[0];
-            else el.value = c[field.charAt(0).toLowerCase()+field.slice(1)] ?? '';
+            else el.value = c[field.charAt(0).toLowerCase() + field.slice(1)] ?? '';
           });
       }
     }
@@ -262,7 +262,7 @@ export class CRMApp {
 
   async handleSaveClient(e) {
     e.preventDefault();
-    
+
     // **NOVO**: Verificação de segurança
     if (this.userRole !== 'editor') {
       showToast("Você não tem permissão para salvar.", "danger");
@@ -271,19 +271,19 @@ export class CRMApp {
 
     const id = document.getElementById('clientId').value;
     const data = {
-      name: document.getElementById('clientName').value, 
+      name: document.getElementById('clientName').value,
       externalId: document.getElementById('clientExternalId').value,
-      cpf: document.getElementById('clientCpf').value, 
+      cpf: document.getElementById('clientCpf').value,
       cnpj: document.getElementById('clientCnpj').value,
-      email: document.getElementById('clientEmail').value, 
+      email: document.getElementById('clientEmail').value,
       phone: document.getElementById('clientPhone').value,
-      cep: document.getElementById('clientCep').value, 
+      cep: document.getElementById('clientCep').value,
       address: document.getElementById('clientAddress').value,
-      state: document.getElementById('clientState').value, 
+      state: document.getElementById('clientState').value,
       city: document.getElementById('clientCity').value,
-      status: document.getElementById('clientStatus').value, 
+      status: document.getElementById('clientStatus').value,
       contractType: document.getElementById('clientContractType').value,
-      joinDate: document.getElementById('clientJoinDate').value, 
+      joinDate: document.getElementById('clientJoinDate').value,
       consumption: document.getElementById('clientConsumption').value,
       discount: document.getElementById('clientDiscount').value
     };
@@ -304,7 +304,7 @@ export class CRMApp {
       showToast("Você não tem permissão para excluir.", "danger");
       return;
     }
-    
+
     // Nós já fizemos a verificação no bindActions, mas é bom ter a certeza.
     // O ideal era ter um modal de confirmação aqui.
     try {
@@ -317,7 +317,7 @@ export class CRMApp {
   }
 
   async handleExcelImport(e) {
-    // **NOVO**: Verificação de segurança
+    // Verificação de segurança (mantendo a sua lógica existente)
     if (this.userRole !== 'editor') {
       showToast("Você não tem permissão para importar.", "danger");
       return;
@@ -325,19 +325,31 @@ export class CRMApp {
 
     const file = e.target.files[0];
     if (!file) return;
-    showToast('Lendo planilha...', 'info');
+
+    // AQUI MUDOU: Chamamos a nova função que já processa e salva
     try {
-      const rows = await readExcelFile(file);
-      showToast(`Importando ${rows.length} registros...`, 'info');
-      
-      // Passamos a lista de clientes atuais para evitar duplicação
-      await this.service.batchImport(rows, mapRowToClient, this.clients, 400);
-      
-      showToast('Importação concluída!', 'success');
+      // O toast inicial é exibido dentro do processAndUpload, mas podemos reforçar
+      // Note que agora importamos 'processAndUpload' ao invés de 'readExcelFile'
+      // Se você manteve o nome 'readExcelFile' no import lá em cima, tudo bem, 
+      // pois fizemos o alias de compatibilidade no passo anterior.
+
+      await readExcelFile(file);
+
+      // Se chegou aqui, deu tudo certo (o erro cairia no catch)
+      // Recarregar os dados da tela para mostrar os novos clientes
+      this.table.render();
+      renderKPIs({
+        total: 'kpi-total-clients',
+        active: 'kpi-active-clients',
+        overdue: 'kpi-overdue-clients',
+        revenue: 'kpi-monthly-revenue'
+      }, this.service.clients);
+
     } catch (err) {
       console.error(err);
-      showToast('Erro ao importar planilha. Verifique as permissões.', 'danger');
+      // O toast de erro já é exibido no importExport.js, mas não faz mal ter backup
+    } finally {
+      // Limpar o input para permitir selecionar o mesmo arquivo novamente se falhar
+      e.target.value = '';
     }
-    e.target.value = null;
   }
-}
