@@ -1,13 +1,12 @@
 import { db } from "../core/firebase.js";
-import { collection, doc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, doc, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
 import { showToast } from "../ui/toast.js";
 import { clientMapping } from "../utils/mapping.js";
 
-// === 1. Lógica de Processamento ===
 class ExcelProcessor {
-  constructor() {
-    // Usa o mapping centralizado
+  constructor(targetDatabase) {
     this.mapping = clientMapping;
+    this.targetDatabase = targetDatabase || 'GERAL'; // Define a base de destino (ex: EGS, CGB)
   }
 
   generateId() {
@@ -17,7 +16,9 @@ class ExcelProcessor {
   parseDate(value) {
     if (!value) return null;
     if (value instanceof Date) return value.toISOString();
-    return new Date(value).toISOString();
+    // Tenta corrigir datas em texto se necessário
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? value : d.toISOString();
   }
 
   cleanDoc(value) {
@@ -33,43 +34,78 @@ class ExcelProcessor {
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-
           const result = { clients: [] };
 
-          workbook.SheetNames.forEach(sheetName => {
-            // Configuração para pular a linha vazia da "BASE DE CLIENTES"
-            let options = { defval: "" };
-            if (sheetName.toUpperCase().includes('BASE DE CLIENTES')) {
-              options.range = 1; // Pula a primeira linha (linha 0)
-            }
+          // Tenta encontrar a aba correta (prioridade para 'base' ou 'clientes')
+          let sheetName = workbook.SheetNames.find(n =>
+            n.toLowerCase().includes('base') ||
+            n.toUpperCase().includes('CLIENTES')
+          ) || workbook.SheetNames[0];
 
-            const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], options);
+          console.log(`Processando aba: ${sheetName}`);
+          const ws = workbook.Sheets[sheetName];
 
-            // Lógica para 'BASE DE CLIENTES V1'
-            if (sheetName.toUpperCase().includes('BASE DE CLIENTES')) {
-              jsonData.forEach(row => {
-                // Ignora linhas vazias (sem nome e sem instalação)
-                if (!row['NOME COMPLETO OU RAZÃO SOCIAL'] && !row['INSTALAÇÃO']) return;
+          // --- DETECÇÃO AUTOMÁTICA DE CABEÇALHO ---
+          // A base EGS tem a linha 1 vazia. Verificamos a célula A1.
+          let startRow = 0;
+          const cellA1 = ws[XLSX.utils.encode_cell({ r: 0, c: 0 })];
 
-                const client = { id: this.generateId(), source: 'IMPORT', createdAt: new Date().toISOString() };
+          // Se A1 não existe ou está vazia, assumimos que o cabeçalho está na linha 2 (index 1)
+          if (!cellA1 || !cellA1.v) {
+            console.log('Linha 1 vazia detectada. Usando linha 2 como cabeçalho.');
+            startRow = 1;
+          }
 
-                // Mapeia colunas do Excel para campos do Sistema
-                for (const [excelField, appField] of Object.entries(this.mapping)) {
-                  if (row[excelField] !== undefined && row[excelField] !== "") {
-                    if (appField === 'joinDate' || appField === 'dataCancelamento') {
-                      client[appField] = this.parseDate(row[excelField]);
-                    }
-                    else if (appField === 'cpf' || appField === 'cnpj') {
-                      client[appField] = this.cleanDoc(row[excelField]);
-                    }
-                    else {
-                      client[appField] = row[excelField];
-                    }
+          const jsonData = XLSX.utils.sheet_to_json(ws, { range: startRow, defval: "" });
+
+          jsonData.forEach(row => {
+            // Validação mínima: Ignora linhas totalmente vazias
+            // Verifica se tem "Nome/Razão Social" OU "Instalação"
+            const hasName = row['NOME COMPLETO OU RAZÃO SOCIAL'] || row['Razão Social'] || row['NOME'];
+            const hasUC = row['INSTALAÇÃO'] || row['Instalação'];
+
+            if (!hasName && !hasUC) return;
+
+            const client = {
+              id: this.generateId(),
+              source: 'IMPORT',
+              database: this.targetDatabase, // Salva a tag da base (EGS/CGB)
+              createdAt: new Date().toISOString()
+            };
+
+            // Mapeamento dinâmico
+            for (const [excelHeader, val] of Object.entries(row)) {
+              // Remove espaços extras do nome da coluna
+              const cleanHeader = excelHeader.trim();
+              const mappedKey = this.mapping[cleanHeader];
+
+              if (mappedKey && val !== undefined && val !== "") {
+                if (mappedKey === 'joinDate') {
+                  client[mappedKey] = this.parseDate(val);
+                }
+                else if (mappedKey === 'cpf' || mappedKey === 'cnpj') {
+                  client[mappedKey] = this.cleanDoc(val);
+                }
+                else if (mappedKey === 'consumption' || mappedKey === 'discount') {
+                  // Trata números que venham como string "1.200,50"
+                  if (typeof val === 'string') {
+                    client[mappedKey] = parseFloat(val.replace(',', '.')) || 0;
+                  } else {
+                    client[mappedKey] = val;
                   }
                 }
-                result.clients.push(client);
-              });
+                else {
+                  client[mappedKey] = val;
+                }
+              }
             }
+
+            // Fallback para nome se não existir (usa a UC)
+            if (!client.name && client.instalacao) {
+              client.name = `Cliente UC ${client.instalacao}`;
+            }
+
+            result.clients.push(client);
           });
 
           resolve(result.clients);
@@ -80,21 +116,20 @@ class ExcelProcessor {
   }
 }
 
-// === 2. Funções Exportadas para a UI ===
-
-export async function readExcelFile(file) {
-  const processor = new ExcelProcessor();
-  showToast('Processando arquivo...', 'info');
+// Função principal chamada pelo botão
+export async function readExcelFile(file, targetDatabase) {
+  const processor = new ExcelProcessor(targetDatabase);
+  showToast(`Lendo ficheiro para base: ${targetDatabase || 'Geral'}...`, 'info');
 
   try {
     const clients = await processor.processExcelFile(file);
 
     if (clients.length === 0) {
-      showToast('Nenhum dado válido encontrado. Verifique se é a planilha correta.', 'warning');
+      showToast('Nenhum cliente encontrado. Verifique o formato da planilha.', 'warning');
       return [];
     }
 
-    showToast(`Encontrados ${clients.length} clientes. Iniciando upload...`, 'info');
+    showToast(`A salvar ${clients.length} registos...`, 'info');
     await saveToFirestoreBatch(clients, 'clients');
 
     showToast('Importação concluída com sucesso!', 'success');
@@ -102,12 +137,12 @@ export async function readExcelFile(file) {
 
   } catch (error) {
     console.error(error);
-    showToast('Erro ao processar arquivo: ' + error.message, 'danger');
+    showToast('Erro ao processar: ' + error.message, 'danger');
     throw error;
   }
 }
 
-// Salva em lotes (Firestore Batch)
+// Salva no Firestore em lotes de 450
 async function saveToFirestoreBatch(items, collectionName) {
   const batchSize = 450;
   const chunks = [];
@@ -120,8 +155,17 @@ async function saveToFirestoreBatch(items, collectionName) {
   for (const chunk of chunks) {
     const batch = writeBatch(db);
     chunk.forEach(item => {
-      const ref = doc(collection(db, collectionName), item.id);
-      batch.set(ref, item, { merge: true }); // merge: true atualiza sem apagar campos extras
+      // Usa a UC como ID do documento se existir (evita duplicatas ao reimportar)
+      // Se não tiver UC, usa o ID gerado aleatoriamente
+      let docId = item.id;
+      if (item.instalacao) {
+        // Sanitiza a UC para ser um ID válido (remove barras se houver)
+        const cleanUC = item.instalacao.toString().replace(/[^a-zA-Z0-9]/g, '_');
+        docId = `UC_${cleanUC}`;
+      }
+
+      const ref = doc(collection(db, collectionName), docId);
+      batch.set(ref, item, { merge: true }); // Atualiza sem apagar campos existentes
     });
     await batch.commit();
     batchCount++;
@@ -130,27 +174,29 @@ async function saveToFirestoreBatch(items, collectionName) {
 }
 
 export function exportJSON(clients) {
-  if (!clients?.length) { showToast('Não há dados para exportar.', 'warning'); return; }
+  if (!clients?.length) return;
   const blob = new Blob([JSON.stringify(clients, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  const a = Object.assign(document.createElement('a'), { href: url, download: `crm_backup_${new Date().toISOString().split('T')[0]}.json` });
+  const a = Object.assign(document.createElement('a'), { href: url, download: `crm_backup.json` });
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  showToast('JSON exportado!', 'success');
 }
 
 export function exportExcel(clients) {
-  if (!clients?.length) { showToast('Não há dados para exportar.', 'warning'); return; }
+  if (!clients?.length) return;
 
-  // Inverte o mapeamento para exportar com os nomes originais das colunas
+  // Inverte o mapeamento para usar nomes de colunas amigáveis
   const reverseMapping = {};
   for (const [key, val] of Object.entries(clientMapping)) {
-    reverseMapping[val] = key;
+    // Pega apenas a primeira ocorrência para o cabeçalho
+    if (!Object.values(reverseMapping).includes(val)) {
+      reverseMapping[val] = key;
+    }
   }
 
   const ordered = clients.map(c => {
     const o = {};
     for (const [appField, excelHeader] of Object.entries(reverseMapping)) {
-      if (c[appField]) o[excelHeader] = c[appField];
+      if (c[appField] !== undefined) o[excelHeader] = c[appField];
     }
     return o;
   });
@@ -158,6 +204,5 @@ export function exportExcel(clients) {
   const ws = XLSX.utils.json_to_sheet(ordered);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Clientes");
-  XLSX.writeFile(wb, `CRM_Clientes_${new Date().toISOString().split('T')[0]}.xlsx`);
-  showToast('Excel exportado!', 'success');
+  XLSX.writeFile(wb, `CRM_Clientes.xlsx`);
 }

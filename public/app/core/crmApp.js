@@ -3,71 +3,122 @@ import { ClientsTable } from "../features/clientsTable.js";
 import { renderKPIs, renderClientsChart, renderStatusChart } from "../features/dashboard.js";
 import { readExcelFile, exportJSON, exportExcel } from "../features/importExport.js";
 import { showToast } from "../ui/toast.js";
-import { renderFinanceKPIs, renderRevenueTrend, renderAgingChart } from "../features/financeDashboard.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 
 export class CRMApp {
 
-  constructor(db, auth, userRole) {
-    this.clients = [];
-    this.invoices = [];
-    this.invoiceService = null;
-    this.unsubscribeInvoices = null;
-
+  constructor(db, auth, userData) {
     this.db = db;
     this.auth = auth;
-    this.userRole = userRole;
 
+    // Definições de Utilizador e Permissões
+    this.userRole = userData.role || 'visualizador';
+    this.allowedBases = userData.allowedBases || ['CGB']; // Ex: ['CGB', 'EGS']
+    this.currentBase = this.allowedBases[0]; // Seleciona a primeira base por defeito
+
+    // Dados em memória
+    this.clients = [];
+    this.invoices = [];
+
+    // Serviços
     this.service = new ClientService(db);
-    this.table = new ClientsTable(this.userRole);
+    this.invoiceService = new InvoiceService(db);
 
+    // Componentes UI
+    this.table = new ClientsTable(this.userRole);
     this.clientsChartRef = { value: null };
     this.statusChartRef = { value: null };
-
     this.activeSection = 'dashboard';
-    this.modal = null;
-    this.unsubscribe = null;
 
+    this.unsubscribe = null; // Listener do Firestore
     this.init();
   }
 
   init() {
-    const modalEl = document.getElementById('clientModal');
-    if (modalEl) this.modal = new bootstrap.Modal(modalEl);
-
     this.initRoleBasedUI();
+    this.initBaseSelector(); // Configura o dropdown de bases
     this.bindNav();
     this.bindActions();
 
-    this.unsubscribe = this.service.listen(
-      (data) => { this.clients = data; this.refreshUI(); },
-      (err) => { console.error(err); showToast("Erro ao conectar ao banco de dados.", "danger"); }
-    );
-
-    this.invoiceService = new InvoiceService(this.db);
-    this.unsubscribeInvoices = this.invoiceService.listen(
-      (rows) => {
-        this.invoices = rows;
-        if (this.activeSection === 'finance') this.updateFinance();
-      },
-      (err) => { console.error(err); showToast("Erro ao carregar faturamento.", "danger"); }
-    );
+    // Carrega dados iniciais da base padrão
+    this.loadDataForBase(this.currentBase);
   }
 
   destroy() {
     if (this.unsubscribe) this.unsubscribe();
-    if (this.unsubscribeInvoices) this.unsubscribeInvoices();
-    console.log("CRMApp instance destroyed.");
+    console.log("CRMApp destruído.");
   }
 
   initRoleBasedUI() {
     if (this.userRole === 'visualizador') {
       document.getElementById('importExcelButton')?.classList.add('d-none');
       document.getElementById('addClientButton')?.classList.add('d-none');
+      // Se houver modal save button
       document.getElementById('clientModalSaveButton')?.classList.add('d-none');
     }
   }
+
+  // --- LÓGICA MULTI-BASE ---
+
+  initBaseSelector() {
+    const selector = document.getElementById('databaseSelector');
+    if (!selector) return;
+
+    // Limpa e preenche com as bases permitidas
+    selector.innerHTML = '';
+
+    if (this.allowedBases.length === 0) {
+      const opt = document.createElement('option');
+      opt.text = "Sem acesso";
+      selector.appendChild(opt);
+      selector.disabled = true;
+      return;
+    }
+
+    this.allowedBases.forEach(base => {
+      const opt = document.createElement('option');
+      opt.value = base;
+      opt.textContent = base;
+      if (base === this.currentBase) opt.selected = true;
+      selector.appendChild(opt);
+    });
+
+    // Evento: Troca de base recarrega os dados
+    selector.addEventListener('change', (e) => {
+      const newBase = e.target.value;
+      if (newBase !== this.currentBase) {
+        this.currentBase = newBase;
+        this.loadDataForBase(this.currentBase);
+        showToast(`A visualizar base: ${this.currentBase}`, 'info');
+      }
+    });
+  }
+
+  loadDataForBase(baseName) {
+    // Remove listener antigo para não duplicar ou misturar dados
+    if (this.unsubscribe) {
+      this.unsubscribe();
+      this.unsubscribe = null;
+    }
+
+    // Mostra estado de carregamento na tabela/dashboard se necessário
+    console.log(`Carregando dados para: ${baseName}`);
+
+    // Inicia novo listener filtrado
+    this.unsubscribe = this.service.listen(baseName,
+      (data) => {
+        this.clients = data;
+        this.refreshUI();
+      },
+      (err) => {
+        console.error(err);
+        showToast("Erro ao carregar dados. Verifique a conexão.", "danger");
+      }
+    );
+  }
+
+  // --- NAVEGAÇÃO E UI ---
 
   bindNav() {
     document.querySelectorAll('.nav-link[data-section]').forEach(link => {
@@ -79,61 +130,20 @@ export class CRMApp {
     this.showSection(this.activeSection);
   }
 
-  bindActions() {
-    document.getElementById('searchInput')?.addEventListener('input', () => this.table.applyFilters(this.clients));
-    document.getElementById('statusFilter')?.addEventListener('change', () => this.table.applyFilters(this.clients));
-    document.getElementById('typeFilter')?.addEventListener('change', () => this.table.applyFilters(this.clients));
-    document.getElementById('cityFilter')?.addEventListener('input', () => this.table.applyFilters(this.clients));
-    document.getElementById('clearFiltersButton')?.addEventListener('click', () => { this.table.clearFilters(); this.table.applyFilters(this.clients); });
-
-    document.getElementById('importExcelButton')?.addEventListener('click', () => document.getElementById('excelFileInput').click());
-    document.getElementById('excelFileInput')?.addEventListener('change', (e) => this.handleExcelImport(e));
-
-    document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.clients));
-    document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.clients));
-
-    document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
-    document.getElementById('invoicesFileInput')?.addEventListener('change', async (e) => {
-      if (this.userRole !== 'editor') { showToast("Permissão negada.", "danger"); return; }
-      const file = e.target.files?.[0];
-      if (!file) return;
-      try {
-        showToast('Lendo faturamento...', 'info');
-        const rows = await readInvoicesExcel(file);
-        await this.invoiceService.batchImport(rows, 400);
-        showToast('Faturamento importado!', 'success');
-      } catch (err) { console.error(err); showToast('Erro na importação.', 'danger'); }
-      e.target.value = null;
-    });
-
-    document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
-    document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
-    document.getElementById('clientModal')?.addEventListener('hidden.bs.modal', () => {
-      document.getElementById('clientForm').reset();
-      document.getElementById('clientId').value = '';
-    });
-
-    document.getElementById('clientsTableBody')?.addEventListener('click', (e) => {
-      const btn = e.target.closest('button[data-action]');
-      if (!btn) return;
-      const id = btn.dataset.id;
-      const action = btn.dataset.action;
-      if (action === 'edit') this.showClientModal(id);
-    });
-  }
-
   showSection(sectionId) {
     this.activeSection = sectionId;
+
+    // Atualiza Título
     const titleEl = document.getElementById('sectionTitle');
     if (titleEl) {
-      titleEl.textContent =
-        sectionId === 'dashboard' ? 'Dashboard' :
-          sectionId === 'clients' ? 'Clientes' :
-            sectionId === 'finance' ? 'Financeiro' : titleEl.textContent;
+      const titles = { 'dashboard': 'Visão Geral', 'clients': 'Carteira de Clientes', 'finance': 'Gestão Financeira' };
+      titleEl.textContent = titles[sectionId] || 'CRM Energia';
     }
+
     document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
     document.getElementById(`${sectionId}-section`)?.classList.add('active');
     document.querySelectorAll('.nav-link[data-section]').forEach(a => a.classList.toggle('active', a.dataset.section === sectionId));
+
     this.refreshUI();
   }
 
@@ -145,13 +155,16 @@ export class CRMApp {
 
   updateDashboard() {
     renderKPIs({ total: 'kpi-total-clients', active: 'kpi-active-clients', overdue: 'kpi-overdue-clients', revenue: 'kpi-monthly-revenue' }, this.clients);
+
     const ctxLine = document.getElementById('clientsChart')?.getContext('2d');
     const ctxPie = document.getElementById('statusChart')?.getContext('2d');
+
     if (ctxLine) renderClientsChart(ctxLine, this.clients, this.clientsChartRef);
     if (ctxPie) renderStatusChart(ctxPie, this.clients, this.statusChartRef);
   }
 
   updateFinance() {
+    // Lógica financeira placeholder (será expandida com invoiceService)
     renderFinanceKPIs({ emitido: 'kpi-emitido', pago: 'kpi-pago', inadimplencia: 'kpi-inad', dso: 'kpi-dso', energia: 'kpi-energia' }, this.invoices);
     const ctx1 = document.getElementById('revenueTrend')?.getContext('2d');
     const ctx2 = document.getElementById('agingChart')?.getContext('2d');
@@ -159,24 +172,100 @@ export class CRMApp {
     if (ctx2) renderAgingChart(ctx2, this.invoices);
   }
 
+  // --- AÇÕES (Importação, Exportação, CRUD) ---
+
+  bindActions() {
+    // Filtros de Tabela (Busca local)
+    const applyFilters = () => this.table.applyFilters(this.clients);
+    ['searchInput', 'statusFilter', 'typeFilter', 'cityFilter'].forEach(id =>
+      document.getElementById(id)?.addEventListener('input', applyFilters));
+
+    document.getElementById('clearFiltersButton')?.addEventListener('click', () => {
+      this.table.clearFilters(); applyFilters();
+    });
+
+    // Importação de Clientes (Baseado na seleção atual)
+    document.getElementById('importExcelButton')?.addEventListener('click', () => {
+      if (this.userRole !== 'editor') return;
+      // Confirmação visual para evitar erro de base
+      if (confirm(`Atenção: Você vai importar dados para a base: ${this.currentBase}.\n\nConfirma?`)) {
+        document.getElementById('excelFileInput').click();
+      }
+    });
+
+    document.getElementById('excelFileInput')?.addEventListener('change', (e) => this.handleExcelImport(e));
+
+    // Importação Financeira
+    document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
+    document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
+
+    // Exportação
+    document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.clients));
+    document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.clients));
+
+    // Modal de Cliente (Novo/Salvar)
+    document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
+    document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
+
+    // Edição via Tabela
+    document.getElementById('clientsTableBody')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      if (btn.dataset.action === 'edit') this.showClientModal(btn.dataset.id);
+    });
+  }
+
+  // --- MANIPULADORES DE EVENTOS ---
+
+  async handleExcelImport(e) {
+    if (this.userRole !== 'editor') return;
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      // Chama o readExcelFile passando a BASE ATUAL como destino
+      await readExcelFile(file, this.currentBase);
+      // O listener do Firestore atualizará a UI automaticamente
+    } catch (err) { console.error(err); }
+    e.target.value = null;
+  }
+
+  async handleInvoiceImport(e) {
+    if (this.userRole !== 'editor') return;
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      showToast('Lendo faturamento...', 'info');
+      const rows = await readInvoicesExcel(file);
+      // Nota: Idealmente invoiceService também deve filtrar por base no futuro
+      await this.invoiceService.batchImport(rows, 400);
+      showToast('Faturamento importado!', 'success');
+    } catch (err) { console.error(err); showToast('Erro na importação.', 'danger'); }
+    e.target.value = null;
+  }
+
   showClientModal(id = null) {
     const f = document.getElementById('clientForm');
     f.reset();
     document.getElementById('clientId').value = '';
     const title = document.getElementById('clientModalTitle');
+    const btnSave = document.getElementById('clientModalSaveButton');
 
     if (this.userRole === 'visualizador') {
       title.textContent = 'Ver Cliente';
       Array.from(f.elements).forEach(el => el.disabled = true);
+      if (btnSave) btnSave.classList.add('d-none');
     } else {
       title.textContent = id ? 'Editar Cliente' : 'Novo Cliente';
       Array.from(f.elements).forEach(el => el.disabled = false);
+      if (btnSave) btnSave.classList.remove('d-none');
     }
 
     if (id) {
       const c = this.clients.find(x => x.id === id);
       if (c) {
         document.getElementById('clientId').value = c.id;
+        // Preenchimento básico do formulário
         const fields = {
           'Name': c.name, 'ExternalId': c.externalId, 'Cpf': c.cpf, 'Cnpj': c.cnpj,
           'Email': c.email, 'Phone': c.phone, 'Cep': c.cep, 'Address': c.address,
@@ -189,8 +278,15 @@ export class CRMApp {
           if (el) el.value = val || '';
         }
       }
+    } else {
+      // Ao criar novo, define data de hoje
+      const elDate = document.getElementById('clientJoinDate');
+      if (elDate) elDate.value = new Date().toISOString().split('T')[0];
     }
-    this.modal?.show();
+
+    const modalEl = document.getElementById('clientModal');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    modal.show();
   }
 
   async handleSaveClient(e) {
@@ -213,31 +309,17 @@ export class CRMApp {
       contractType: document.getElementById('clientContractType').value,
       joinDate: document.getElementById('clientJoinDate').value,
       consumption: document.getElementById('clientConsumption').value,
-      discount: document.getElementById('clientDiscount').value
+      discount: document.getElementById('clientDiscount').value,
+      // IMPORTANTE: Mantém a base atual ao criar/editar
+      database: this.currentBase
     };
 
     try {
       await this.service.save(id, data);
       showToast('Salvo com sucesso!', 'success');
-      this.modal?.hide();
+      const modalEl = document.getElementById('clientModal');
+      const modal = bootstrap.Modal.getInstance(modalEl);
+      modal?.hide();
     } catch (err) { console.error(err); showToast('Erro ao salvar.', 'danger'); }
-  }
-
-  async handleExcelImport(e) {
-    if (this.userRole !== 'editor') { showToast("Permissão negada.", "danger"); return; }
-
-    const file = e.target.files[0];
-    if (!file) return;
-
-    try {
-      await readExcelFile(file);
-      this.refreshUI();
-    } catch (err) {
-      console.error(err);
-      if (!document.querySelector('.toast.bg-danger')) {
-        showToast('Erro na importação.', 'danger');
-      }
-    }
-    e.target.value = null;
   }
 }

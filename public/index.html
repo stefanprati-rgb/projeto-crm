@@ -141,6 +141,7 @@
           </div>
           <div class="small text-truncate" style="max-width: 140px;">
             <span id="navbarUserEmail" class="fw-semibold">Usuário</span>
+            <div class="text-muted" style="font-size: 0.7em;" id="navbarUserBases">Carregando...</div>
           </div>
         </a>
         <ul class="dropdown-menu text-small shadow border-0">
@@ -156,14 +157,30 @@
 
     <!-- Header Superior -->
     <header class="content-header shadow-sm">
-      <div>
-        <h2 id="sectionTitle" class="h5 mb-0">Visão Geral</h2>
-        <p class="text-muted small mb-0">Bem-vindo ao painel de gestão.</p>
+      <div class="d-flex align-items-center gap-3">
+        <div>
+          <h2 id="sectionTitle" class="h5 mb-0">Visão Geral</h2>
+          <!-- LEMBRETE VISUAL DO CAMINHO (Solicitado) -->
+          <p class="text-muted small mb-0 d-none d-lg-block" style="font-size: 0.75rem;">
+            <i class="fas fa-folder-open me-1"></i> ...\GRUPO GERA\Gestão GDC - Documentos\EGS\4 - Base de Clientes\
+          </p>
+        </div>
+
+        <!-- SELETOR DE BASE (NOVO) -->
+        <div class="d-flex align-items-center border-start ps-3 ms-2">
+          <i class="fas fa-database text-muted me-2"></i>
+          <select id="databaseSelector"
+            class="form-select form-select-sm fw-bold text-primary border-primary bg-primary bg-opacity-10 shadow-none"
+            style="min-width: 150px; cursor: pointer;">
+            <option value="" disabled selected>Carregando...</option>
+          </select>
+        </div>
       </div>
 
       <!-- Ações Rápidas -->
       <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" id="importExcelButton">
+        <button class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2" id="importExcelButton"
+          title="Importar dados para a base selecionada">
           <i class="fas fa-file-import"></i> <span class="d-none d-md-inline">Importar Base</span>
         </button>
         <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 shadow-sm" id="addClientButton">

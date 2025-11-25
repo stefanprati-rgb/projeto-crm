@@ -6,6 +6,7 @@ import {
   deleteDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -16,16 +17,45 @@ export class ClientService {
     this.collectionName = 'clients';
   }
 
-  // Ouvir atualizações em tempo real
-  listen(onData, onError) {
-    // Ordena por nome para facilitar a leitura
-    const q = query(collection(this.db, this.collectionName), orderBy('name'));
+  // Ouvir atualizações em tempo real, filtradas pela base selecionada
+  listen(baseFilter, onData, onError) {
+    let q;
+
+    if (baseFilter) {
+      // Filtra apenas clientes da base selecionada (ex: 'EGS')
+      // Nota: Se o Firestore reclamar de falta de índice composto (where + orderBy), 
+      // clique no link fornecido no console do navegador para criá-lo.
+      // Se o índice não existir, a query falhará.
+      try {
+        q = query(
+          collection(this.db, this.collectionName),
+          where('database', '==', baseFilter),
+          orderBy('name')
+        );
+      } catch (e) {
+        // Fallback: Se der erro de índice, tenta sem orderBy e ordena no cliente
+        console.warn("Tentando query sem ordenação (possível falta de índice).");
+        q = query(
+          collection(this.db, this.collectionName),
+          where('database', '==', baseFilter)
+        );
+      }
+    } else {
+      // Se não houver filtro (ex: admin vê tudo), traz tudo ordenado
+      q = query(collection(this.db, this.collectionName), orderBy('name'));
+    }
 
     return onSnapshot(q, (snapshot) => {
       const clients = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+
+      // Ordenação manual no cliente caso a query tenha sido simplificada
+      if (baseFilter && !q._query.orderBy) { // Verificação simplificada
+        clients.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      }
+
       onData(clients);
     }, onError);
   }
@@ -54,11 +84,8 @@ export class ClientService {
   // Importação em Lote (Batch)
   async batchImport(rows, mapFunction, existingClients, batchSize = 400) {
     // Nota: O mapFunction agora pode ser opcional se os dados já vierem formatados
-    const chunks = [];
     const items = rows.map(r => mapFunction ? mapFunction(r) : r);
-
-    // Identificar duplicatas por CPF/CNPJ ou ID Externo para atualizar em vez de criar duplicado
-    // (Lógica simples de upsert baseada no ID se fornecido, ou create new)
+    const chunks = [];
 
     for (let i = 0; i < items.length; i += batchSize) {
       chunks.push(items.slice(i, i + batchSize));
