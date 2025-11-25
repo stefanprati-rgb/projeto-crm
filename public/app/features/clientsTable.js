@@ -1,7 +1,6 @@
 import { statusBadge } from "../utils/helpers.js";
 
 export class ClientsTable {
-
   constructor(userRole) {
     this.filtered = [];
     this.currentPage = 1;
@@ -19,21 +18,19 @@ export class ClientsTable {
       const name = c.name || '';
       const cpf = c.cpf || '';
       const cnpj = c.cnpj || '';
-      const email = c.email || '';
       const instalacao = c.instalacao ? c.instalacao.toString() : '';
+      const contaContrato = c.contaContrato ? c.contaContrato.toString() : ''; // NOVO
       const projeto = c.projeto || '';
-      const distribuidora = c.distribuidora || '';
-      const etapaUc = c.etapaUc || '';
+      const statusRateio = c.statusRateio || '';
 
       const matchesSearch = !search ||
         name.toLowerCase().includes(search) ||
         cpf.replace(/[.\-/]/g, '').includes(search) ||
         cnpj.replace(/[.\-/]/g, '').includes(search) ||
-        email.toLowerCase().includes(search) ||
         instalacao.includes(search) ||
+        contaContrato.includes(search) ||
         projeto.toLowerCase().includes(search) ||
-        distribuidora.toLowerCase().includes(search) ||
-        etapaUc.toLowerCase().includes(search);
+        statusRateio.toLowerCase().includes(search);
 
       const matchesStatus = !status || c.status === status;
       const matchesType = !type || c.contractType === type;
@@ -46,6 +43,7 @@ export class ClientsTable {
     this.render();
   }
 
+  // ... (clearFilters e changePage iguais) ...
   clearFilters() {
     ['searchInput', 'statusFilter', 'typeFilter', 'cityFilter'].forEach(id => {
       const el = document.getElementById(id);
@@ -66,12 +64,10 @@ export class ClientsTable {
 
     if (this.filtered.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6"><div class="text-center p-5 text-muted">
-        <div class="mb-3"><i class="fas fa-search fa-3x text-light-gray opacity-25"></i></div>
         <h6 class="fw-bold">Nenhum cliente encontrado</h6>
-        <p class="small text-secondary">Tente ajustar os filtros ou limpar a busca.</p>
       </div></td></tr>`;
       nav.innerHTML = '';
-      summary.textContent = 'Mostrando 0 de 0';
+      summary.textContent = '0 clientes';
       return;
     }
 
@@ -81,44 +77,32 @@ export class ClientsTable {
     pageClients.forEach(c => {
       const tr = document.createElement('tr');
 
-      // Ações: Botões minimalistas
+      // Ações
       let actionsHtml = '';
       if (this.userRole === 'editor') {
-        actionsHtml = `
-          <button class="btn btn-light btn-sm text-primary border-0 rounded-circle" style="width: 32px; height: 32px;" data-id="${c.id}" data-action="edit" title="Editar">
-            <i class="fas fa-pen"></i>
-          </button>
-        `;
+        actionsHtml = `<button class="btn btn-light btn-sm text-primary rounded-circle" data-id="${c.id}" data-action="edit"><i class="fas fa-pen"></i></button>`;
       } else {
-        actionsHtml = `
-          <button class="btn btn-light btn-sm text-secondary border-0 rounded-circle" style="width: 32px; height: 32px;" data-id="${c.id}" data-action="edit" title="Visualizar">
-            <i class="fas fa-eye"></i>
-          </button>
-        `;
+        actionsHtml = `<button class="btn btn-light btn-sm text-secondary rounded-circle" data-id="${c.id}" data-action="edit"><i class="fas fa-eye"></i></button>`;
       }
 
-      // Status Rateio (Soft Badge)
+      // Badge Status Rateio
       let statusRateioHtml = '';
       if (c.statusRateio) {
         let badgeClass = 'bg-light text-dark border';
         const st = c.statusRateio.toLowerCase();
-
         if (st.includes('apto')) badgeClass = 'bg-success-soft';
         else if (st.includes('retirar')) badgeClass = 'bg-danger-soft';
-        else if (st.includes('acompanhar') || st.includes('crédito')) badgeClass = 'bg-warning-soft';
-
-        statusRateioHtml = `<div class="mt-1"><span class="badge ${badgeClass} fw-normal" style="font-size: 0.7em">${c.statusRateio}</span></div>`;
+        else if (st.includes('acompanhar')) badgeClass = 'bg-warning-soft';
+        statusRateioHtml = `<div class="mt-1"><span class="badge ${badgeClass} fw-normal" style="font-size: 0.65em">${c.statusRateio}</span></div>`;
       }
 
-      // Detalhes em subtexto
-      const projetoInfo = c.projeto ?
-        `<div class="small text-muted mt-1 d-flex align-items-center"><i class="fas fa-solar-panel me-1 text-warning opacity-75" style="font-size: 0.75em;"></i>${c.projeto}</div>` : '';
+      const projetoInfo = c.projeto ? `<div class="small text-muted mt-1"><i class="fas fa-solar-panel me-1 text-warning"></i>${c.projeto}</div>` : '';
 
-      const ucInfo = c.instalacao ?
-        `<div class="small text-muted font-monospace mt-1"><i class="fas fa-hashtag me-1 opacity-50"></i>${c.instalacao}</div>` : '';
-
-      const locInfo = c.city ?
-        `<div>${c.city}${c.state ? '/' + c.state : ''}</div>` : '<span class="text-muted">-</span>';
+      // Exibe UC e Conta Contrato se existir
+      let idsInfo = `<div class="small text-muted font-monospace mt-1"><i class="fas fa-plug me-1"></i>${c.instalacao}</div>`;
+      if (c.contaContrato) {
+        idsInfo += `<div class="small text-muted font-monospace" style="font-size: 0.75em">CC: ${c.contaContrato}</div>`;
+      }
 
       tr.innerHTML = `
         <td class="ps-4">
@@ -127,21 +111,18 @@ export class ClientsTable {
         </td>
         <td>
           <div class="fw-medium text-secondary">${c.cpf || c.cnpj || 'N/A'}</div>
-          ${ucInfo}
+          ${idsInfo}
         </td>
         <td>
           ${statusBadge(c.status)}
           ${statusRateioHtml}
         </td>
         <td>
-          ${locInfo}
+          <div>${c.city || '-'}/${c.state || '-'}</div>
           <div class="small text-muted">${c.distribuidora || ''}</div>
         </td>
         <td>
-            <div class="d-flex align-items-center">
-                <div class="fw-bold text-dark">${c.consumption || 0}</div>
-                <span class="small text-muted ms-1">kWh</span>
-            </div>
+            <div class="fw-bold text-dark">${c.consumption || 0} <span class="small text-muted fw-normal">kWh</span></div>
         </td>
         <td class="text-end pe-4">
           ${actionsHtml}
@@ -149,6 +130,7 @@ export class ClientsTable {
       tbody.appendChild(tr);
     });
 
+    // ... (Paginação igual ao anterior) ...
     // Paginação
     const total = this.filtered.length;
     const totalPages = Math.ceil(total / this.perPage);

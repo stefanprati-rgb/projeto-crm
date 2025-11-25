@@ -2,30 +2,28 @@ export const clientMapping = {
   // === Identificação ===
   'INSTALAÇÃO': 'instalacao',           // UC
   'ID EXTERNO': 'externalId',
-  'NOME COMPLETO OU RAZÃO SOCIAL': 'name', // Razão Social
+  'NOME COMPLETO OU RAZÃO SOCIAL': 'name',
   'CPF': 'cpf',
   'CNPJ': 'cnpj',
   'DOC': 'doc',
+  'CONTA CONTRATO': 'contaContrato',    // NOVO: Solicitação AL Ambiental
 
   // === Contrato e Status ===
   'TIPO CONTRATO': 'contractType',
-  'STATUS DO CLIENTE': 'status',        // Status Cliente (Ativo/Cancelado)
-  'STATUS RATEIO': 'statusRateio',      // Status Rateio (Apto, Acompanhar...)
-  'ETAPA UC': 'etapaUc',                // Preparado para planilha da Livia
+  'STATUS DO CLIENTE': 'status',
+  'STATUS RATEIO': 'statusRateio',      // Importante para o novo gráfico
+  'ETAPA UC': 'etapaUc',
   'DATA DE ADESÃO': 'joinDate',
   'DATA CANCELAMENTO': 'dataCancelamento',
-  'MOTIVO CANCELAMENTO': 'motivoCancelamento',
 
-  // === Técnico e Comercial ===
-  'FORNECIMENTO': 'connectionType',     // Mono/Bifásico
-  'EMPRESA NO CONTRATO': 'projeto',     // Projeto
-  'DISTRIBUIDORA': 'distribuidora',     // Preparado caso adicione na planilha
-  'PARCEIRO COMERCIAL': 'partner',
-  'CANAL DE ENTRADA': 'channel',
+  // === Técnico ===
+  'FORNECIMENTO': 'connectionType',
+  'EMPRESA NO CONTRATO': 'projeto',
+  'DISTRIBUIDORA': 'distribuidora',
 
   // === Financeiro e Consumo ===
   'DESCONTO CONTRATADO': 'discount',
-  'MÉDIA DE CONSUMO MÓVEL KWH': 'consumption',
+  'MÉDIA DE CONSUMO MÓVEL KWH': 'consumption', // Usado para cálculo de vacância
   'PARTICIPAÇÃO DISPONÍVEL': 'participation',
   'DATA FIXA VENCIMENTO': 'dueDate',
 

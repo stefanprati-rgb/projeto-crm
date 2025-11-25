@@ -1,143 +1,134 @@
-// Renderiza os KPIs (Indicadores Chave de Desempenho)
+// Renderiza os KPIs e Lógica de Negócio
 export function renderKPIs(elIds, clients) {
   const total = clients.length;
-  const active = clients.filter(c => {
-    const st = (c.status || '').toUpperCase();
-    return st === 'ATIVO';
-  }).length;
+  const active = clients.filter(c => (c.status || '').toUpperCase() === 'ATIVO').length;
 
-  // Lógica de inadimplentes:
-  // Se houver um campo específico, usa-o. Senão, tenta inferir pelo status.
+  // Inadimplentes
   const overdue = clients.filter(c => {
     const st = (c.status || '').toUpperCase();
-    return st === 'INADIMPLENTE' || st === 'EM_COBRANCA' || st === 'ATRASADO';
+    return st === 'INADIMPLENTE' || st === 'EM_COBRANCA';
   }).length;
 
-  // Cálculo de Receita Estimada
+  // Cálculo de Receita
   const monthly = clients.reduce((sum, c) => {
-    // Tenta ler consumo como número, remove 'kWh' se houver
-    let consStr = c.consumption || c.consumoMedio || 0;
-    if (typeof consStr === 'string') consStr = consStr.replace(/[^\d.,]/g, '').replace(',', '.');
-
-    const cons = parseFloat(consStr) || 0;
-
-    // Desconto (padrão 15%)
-    let discStr = c.discount || c.desconto || 15;
-    if (typeof discStr === 'string') discStr = discStr.replace(/[^\d.,]/g, '').replace(',', '.');
-    const discount = parseFloat(discStr) / 100;
-
-    const kwhPrice = 0.85; // Valor médio estimado por kWh
-
-    // Fórmula simples: Consumo * Preço * (1 - Desconto)
-    return sum + (cons * kwhPrice * (1 - discount));
+    let cons = parseFloat(String(c.consumption || 0).replace(',', '.')) || 0;
+    let disc = parseFloat(String(c.discount || 15).replace(',', '.')) / 100;
+    return sum + (cons * 0.85 * (1 - disc));
   }, 0);
 
-  // Atualiza o DOM
-  if (document.getElementById(elIds.total)) document.getElementById(elIds.total).textContent = total;
-  if (document.getElementById(elIds.active)) document.getElementById(elIds.active).textContent = active;
-  if (document.getElementById(elIds.overdue)) document.getElementById(elIds.overdue).textContent = overdue;
-  if (document.getElementById(elIds.revenue)) document.getElementById(elIds.revenue).textContent =
-    monthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  // --- CÁLCULO DE VACÂNCIA (Solicitação da Chefe) ---
+  // 1. Soma do consumo médio dos clientes ATIVOS
+  const totalConsumoMedio = clients
+    .filter(c => (c.status || '').toUpperCase() === 'ATIVO')
+    .reduce((sum, c) => sum + (parseFloat(String(c.consumption || 0).replace(',', '.')) || 0), 0);
+
+  // 2. Geração Alvo (Contratual) das Usinas
+  // IMPORTANTE: Como não temos a tabela de usinas ainda, vou fixar um valor alvo.
+  // No futuro, isso deve vir da soma da 'Potência' ou 'Geração Estimada' das usinas cadastradas.
+  const geracaoAlvo = 75000; // Exemplo: 75.000 kWh (Ajustar conforme realidade)
+
+  // 3. Cálculo da Vacância Contratual (%)
+  // Fórmula: 1 - (Soma Consumo / Geração Alvo)
+  // Se Consumo = 50k e Alvo = 75k, ocupação é 66%, vacância é 33%
+  let vacanciaContratual = 0;
+  if (geracaoAlvo > 0) {
+    vacanciaContratual = Math.max(0, 100 - ((totalConsumoMedio / geracaoAlvo) * 100));
+  }
+
+  // Atualiza elementos do DOM
+  updateText(elIds.total, total);
+  updateText(elIds.active, active);
+  updateText(elIds.overdue, overdue);
+  updateText(elIds.revenue, monthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+
+  // Se houver elementos de vacância no HTML (sugestão de adição futura)
+  if (document.getElementById('kpi-vacancia')) {
+    document.getElementById('kpi-vacancia').textContent = vacanciaContratual.toFixed(1) + '%';
+  }
 }
 
-// Renderiza o Gráfico de Evolução (Linha)
+function updateText(id, val) {
+  if (document.getElementById(id)) document.getElementById(id).textContent = val;
+}
+
+// Gráfico de Evolução (Clientes por Etapa)
 export function renderClientsChart(ctx, clients, chartInstanceRef) {
-  // Simulação de dados históricos baseada no total atual
-  // Num cenário real, estes dados viriam de um histórico no banco de dados
-  const total = clients.length;
+  // Etapas do Processo (Solicitação da Chefe)
+  // Mapeamos o status ou uma coluna 'etapaUc' para estas categorias
+  const etapas = {
+    'Novo': 0,
+    'Enviado Rateio': 0,
+    'Rateio Cadastrado': 0,
+    'Faturado': 0
+  };
 
-  const labels = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'];
-  const data = [
-    Math.max(0, Math.floor(total * 0.5)),
-    Math.max(0, Math.floor(total * 0.6)),
-    Math.max(0, Math.floor(total * 0.7)),
-    Math.max(0, Math.floor(total * 0.8)),
-    Math.max(0, Math.floor(total * 0.9)),
-    total
-  ];
+  clients.forEach(c => {
+    // Lógica de classificação baseada em status ou etapa
+    const st = (c.status || '').toUpperCase();
+    const etapa = (c.etapaUc || '').toUpperCase();
+    const statusRateio = (c.statusRateio || '').toUpperCase();
 
-  // Destrói gráfico anterior se existir para evitar sobreposição
+    if (etapa.includes('FATURADO') || st === 'ATIVO') etapas['Faturado']++;
+    else if (statusRateio.includes('APTO') || etapa.includes('CADASTRADO')) etapas['Rateio Cadastrado']++;
+    else if (etapa.includes('ENVIADO')) etapas['Enviado Rateio']++;
+    else etapas['Novo']++;
+  });
+
+  const data = Object.values(etapas);
+  const labels = Object.keys(etapas);
+
   if (chartInstanceRef.value) chartInstanceRef.value.destroy();
 
   chartInstanceRef.value = new Chart(ctx, {
-    type: 'line',
+    type: 'bar', // Mudamos para barras para mostrar funil/etapas
     data: {
       labels,
       datasets: [{
-        label: 'Crescimento da Base',
+        label: 'Clientes por Etapa',
         data,
-        // COR ATUALIZADA: Teal (#0f766e) para combinar com o CSS
-        borderColor: '#0f766e',
-        backgroundColor: 'rgba(15, 118, 110, 0.1)',
-        fill: true,
-        tension: 0.4,
-        pointBackgroundColor: '#ffffff',
-        pointBorderColor: '#0f766e',
-        pointBorderWidth: 2,
-        pointRadius: 4,
-        pointHoverRadius: 6
+        backgroundColor: [
+          '#94a3b8', // Novo (Cinza)
+          '#f59e0b', // Enviado (Amarelo)
+          '#3b82f6', // Cadastrado (Azul)
+          '#10b981'  // Faturado (Verde)
+        ],
+        borderRadius: 6,
+        barPercentage: 0.6
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: '#1e293b',
-          padding: 10,
-          cornerRadius: 8,
-          displayColors: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { borderDash: [4, 4], color: '#e2e8f0' },
-          ticks: { color: '#64748b' }
-        },
-        x: {
-          grid: { display: false },
-          ticks: { color: '#64748b' }
-        }
-      }
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, grid: { borderDash: [4, 4] } }, x: { grid: { display: false } } }
     }
   });
 }
 
-// Renderiza o Gráfico de Status (Rosca/Doughnut)
+// Gráfico de Status do Rateio (Novo)
 export function renderStatusChart(ctx, clients, chartInstanceRef) {
-  const counts = { ATIVO: 0, INATIVO: 0, EM_CANCELAMENTO: 0, PENDENTE: 0 };
+  const counts = {};
 
   clients.forEach(c => {
-    let st = (c.status || 'PENDENTE').toUpperCase();
-
-    // Normalização básica de status
-    if (st.includes('ATIV')) st = 'ATIVO';
-    else if (st.includes('CANCEL')) st = 'EM_CANCELAMENTO';
-    else if (st.includes('INATIV')) st = 'INATIVO';
-    else st = 'PENDENTE';
-
+    // Usa o campo STATUS RATEIO se existir, senão usa STATUS DO CLIENTE
+    let st = c.statusRateio || c.status || 'N/A';
+    st = st.toUpperCase();
     counts[st] = (counts[st] ?? 0) + 1;
   });
 
-  const data = [counts.ATIVO, counts.INATIVO, counts.EM_CANCELAMENTO, counts.PENDENTE];
+  // Pega os top 5 status para não poluir o gráfico
+  const sortedLabels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
+  const data = sortedLabels.map(l => counts[l]);
 
   if (chartInstanceRef.value) chartInstanceRef.value.destroy();
 
   chartInstanceRef.value = new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Ativo', 'Inativo', 'Cancelamento', 'Pendente'],
+      labels: sortedLabels,
       datasets: [{
         data,
-        // CORES ATUALIZADAS (Teal, Slate, Red, Amber)
-        backgroundColor: [
-          '#10b981', // Emerald 500 (Ativo)
-          '#94a3b8', // Slate 400 (Inativo)
-          '#ef4444', // Red 500 (Cancelamento)
-          '#f59e0b'  // Amber 500 (Pendente)
-        ],
+        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#94a3b8'],
         borderWidth: 2,
         borderColor: '#ffffff',
         hoverOffset: 4
@@ -146,19 +137,10 @@ export function renderStatusChart(ctx, clients, chartInstanceRef) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      cutout: '70%',
       plugins: {
-        legend: {
-          position: 'right',
-          labels: {
-            usePointStyle: true,
-            boxWidth: 8,
-            font: { size: 11 },
-            color: '#64748b'
-          }
-        }
-      },
-      cutout: '75%', // Rosca mais fina e elegante
-      layout: { padding: 10 }
+        legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10 } } }
+      }
     }
   });
 }
