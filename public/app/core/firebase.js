@@ -1,220 +1,201 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+// Importações do SDK (Versão 10.12.2 para manter padrão)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut,
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore,
   doc,
   setDoc,
   getDoc
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Configurações e Módulos
 import { firebaseConfig } from "../config/firebaseConfig.js";
-import { CRMApp } from "./crmApp.js"; // Importamos a classe do CRM
+import { CRMApp } from "./crmApp.js";
 import { showToast } from "../ui/toast.js";
 
-// --- INICIALIZAÇÃO DO FIREBASE ---
+// --- 1. INICIALIZAÇÃO DO FIREBASE ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-let crmAppInstance = null; // Vamos guardar a instância do app aqui
+let crmAppInstance = null; // Guarda a instância do sistema
 
-// --- ELEMENTOS DA UI ---
+// --- 2. ELEMENTOS DA INTERFACE (DOM) ---
 const loginSection = document.getElementById('login-section');
 const mainNav = document.getElementById('mainNavApp');
 const mainContent = document.getElementById('mainContentApp');
 const loadingSpinner = document.getElementById('loading-spinner');
 
+// Formulários
 const loginForm = document.getElementById('loginForm');
 const createAccountForm = document.getElementById('createAccountForm');
 const logoutButton = document.getElementById('logoutButton');
 
+// Links de alternância (Login <-> Criar Conta)
+const showCreateLink = document.getElementById('showCreateAccountLink');
+const showLoginLink = document.getElementById('showLoginLink');
+
+// Alertas
 const loginAuthAlert = document.getElementById('login-auth-alert');
 const createAuthAlert = document.getElementById('create-auth-alert');
+const navbarUserEmail = document.getElementById('navbarUserEmail');
 
-const showLoginLink = document.getElementById('showLoginLink');
-const showCreateAccountLink = document.getElementById('showCreateAccountLink');
-
-// --- FUNÇÕES AUXILIARES DE UI ---
-
-// **FIX**: Adicionado "?." (optional chaining) para evitar erros
-// se os elementos de alerta não existirem no DOM (ex: cache)
-const showAlert = (alertEl, message) => {
-  alertEl?.classList.remove('d-none');
-  if (alertEl) {
-    alertEl.textContent = message;
-  }
-};
-const hideAlerts = () => {
-  loginAuthAlert?.classList.add('d-none');
-  createAuthAlert?.classList.add('d-none');
-};
-const showUI = (state) => {
-  // **FIX**: Adicionado "?." (optional chaining) para evitar "crash"
-  loadingSpinner?.classList.add('d-none'); 
-  if (state === 'login') {
-    loginSection?.classList.remove('d-none');
-    mainNav?.classList.add('d-none');
-    mainContent?.classList.add('d-none');
-  } else if (state === 'app') {
-    loginSection?.classList.add('d-none');
-    mainNav?.classList.remove('d-none');
-    mainContent?.classList.remove('d-none');
-  }
-};
-const showForm = (form) => {
-  hideAlerts();
-  if (form === 'login') {
-    loginForm?.classList.remove('d-none');
-    createAccountForm?.classList.add('d-none');
-  } else if (form === 'create') {
-    loginForm?.classList.add('d-none');
-    createAccountForm?.classList.remove('d-none');
-  }
-};
-
-// --- CONTROLO DE AUTENTICAÇÃO PRINCIPAL ---
-// **(A SUA MELHORIA FOI APLICADA AQUI)**
+// --- 3. CONTROLE DE ESTADO (Auth Listener) ---
+// Este é o "porteiro" do sistema. Ele vigia se alguém entrou ou saiu.
 onAuthStateChanged(auth, async (user) => {
-  if (user && user.email) {
-    // UTILIZADOR ESTÁ LOGADO E TEM E-MAIL
-    
-    // **MELHORIA**: SEMPRE buscar o role atualizado do Firestore
-    const userRole = await getUserRole(user.uid);
-    
-    // Se já existe uma instância do app, destrua-a primeiro
-    if (crmAppInstance) {
-      crmAppInstance.destroy();
-      crmAppInstance = null;
-    }
-    
-    // Crie uma NOVA instância com o role atualizado
-    crmAppInstance = new CRMApp(db, auth, userRole);
-    
-    // Preenche o e-mail do utilizador na navbar
-    const userEmailEl = document.getElementById('navbarUserEmail');
-    if(userEmailEl) userEmailEl.textContent = user.email;
+  if (user) {
+    // === USUÁRIO LOGADO ===
+    console.log("Usuário conectado:", user.email);
 
-    showUI('app');
+    // 1. Buscar a função do usuário no Firestore (editor ou visualizador)
+    let userRole = 'visualizador'; // Padrão seguro
+    try {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      if (userDoc.exists()) {
+        userRole = userDoc.data().role || 'visualizador';
+      }
+    } catch (e) {
+      console.error("Erro ao buscar role:", e);
+    }
+
+    // 2. Atualizar UI
+    navbarUserEmail.textContent = user.email + ` (${userRole})`;
+    loadingSpinner.classList.add('d-none');
+    loginSection.classList.add('d-none');
+
+    // Mostra o App
+    mainNav.classList.remove('d-none');
+    mainContent.classList.remove('d-none');
+
+    // 3. Iniciar o CRM (passando o db, auth e a role)
+    if (!crmAppInstance) {
+      crmAppInstance = new CRMApp(db, auth, userRole);
+    }
+
   } else {
-    // UTILIZADOR NÃO ESTÁ LOGADO
-    showUI('login');
-    showForm('login');
-    // Se a instância do app existe (utilizador fez logout), destrua-a
+    // === USUÁRIO DESLOGADO ===
+    console.log("Usuário desconectado");
+
+    // 1. Destruir instância antiga para limpar memória
     if (crmAppInstance) {
       crmAppInstance.destroy();
       crmAppInstance = null;
     }
+
+    // 2. Atualizar UI
+    loadingSpinner.classList.add('d-none');
+    mainNav.classList.add('d-none');
+    mainContent.classList.add('d-none');
+
+    // Mostra Login
+    loginSection.classList.remove('d-none');
+
+    // Reset de formulários
+    loginForm.reset();
+    createAccountForm.reset();
+    createAccountForm.classList.add('d-none');
+    loginForm.classList.remove('d-none');
   }
 });
 
+// --- 4. EVENTOS DE LOGIN E CADASTRO ---
 
-// **NOVO (A SUA CORREÇÃO):** Função para buscar a função do utilizador
-const getUserRole = async (uid) => {
-  try {
-    const userDocRef = doc(db, "users", uid);
-    const userDocSnap = await getDoc(userDocRef);
-    
-    if (userDocSnap.exists()) {
-      return userDocSnap.data().role; // Retorna 'editor' ou 'visualizador'
-    } else {
-      // **CORREÇÃO**: Se o documento não existir, CRIA ele automaticamente
-      console.warn("Documento de utilizador não encontrado, criando como visualizador.");
-      await setDoc(userDocRef, {
-        email: auth.currentUser.email, // Pega o email do utilizador logado
-        role: 'visualizador',
-        createdAt: new Date().toISOString() // Adiciona data de criação
-      });
-      return 'visualizador'; // Retorna o novo role
-    }
-  } catch (err) {
-    console.error("Erro ao buscar/criar função do utilizador:", err);
-    showToast("Erro ao verificar permissões.", "danger");
-    return 'visualizador'; // Segurança em primeiro lugar
-  }
-};
+// Alternar entre Login e Criar Conta
+showCreateLink?.addEventListener('click', (e) => {
+  e.preventDefault();
+  loginForm.classList.add('d-none');
+  createAccountForm.classList.remove('d-none');
+  hideAlerts();
+});
 
-// --- EVENTOS DOS FORMULÁRIOS ---
+showLoginLink?.addEventListener('click', (e) => {
+  e.preventDefault();
+  createAccountForm.classList.add('d-none');
+  loginForm.classList.remove('d-none');
+  hideAlerts();
+});
 
-// Login (Entrar)
+// Submissão do LOGIN
 loginForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideAlerts();
+
   const email = document.getElementById('loginEmail').value;
   const pass = document.getElementById('loginPassword').value;
+
   try {
     await signInWithEmailAndPassword(auth, email, pass);
-    // O onAuthStateChanged vai tratar de mostrar o app
+    // O onAuthStateChanged vai lidar com o resto
   } catch (err) {
-    console.error(err.code, err.message);
-    if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-      showAlert(loginAuthAlert, 'E-mail ou senha inválidos.');
-    } else {
-      showAlert(loginAuthAlert, 'Erro ao fazer login.');
-    }
+    console.error(err.code);
+    let msg = 'Erro ao fazer login.';
+    if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') msg = 'E-mail ou senha incorretos.';
+    if (err.code === 'auth/user-not-found') msg = 'Usuário não encontrado.';
+    if (err.code === 'auth/too-many-requests') msg = 'Muitas tentativas. Tente mais tarde.';
+    showAlert(loginAuthAlert, msg);
   }
 });
 
-// Criar Conta
+// Submissão de CRIAR CONTA
 createAccountForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
   hideAlerts();
+
   const email = document.getElementById('createEmail').value;
   const pass = document.getElementById('createPassword').value;
-  
+
   if (pass.length < 6) {
-    showAlert(createAuthAlert, 'A senha deve ter no mínimo 6 caracteres.');
+    showAlert(createAuthAlert, "A senha deve ter no mínimo 6 caracteres.");
     return;
   }
 
   try {
-    // 1. Criar o utilizador no Authentication
+    // 1. Criar Auth
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const user = userCredential.user;
 
-    // 2. **NOVO**: Criar o documento de função no Firestore
-    // O novo utilizador começa SEMPRE como 'visualizador'
-    const userDocRef = doc(db, "users", user.uid);
-    await setDoc(userDocRef, {
+    // 2. Criar perfil no Firestore (Padrão: visualizador)
+    await setDoc(doc(db, "users", user.uid), {
       email: user.email,
-      role: "visualizador",
-      createdAt: new Date().toISOString() // Adiciona data de criação
+      role: "visualizador", // Segurança: começa restrito
+      createdAt: new Date().toISOString()
     });
 
-    // O onAuthStateChanged vai tratar de mostrar o app
     showToast('Conta criada com sucesso!', 'success');
+    // Login é automático após criar
   } catch (err) {
-    console.error(err.code, err.message);
-    if (err.code === 'auth/email-already-in-use') {
-      showAlert(createAuthAlert, 'Este e-mail já está em uso.');
-    } else if (err.code === 'auth/weak-password') {
-      showAlert(createAuthAlert, 'A senha é muito fraca.');
-    } else if (err.code === 'auth/api-key-not-valid.-please-pass-a-valid-api-key.') {
-      showAlert(createAuthAlert, 'Erro de configuração (API Key). Contacte o admin.');
-    } else {
-      showAlert(createAuthAlert, 'Erro ao criar conta.');
-    }
+    console.error(err.code);
+    let msg = 'Erro ao criar conta.';
+    if (err.code === 'auth/email-already-in-use') msg = 'Este e-mail já está em uso.';
+    if (err.code === 'auth/weak-password') msg = 'Senha muito fraca.';
+    showAlert(createAuthAlert, msg);
   }
 });
 
-// Logout (Sair)
-logoutButton?.addEventListener('click', () => {
-  signOut(auth).catch((err) => {
-    console.error("Erro ao sair:", err);
-    showToast("Erro ao sair.", "danger");
-  });
+// Logout
+logoutButton?.addEventListener('click', (e) => {
+  e.preventDefault();
+  signOut(auth).catch(err => console.error(err));
 });
 
-// Links de navegação do formulário
-showCreateAccountLink?.addEventListener('click', (e) => {
-  e.preventDefault();
-  showForm('create');
-});
-showLoginLink?.addEventListener('click', (e) => {
-  e.preventDefault();
-  showForm('login');
-});
+// --- 5. UTILITÁRIOS ---
+function showAlert(el, msg) {
+  if (el) {
+    el.textContent = msg;
+    el.classList.remove('d-none');
+  }
+}
 
+function hideAlerts() {
+  loginAuthAlert?.classList.add('d-none');
+  createAuthAlert?.classList.add('d-none');
+}
+
+// --- 6. EXPORTAÇÃO (CORREÇÃO DO ERRO) ---
+// Isso permite que o importExport.js consiga importar o { db }
+export { app, db, auth };
