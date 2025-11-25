@@ -10,33 +10,29 @@ export class ClientsTable {
   }
 
   applyFilters(clients) {
-    // Captura os valores dos inputs
     const search = document.getElementById('searchInput').value.toLowerCase();
     const status = document.getElementById('statusFilter').value;
     const type = document.getElementById('typeFilter').value;
     const city = document.getElementById('cityFilter').value.toLowerCase();
 
     this.filtered = clients.filter(c => {
-      // Normalização de dados para evitar erros em campos vazios
       const name = c.name || '';
       const cpf = c.cpf || '';
       const cnpj = c.cnpj || '';
       const email = c.email || '';
-      const instalacao = c.instalacao ? c.instalacao.toString() : ''; // UC
+      const instalacao = c.instalacao ? c.instalacao.toString() : '';
+      const projeto = c.projeto || '';
+      const distribuidora = c.distribuidora || '';
+      const etapaUc = c.etapaUc || '';
 
-      const projeto = c.projeto || '';        // Projeto
-      const distribuidora = c.distribuidora || ''; // Distribuidora
-      const etapaUc = c.etapaUc || '';        // Etapa UC (futuro)
-
-      // Lógica de Busca Geral: verifica se o texto digitado existe em qualquer um destes campos
       const matchesSearch = !search ||
-        name.toLowerCase().includes(search) ||         // Razão Social
+        name.toLowerCase().includes(search) ||
         cpf.replace(/[.\-/]/g, '').includes(search) ||
         cnpj.replace(/[.\-/]/g, '').includes(search) ||
         email.toLowerCase().includes(search) ||
-        instalacao.includes(search) ||                 // UC
-        projeto.toLowerCase().includes(search) ||      // Projeto
-        distribuidora.toLowerCase().includes(search) || // Distribuidora
+        instalacao.includes(search) ||
+        projeto.toLowerCase().includes(search) ||
+        distribuidora.toLowerCase().includes(search) ||
         etapaUc.toLowerCase().includes(search);
 
       const matchesStatus = !status || c.status === status;
@@ -69,8 +65,10 @@ export class ClientsTable {
     tbody.innerHTML = '';
 
     if (this.filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6"><div class="text-center p-4 text-muted">
-        <i class="fas fa-search fa-2x mb-3"></i><h5>Nenhum cliente encontrado</h5><p>Tente ajustar os filtros.</p>
+      tbody.innerHTML = `<tr><td colspan="6"><div class="text-center p-5 text-muted">
+        <div class="mb-3"><i class="fas fa-search fa-3x text-light-gray opacity-25"></i></div>
+        <h6 class="fw-bold">Nenhum cliente encontrado</h6>
+        <p class="small text-secondary">Tente ajustar os filtros ou limpar a busca.</p>
       </div></td></tr>`;
       nav.innerHTML = '';
       summary.textContent = 'Mostrando 0 de 0';
@@ -83,44 +81,52 @@ export class ClientsTable {
     pageClients.forEach(c => {
       const tr = document.createElement('tr');
 
-      // === AÇÕES: REMOVIDA A OPÇÃO DE EXCLUIR ===
+      // Ações: Botões minimalistas
       let actionsHtml = '';
       if (this.userRole === 'editor') {
         actionsHtml = `
-          <button class="btn btn-outline-primary btn-sm btn-icon" data-id="${c.id}" data-action="edit" title="Editar"><i class="fas fa-edit"></i></button>
+          <button class="btn btn-light btn-sm text-primary border-0 rounded-circle" style="width: 32px; height: 32px;" data-id="${c.id}" data-action="edit" title="Editar">
+            <i class="fas fa-pen"></i>
+          </button>
         `;
       } else {
         actionsHtml = `
-          <button class="btn btn-outline-secondary btn-sm btn-icon" data-id="${c.id}" data-action="edit" title="Visualizar"><i class="fas fa-eye"></i></button>
+          <button class="btn btn-light btn-sm text-secondary border-0 rounded-circle" style="width: 32px; height: 32px;" data-id="${c.id}" data-action="edit" title="Visualizar">
+            <i class="fas fa-eye"></i>
+          </button>
         `;
       }
 
-      // === STATUS RATEIO (Visualização) ===
+      // Status Rateio (Soft Badge)
       let statusRateioHtml = '';
       if (c.statusRateio) {
-        // Cores sugeridas para status de rateio
         let badgeClass = 'bg-light text-dark border';
         const st = c.statusRateio.toLowerCase();
-        if (st.includes('apto')) badgeClass = 'bg-success text-white';
-        else if (st.includes('retirar')) badgeClass = 'bg-danger text-white';
-        else if (st.includes('acompanhar') || st.includes('crédito')) badgeClass = 'bg-warning text-dark';
 
-        statusRateioHtml = `<div class="mt-1"><span class="badge ${badgeClass}" style="font-size: 0.7em">${c.statusRateio}</span></div>`;
+        if (st.includes('apto')) badgeClass = 'bg-success-soft';
+        else if (st.includes('retirar')) badgeClass = 'bg-danger-soft';
+        else if (st.includes('acompanhar') || st.includes('crédito')) badgeClass = 'bg-warning-soft';
+
+        statusRateioHtml = `<div class="mt-1"><span class="badge ${badgeClass} fw-normal" style="font-size: 0.7em">${c.statusRateio}</span></div>`;
       }
 
-      // === PROJETO/DISTRIBUIDORA ===
-      const projetoInfo = c.projeto ? `<div style="font-size: 0.75em; color: #666"><i class="fas fa-solar-panel me-1"></i>${c.projeto}</div>` : '';
+      // Detalhes em subtexto
+      const projetoInfo = c.projeto ?
+        `<div class="small text-muted mt-1 d-flex align-items-center"><i class="fas fa-solar-panel me-1 text-warning opacity-75" style="font-size: 0.75em;"></i>${c.projeto}</div>` : '';
 
-      // === UC ===
-      const ucInfo = c.instalacao ? `<small class="text-muted d-block font-monospace">UC: ${c.instalacao}</small>` : '';
+      const ucInfo = c.instalacao ?
+        `<div class="small text-muted font-monospace mt-1"><i class="fas fa-hashtag me-1 opacity-50"></i>${c.instalacao}</div>` : '';
+
+      const locInfo = c.city ?
+        `<div>${c.city}${c.state ? '/' + c.state : ''}</div>` : '<span class="text-muted">-</span>';
 
       tr.innerHTML = `
-        <td class="ps-3">
-          <div class="fw-bold text-primary">${c.name || 'Sem Nome'}</div>
+        <td class="ps-4">
+          <div class="fw-bold text-dark">${c.name || 'Sem Nome'}</div>
           ${projetoInfo}
         </td>
         <td>
-          <div>${c.cpf || c.cnpj || 'N/A'}</div>
+          <div class="fw-medium text-secondary">${c.cpf || c.cnpj || 'N/A'}</div>
           ${ucInfo}
         </td>
         <td>
@@ -128,10 +134,16 @@ export class ClientsTable {
           ${statusRateioHtml}
         </td>
         <td>
-          <div>${c.city || 'N/A'}, ${c.state || ''}</div>
+          ${locInfo}
+          <div class="small text-muted">${c.distribuidora || ''}</div>
         </td>
-        <td>${c.consumption || 0} kWh</td>
-        <td class="text-end pe-3">
+        <td>
+            <div class="d-flex align-items-center">
+                <div class="fw-bold text-dark">${c.consumption || 0}</div>
+                <span class="small text-muted ms-1">kWh</span>
+            </div>
+        </td>
+        <td class="text-end pe-4">
           ${actionsHtml}
         </td>`;
       tbody.appendChild(tr);
@@ -154,15 +166,16 @@ export class ClientsTable {
       if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
 
       if (this.currentPage > 1) {
-        ul.innerHTML += `<li class="page-item"><a class="page-link" href="#" data-page="${this.currentPage - 1}"><i class="fas fa-chevron-left"></i></a></li>`;
+        ul.innerHTML += `<li class="page-item"><a class="page-link border-0 text-secondary bg-transparent" href="#" data-page="${this.currentPage - 1}"><i class="fas fa-chevron-left"></i></a></li>`;
       }
 
       for (let i = startPage; i <= endPage; i++) {
-        ul.innerHTML += `<li class="page-item ${this.currentPage === i ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        const activeClass = this.currentPage === i ? 'bg-primary text-white shadow-sm' : 'text-secondary bg-transparent hover-bg-light';
+        ul.innerHTML += `<li class="page-item"><a class="page-link border-0 mx-1 rounded-circle d-flex align-items-center justify-content-center ${activeClass}" style="width: 32px; height: 32px;" href="#" data-page="${i}">${i}</a></li>`;
       }
 
       if (this.currentPage < totalPages) {
-        ul.innerHTML += `<li class="page-item"><a class="page-link" href="#" data-page="${this.currentPage + 1}"><i class="fas fa-chevron-right"></i></a></li>`;
+        ul.innerHTML += `<li class="page-item"><a class="page-link border-0 text-secondary bg-transparent" href="#" data-page="${this.currentPage + 1}"><i class="fas fa-chevron-right"></i></a></li>`;
       }
 
       nav.appendChild(ul);

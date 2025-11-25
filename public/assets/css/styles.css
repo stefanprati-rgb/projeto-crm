@@ -1,402 +1,312 @@
-/* ===========================
-   Design System e Variáveis
-   =========================== */
 :root {
-  --primary: #2563eb;      /* Azul principal */
-  --primary-dark: #1d4ed8;
-  --secondary: #64748b;    /* Cinza secundário */
-  --success: #10b981;      /* Verde para sucesso */
-  --warning: #f59e0b;      /* Amarelo para alertas */
-  --danger: #ef4444;       /* Vermelho para erros */
-  --info: #06b6d4;         /* Cyan para informações */
+  /* Cores Principais (Tema Energia Renovável) */
+  --primary-color: #0f766e;
+  /* Teal 700 */
+  --primary-hover: #0d9488;
+  /* Teal 600 */
+  --secondary-color: #64748b;
+  /* Slate 500 */
+  --accent-color: #f59e0b;
+  /* Amber 500 */
 
-  /* Cores de Status */
-  --status-ativo-bg: #dcfce7;
-  --status-ativo-text: #166534;
-  --status-inativo-bg: #f1f5f9;
-  --status-inativo-text: #475569;
-  --status-cancelamento-bg: #fef2f2;
-  --status-cancelamento-text: #991b1b;
-  --status-pendente-bg: #fefce8;
-  --status-pendente-text: #854d0e;
+  /* Cores de Fundo e Texto */
+  --bg-body: #f8fafc;
+  /* Slate 50 */
+  --bg-card: #ffffff;
+  --text-main: #1e293b;
+  /* Slate 800 */
+  --text-muted: #64748b;
+  /* Slate 500 */
 
-  /* Backgrounds */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc; /* Fundo principal do body */
-  --bg-tertiary: #f1f5f9;
+  /* Status Colors (Suaves) */
+  --status-success-bg: #dcfce7;
+  --status-success-text: #166534;
+  --status-warning-bg: #fef3c7;
+  --status-warning-text: #92400e;
+  --status-danger-bg: #fee2e2;
+  --status-danger-text: #991b1b;
+  --status-info-bg: #e0f2fe;
+  --status-info-text: #075985;
 
-  /* Textos */
-  --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
-
-  /* Fonte */
-  --font-family-sans-serif: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-
-  /* Layout */
+  /* Dimensões e Sombras */
   --sidebar-width: 260px;
-  --header-height: 70px;
+  --border-radius: 0.75rem;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 }
 
-/* ===========================
-   Estilos Globais
-   =========================== */
 body {
-  font-family: var(--font-family-sans-serif);
-  background-color: var(--bg-secondary);
-  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-body);
+  color: var(--text-main);
+  overflow-x: hidden;
 }
 
-.section-content {
-  display: none; /* Seções controladas via JS */
-}
-
-.section-content.active {
-  display: block;
-}
-
-/* ===========================
-   Tela de Login
-   =========================== */
-#login-section {
-  background-color: var(--bg-tertiary);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-}
-
-.login-card {
-  width: 100%;
-  max-width: 420px;
-  border-radius: 12px;
-  box-shadow: 0 4px 25px rgba(0,0,0,0.1);
-  border: none;
-}
-
-/* ===========================
-   Layout Principal (Sidebar + Conteúdo)
-   =========================== */
+/* --- Sidebar (Menu Lateral) --- */
 .sidebar {
   position: fixed;
   top: 0;
   left: 0;
-  bottom: 0;
+  height: 100vh;
   width: var(--sidebar-width);
-  background-color: var(--bg-primary);
+  background-color: #ffffff;
   border-right: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
+  z-index: 1000;
   transition: transform 0.3s ease;
-  z-index: 100;
 }
 
-.content-area {
-  margin-left: var(--sidebar-width);
-  width: calc(100% - var(--sidebar-width));
-  padding-top: var(--header-height); /* Espaço para o cabeçalho fixo */
-  transition: margin-left 0.3s ease, width 0.3s ease;
-}
-
-.content-header {
-  position: fixed;
-  top: 0;
-  left: var(--sidebar-width); /* Alinhado com a área de conteúdo */
-  right: 0;
-  height: var(--header-height);
-  padding: 0 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #e2e8f0;
-  z-index: 99;
-  transition: left 0.3s ease;
-}
-
-/* ===========================
-   Sidebar Componentes
-   =========================== */
 .sidebar-header {
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 1rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.sidebar-header .navbar-brand {
+.brand-logo {
   font-weight: 700;
   font-size: 1.25rem;
-}
-
-.sidebar .nav-pills .nav-item {
-  margin-bottom: 0.5rem;
-}
-
-.sidebar .nav-pills .nav-link {
-  font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--primary-color);
   display: flex;
   align-items: center;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
+  gap: 0.5rem;
+  text-decoration: none;
 }
 
-.sidebar .nav-pills .nav-link .me-2 {
-  width: 20px; /* Alinha os ícones */
+.nav-pills .nav-link {
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+}
+
+.nav-pills .nav-link:hover {
+  background-color: #f8fafc;
+  color: var(--primary-color);
+}
+
+.nav-pills .nav-link.active {
+  background-color: #f0fdfa;
+  /* Teal 50 */
+  color: var(--primary-color);
+  border-left-color: var(--primary-color);
+}
+
+.nav-pills .nav-link i {
+  width: 24px;
   text-align: center;
 }
 
-.sidebar .nav-pills .nav-link.active,
-.sidebar .nav-pills .nav-link:hover {
-  color: var(--primary);
-  background-color: #f0f5ff;
-}
-
 .sidebar-footer {
-  margin-top: auto; /* Empurra o rodapé para baixo */
-  padding-top: 1rem;
-  border-top: 1px solid #e2e8f0;
-}
-
-.sidebar-footer .dropdown-toggle {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-.sidebar-footer .dropdown-toggle span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 150px;
-}
-
-/* ===========================
-   Responsividade (Mobile)
-   =========================== */
-@media (max-width: 992px) {
-  .sidebar {
-    transform: translateX(-100%);
-    /* **CORREÇÃO AQUI** (Removido o display: none !important;) */
-    /* display: none !important; */ 
-    z-index: 1040; /* Acima do overlay */
-  }
-  
-  /* Classe a ser controlada via JS para mostrar/esconder */
-  .sidebar.show {
-    transform: translateX(0);
-  }
-
-  .content-area,
-  .content-header {
-    width: 100%;
-    margin-left: 0;
-    left: 0;
-  }
-  
-  /* Adicionar botão de toggle (hambúrguer) no header */
-  .mobile-toggle {
-    display: block; /* (Precisa ser adicionado no HTML) */
-  }
-}
-
-/* ===========================
-   Cards
-   =========================== */
-.card {
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  border: 1px solid #e2e8f0;
-}
-
-/* KPI Cards (Dashboard) */
-.kpi-card {
-  border: none;
-  color: #fff;
-  border-radius: 12px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.kpi-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.kpi-card .card-body {
+  margin-top: auto;
   padding: 1.5rem;
+  border-top: 1px solid #f1f5f9;
 }
+
+/* --- Layout Principal --- */
+.content-area {
+  margin-left: var(--sidebar-width);
+  min-height: 100vh;
+  padding-bottom: 2rem;
+  transition: margin-left 0.3s ease;
+}
+
+.content-header {
+  background-color: #fff;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 900;
+}
+
+.content-header h2 {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 1.25rem;
+}
+
+/* --- Cards e KPIs --- */
+.card {
+  border: none;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  background-color: var(--bg-card);
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.kpi-card {
+  border-left: 4px solid transparent;
+}
+
+.kpi-card.kpi-total {
+  border-left-color: #3b82f6;
+}
+
+/* Blue */
+.kpi-card.kpi-ativos {
+  border-left-color: #10b981;
+}
+
+/* Emerald */
+.kpi-card.kpi-inadimplentes {
+  border-left-color: #ef4444;
+}
+
+/* Red */
+.kpi-card.kpi-faturamento {
+  border-left-color: #f59e0b;
+}
+
+/* Amber */
 
 .kpi-value {
-  font-size: 2.25rem;
+  font-size: 1.75rem;
   font-weight: 700;
-  line-height: 1.1;
+  color: var(--text-main);
+  line-height: 1.2;
 }
 
 .kpi-label {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
   font-weight: 500;
-  opacity: 0.9;
-}
-
-.kpi-icon {
-  font-size: 1.5rem;
-  opacity: 0.7;
-}
-
-/* Cores dos KPI Cards */
-.kpi-total { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); }
-.kpi-ativos { background: linear-gradient(135deg, var(--success), #059669); }
-.kpi-inadimplentes { background: linear-gradient(135deg, var(--danger), #b91c1c); }
-.kpi-faturamento { background: linear-gradient(135deg, var(--warning), #d97706); }
-
-/* ===========================
-   Tabelas
-   =========================== */
-.table th {
-  font-weight: 600;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background-color: var(--bg-tertiary);
-  border-bottom-width: 1px;
 }
 
-.table td {
+/* --- Tabelas --- */
+.table thead th {
+  background-color: #f8fafc;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.table tbody td {
+  padding: 1rem 0.75rem;
   vertical-align: middle;
+  color: var(--text-main);
   font-size: 0.9rem;
-  font-weight: 500;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .table-hover tbody tr:hover {
-  background-color: var(--bg-tertiary);
+  background-color: #f0fdfa;
+  /* Teal 50 muito suave */
 }
 
-.client-name {
+/* --- Badges Personalizados --- */
+.badge {
   font-weight: 600;
-  color: var(--text-primary);
-}
-
-.client-subtext {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-}
-
-/* ===========================
-   Badges de Status
-   =========================== */
-.status-badge {
-  padding: 0.3rem 0.75rem;
+  padding: 0.4em 0.8em;
   border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: inline-block;
 }
 
-.status-ativo {
-  background-color: var(--status-ativo-bg);
-  color: var(--status-ativo-text);
+.bg-success-soft {
+  background-color: var(--status-success-bg);
+  color: var(--status-success-text);
 }
 
-.status-inativo {
-  background-color: var(--status-inativo-bg);
-  color: var(--status-inativo-text);
+.bg-warning-soft {
+  background-color: var(--status-warning-bg);
+  color: var(--status-warning-text);
 }
 
-.status-em-cancelamento {
-  background-color: var(--status-cancelamento-bg);
-  color: var(--status-cancelamento-text);
+.bg-danger-soft {
+  background-color: var(--status-danger-bg);
+  color: var(--status-danger-text);
 }
 
-.status-pendente {
-  background-color: var(--status-pendente-bg);
-  color: var(--status-pendente-text);
+.bg-info-soft {
+  background-color: var(--status-info-bg);
+  color: var(--status-info-text);
 }
 
-/* ===========================
-   Botões
-   =========================== */
-.btn {
-  font-weight: 600;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
+/* --- Botões e Inputs --- */
 .btn-primary {
-  background-color: var(--primary);
-  border-color: var(--primary);
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 .btn-primary:hover {
-  background-color: var(--primary-dark);
-  border-color: var(--primary-dark);
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
-.btn-icon {
-  padding: 0.375rem 0.75rem;
+.btn-outline-primary {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
-/* ===========================
-   Formulários
-   =========================== */
-.form-label {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-primary);
-}
-
-.form-control,
-.form-select {
-  border-radius: 8px;
-  border-color: #cbd5e1;
+.btn-outline-primary:hover {
+  background-color: var(--primary-color);
+  color: #fff;
 }
 
 .form-control:focus,
 .form-select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 0.2rem rgba(37,99,235,0.2);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.2rem rgba(15, 118, 110, 0.25);
 }
 
-.form-control::placeholder {
-  color: var(--text-muted);
+/* --- Utilitários de Cores --- */
+.bg-blue-50 {
+  background-color: #eff6ff;
 }
 
-/* ===========================
-   Estados Vazio/Carregando
-   =========================== */
-.empty-state,
-.loading-state {
+.bg-green-50 {
+  background-color: #f0fdf4;
+}
+
+.bg-red-50 {
+  background-color: #fef2f2;
+}
+
+.bg-yellow-50 {
+  background-color: #fefce8;
+}
+
+/* --- Login --- */
+.login-container {
+  min-height: 100vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem 2rem;
-  text-align: center;
-  border: 2px dashed #e2e8f0;
-  border-radius: 12px;
-  background-color: var(--bg-primary);
+  background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
 }
 
-.empty-state i,
-.loading-state i {
-  font-size: 3rem;
-  color: var(--text-muted);
-  margin-bottom: 1rem;
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  border: none;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
 }
 
-.empty-state h5 {
-  font-weight: 600;
-  color: var(--text-primary);
-}
+/* --- Responsividade --- */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
 
-.empty-state p {
-  color: var(--text-secondary);
-}
+  .sidebar.show {
+    transform: translateX(0);
+  }
 
-/* ===========================
-   Toasts
-   =========================== */
-.toast-container {
-  z-index: 1090; /* acima do header */
+  .content-area {
+    margin-left: 0;
+  }
 }
-
