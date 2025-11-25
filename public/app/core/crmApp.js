@@ -1,7 +1,6 @@
 import { ClientService } from "../services/clientService.js";
 import { ClientsTable } from "../features/clientsTable.js";
 import { renderKPIs, renderClientsChart, renderStatusChart } from "../features/dashboard.js";
-// ATENÇÃO: Import ajustado (removemos mapRowToClient pois o importExport já faz isso internamente agora)
 import { readExcelFile, exportJSON, exportExcel } from "../features/importExport.js";
 import { showToast } from "../ui/toast.js";
 import { renderFinanceKPIs, renderRevenueTrend, renderAgingChart } from "../features/financeDashboard.js";
@@ -178,7 +177,6 @@ export class CRMApp {
       const c = this.clients.find(x => x.id === id);
       if (c) {
         document.getElementById('clientId').value = c.id;
-        // Mapeamento de campos do modal
         const fields = {
           'Name': c.name, 'ExternalId': c.externalId, 'Cpf': c.cpf, 'Cnpj': c.cnpj,
           'Email': c.email, 'Phone': c.phone, 'Cep': c.cep, 'Address': c.address,
@@ -231,23 +229,15 @@ export class CRMApp {
     const file = e.target.files[0];
     if (!file) return;
 
-    // ATENÇÃO: Agora chamamos a função que processa e salva DIRETO
     try {
-      // O readExcelFile agora é a função 'processAndUpload' que renomeamos no importExport.js
-      // Ela já mostra os toasts e salva no Firestore
       await readExcelFile(file);
-
-      // Recarregamos a UI
       this.refreshUI();
-
     } catch (err) {
       console.error(err);
-      // O toast de erro já deve ter sido mostrado pelo importExport, mas garantimos aqui
       if (!document.querySelector('.toast.bg-danger')) {
         showToast('Erro na importação.', 'danger');
       }
     }
     e.target.value = null;
   }
-
-} // <--- AQUI ESTAVA O PROBLEMA: Faltava fechar esta chave da Classe
+}
