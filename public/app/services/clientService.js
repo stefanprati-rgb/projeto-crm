@@ -1,93 +1,95 @@
 import {
-  collection, onSnapshot, addDoc, setDoc, deleteDoc, doc,
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  onSnapshot,
+  query,
+  orderBy,
   writeBatch
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 export class ClientService {
   constructor(db) {
     this.db = db;
-    this.ref = collection(db, "clients");
-    this.unsubscribe = null;
+    this.collectionName = 'clients';
   }
 
-  listen(onChange, onError) {
-    if (this.unsubscribe) this.unsubscribe();
-    this.unsubscribe = onSnapshot(
-      this.ref,
-      (snap) => {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        onChange(data);
-      },
-      onError
+  // Ouvir atualizações em tempo real
+  listen(onData, onError) {
+    // Ordena por nome para facilitar a leitura
+    const q = query(collection(this.db, this.collectionName), orderBy('name'));
+
+    return onSnapshot(q, (snapshot) => {
+      const clients = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      onData(clients);
+    }, onError);
+  }
+
+  // Adicionar/Salvar Cliente (com ID automático ou manual)
+  async save(id, data) {
+    const cleanData = this.removeUndefined(data);
+
+    if (id) {
+      // Atualizar existente
+      const ref = doc(this.db, this.collectionName, id);
+      await updateDoc(ref, cleanData);
+    } else {
+      // Criar novo
+      cleanData.createdAt = new Date().toISOString();
+      await addDoc(collection(this.db, this.collectionName), cleanData);
+    }
+  }
+
+  // Excluir Cliente
+  async delete(id) {
+    const ref = doc(this.db, this.collectionName, id);
+    await deleteDoc(ref);
+  }
+
+  // Importação em Lote (Batch)
+  async batchImport(rows, mapFunction, existingClients, batchSize = 400) {
+    // Nota: O mapFunction agora pode ser opcional se os dados já vierem formatados
+    const chunks = [];
+    const items = rows.map(r => mapFunction ? mapFunction(r) : r);
+
+    // Identificar duplicatas por CPF/CNPJ ou ID Externo para atualizar em vez de criar duplicado
+    // (Lógica simples de upsert baseada no ID se fornecido, ou create new)
+
+    for (let i = 0; i < items.length; i += batchSize) {
+      chunks.push(items.slice(i, i + batchSize));
+    }
+
+    let count = 0;
+    for (const chunk of chunks) {
+      const batch = writeBatch(this.db);
+
+      chunk.forEach(item => {
+        // Se o item já tem ID (do importador), usa ele como chave do documento
+        if (item.id) {
+          const ref = doc(this.db, this.collectionName, item.id);
+          batch.set(ref, item, { merge: true });
+        } else {
+          // Se não tem ID, deixa o Firestore criar
+          const ref = doc(collection(this.db, this.collectionName));
+          batch.set(ref, item);
+        }
+      });
+
+      await batch.commit();
+      count++;
+      console.log(`Lote de clientes ${count}/${chunks.length} processado.`);
+    }
+  }
+
+  // Utilitário para limpar objetos antes de enviar ao Firebase
+  removeUndefined(obj) {
+    return Object.fromEntries(
+      Object.entries(obj).filter(([_, v]) => v !== undefined && v !== null && v !== '')
     );
   }
-
-  save(id, data) {
-    if (id) {
-      return setDoc(doc(this.db, "clients", id), data, { merge: true });
-    }
-    return addDoc(this.ref, data);
-  }
-
-  delete(id) {
-    return deleteDoc(doc(this.db, "clients", id));
-  }
-
-  /**
-   * (ESTA É A SUA NOVA LÓGICA ATUALIZADA)
-   * Importa clientes em lote, verificando duplicatas pelo 'externalId' E pela instalação.
-   * Se o 'externalId' + instalação já existir, atualiza o cliente.
-   * Se não existir, cria um novo cliente.
-   */
-  async batchImport(rows, mapRowFn, existingClients, chunk = 400) {
-    // 1. Cria um mapa composto: "externalId|instalacao" -> docId
-    const clientMap = new Map();
-    existingClients.forEach(c => {
-      if (c.externalId) {
-        // Cria chave única combinando externalId e instalação (se houver)
-        const key = c.instalacao
-          ? `${String(c.externalId).trim()}|${String(c.instalacao).trim()}`
-          : String(c.externalId).trim();
-        clientMap.set(key, c.id);
-      }
-    });
-  
-    // 2. Processa as linhas em lotes (chunks)
-    for (let i = 0; i < rows.length; i += chunk) {
-      const batch = writeBatch(this.db);
-      rows.slice(i, i + chunk).forEach(row => {
-        const clientData = mapRowFn(row);
-        const externalId = clientData.externalId ? String(clientData.externalId).trim() : null;
-              
-        let ref;
-
-        // 3. Cria chave única para verificação
-        if (externalId) {
-          const key = clientData.instalacao
-            ? `${externalId}|${String(clientData.instalacao).trim()}`
-            : externalId;
-                  
-          // 4. Verifica se o cliente já existe
-          if (clientMap.has(key)) {
-            // Se SIM, usa o ID do documento existente para ATUALIZAR
-            const docId = clientMap.get(key);
-            ref = doc(this.db, "clients", docId);
-          } else {
-            // Se NÃO, cria uma nova referência para ADICIONAR
-            ref = doc(this.ref);
-          }
-        } else {
-          // Sem externalId, sempre cria novo
-          ref = doc(this.ref);
-        }
-              
-        // 5. Usa set(..., { merge: true }) para criar ou atualizar
-        batch.set(ref, clientData, { merge: true });
-      });
-          
-      // 6. Envia o lote para o Firestore
-      await batch.commit();
-    }
-  }
 }
-

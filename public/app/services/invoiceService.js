@@ -1,47 +1,50 @@
 import {
-  collection, onSnapshot, addDoc, setDoc, deleteDoc, doc, query, orderBy, writeBatch
-} from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+  collection,
+  doc,
+  writeBatch,
+  onSnapshot,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 export class InvoiceService {
   constructor(db) {
     this.db = db;
-    this.ref = collection(db, "invoices"); // coleção: invoices
-    this.unsubscribe = null;
+    this.collectionName = 'invoices';
   }
 
-  // Ouve todas as faturas (ordenadas por REF)
-  listen(onChange, onError) {
-    if (this.unsubscribe) this.unsubscribe();
-    const q = query(this.ref, orderBy("ref", "asc"));
-    this.unsubscribe = onSnapshot(
-      q,
-      (snap) => {
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        onChange(data);
-      },
-      onError
-    );
-    return this.unsubscribe;
+  listen(onData, onError) {
+    // Traz as faturas, idealmente ordenadas por data
+    const q = query(collection(this.db, this.collectionName));
+
+    return onSnapshot(q, (snapshot) => {
+      const items = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      onData(items);
+    }, onError);
   }
 
-  save(id, data) {
-    if (id) return setDoc(doc(this.db, "invoices", id), data, { merge: true });
-    return addDoc(this.ref, data);
-  }
+  async batchImport(rows, batchSize = 400) {
+    const chunks = [];
+    for (let i = 0; i < rows.length; i += batchSize) {
+      chunks.push(rows.slice(i, i + batchSize));
+    }
 
-  delete(id) {
-    return deleteDoc(doc(this.db, "invoices", id));
-  }
-
-  // Importa em lote (linhas pré-processadas)
-  async batchImport(rows, chunk = 400) {
-    for (let i = 0; i < rows.length; i += chunk) {
+    let count = 0;
+    for (const chunk of chunks) {
       const batch = writeBatch(this.db);
-      rows.slice(i, i + chunk).forEach((row) => {
-        const ref = row.id ? doc(this.db, "invoices", row.id) : doc(this.ref);
-        batch.set(ref, row, { merge: true });
+      chunk.forEach(item => {
+        // Usa o ID gerado na leitura do Excel como chave única
+        if (item.id) {
+          const ref = doc(this.db, this.collectionName, item.id);
+          batch.set(ref, item, { merge: true });
+        }
       });
       await batch.commit();
+      count++;
+      console.log(`Lote financeiro ${count}/${chunks.length} processado.`);
     }
   }
 }
