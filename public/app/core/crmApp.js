@@ -5,12 +5,12 @@ import { readExcelFile, exportJSON, exportExcel } from "../features/importExport
 import { showToast } from "../ui/toast.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
-import { validateCPF, validateCNPJ } from "../utils/helpers.js";
+import { validateCPF, validateCNPJ, debounce } from "../utils/helpers.js"; // Importamos o debounce
 import { PROJECTS } from "../config/projects.js";
 
-// Classes para o estado "Ativo" do Menu Lateral
-const NAV_ACTIVE_CLASSES = ['bg-white', 'text-primary-700', 'shadow-sm'];
-const NAV_INACTIVE_CLASSES = ['text-slate-500', 'hover:bg-white', 'hover:text-primary-700', 'hover:shadow-sm'];
+// Classes para o estado "Ativo" do Menu Lateral (Estilo Apple/Clean)
+const NAV_ACTIVE_CLASSES = ['bg-white', 'text-primary-700', 'shadow-sm', 'font-semibold'];
+const NAV_INACTIVE_CLASSES = ['text-slate-500', 'hover:bg-white/60', 'hover:text-primary-700'];
 
 export class CRMApp {
 
@@ -22,11 +22,12 @@ export class CRMApp {
     this.allowedBases = userData.allowedBases || Object.keys(PROJECTS);
     this.currentBase = this.allowedBases[0];
 
-    // Dados
+    // Dados em memória
     this.dashboardData = [];
     this.tableData = [];
     this.invoices = [];
 
+    // Paginação
     this.pagination = {
       lastDoc: null,
       hasMore: true,
@@ -34,15 +35,18 @@ export class CRMApp {
       pageSize: 50
     };
 
+    // Serviços e Componentes
     this.service = new ClientService(db);
     this.invoiceService = new InvoiceService(db);
-
     this.table = new ClientsTable(this.userRole);
+
+    // Refs de Gráficos
     this.clientsChartRef = { value: null };
     this.statusChartRef = { value: null };
-    this.activeSection = 'dashboard';
 
+    this.activeSection = 'dashboard';
     this.unsubscribe = null;
+
     this.init();
   }
 
@@ -50,12 +54,12 @@ export class CRMApp {
     this.initRoleBasedUI();
     this.initBaseSelector();
     this.initLoadMoreButton();
+
     this.bindNav();
     this.bindActions();
+    this.bindModalTabs(); // <--- Lógica das Abas
 
-    // INICIALIZAÇÃO DAS ABAS DO MODAL (NOVO)
-    this.bindModalTabs();
-
+    // Carregamento Inicial
     this.loadDataForBase(this.currentBase);
     this.updateNavHighlight(this.activeSection);
   }
@@ -73,17 +77,20 @@ export class CRMApp {
     }
   }
 
+  // --- SELETOR DE PROJETOS ---
   initBaseSelector() {
     const selector = document.getElementById('databaseSelector');
     if (!selector) return;
 
     selector.innerHTML = '';
 
+    // Opção Consolidada
     const optAll = document.createElement('option');
     optAll.value = 'TODOS';
     optAll.textContent = 'Visão Consolidada (Todos)';
     selector.appendChild(optAll);
 
+    // Projetos Individuais
     this.allowedBases.forEach(baseCode => {
       const project = PROJECTS[baseCode];
       if (project) {
@@ -107,49 +114,32 @@ export class CRMApp {
     });
   }
 
-  // Lógica de Tabs do Modal (NOVO)
+  // --- ABAS DO MODAL (Lógica Nova) ---
   bindModalTabs() {
     const tabBtns = document.querySelectorAll('.tab-btn');
 
     tabBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-
-        // 1. Remove ativo de todos
-        tabBtns.forEach(b => b.classList.remove('active', 'text-primary-700', 'bg-white', 'shadow-sm'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-
-        // 2. Ativa o atual
         const targetId = btn.dataset.tab;
-        btn.classList.add('active', 'text-primary-700', 'bg-white', 'shadow-sm');
-        document.getElementById(targetId)?.classList.remove('hidden');
+
+        // 1. UI dos Botões: Remove ativo de todos e adiciona no clicado
+        tabBtns.forEach(b => b.classList.remove('active', 'bg-white', 'text-primary-700', 'shadow-sm'));
+        btn.classList.add('active', 'bg-white', 'text-primary-700', 'shadow-sm'); // Estilo "Apple" ativo
+
+        // 2. Conteúdo: Esconde todos e mostra o alvo
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        const target = document.getElementById(targetId);
+        if (target) {
+          target.classList.remove('hidden');
+          // Pequena animação de fade
+          target.classList.add('fade-in');
+        }
       });
     });
   }
 
-  initLoadMoreButton() {
-    const tableContainer = document.querySelector('#clients-section .overflow-x-auto');
-    if (!tableContainer) return;
-
-    if (!document.getElementById('loadMoreContainer')) {
-      const container = document.createElement('div');
-      container.id = 'loadMoreContainer';
-      container.className = 'p-5 text-center border-t border-slate-100 bg-slate-50/30 hidden';
-
-      const btn = document.createElement('button');
-      btn.id = 'btnLoadMore';
-      btn.className = 'px-6 py-2 bg-white border border-slate-200 text-slate-600 rounded-full shadow-sm text-sm font-medium hover:bg-slate-50 hover:text-primary-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
-      btn.innerHTML = '<i class="fas fa-download me-2"></i>Carregar mais clientes';
-
-      btn.addEventListener('click', () => this.loadNextPage());
-
-      container.appendChild(btn);
-      tableContainer.parentNode.insertBefore(container, tableContainer.nextSibling);
-    }
-  }
-
-  // --- CARREGAMENTO ---
-
+  // --- CARREGAMENTO DE DADOS ---
   async loadDataForBase(baseName) {
     this.dashboardData = [];
     this.tableData = [];
@@ -160,10 +150,10 @@ export class CRMApp {
 
     console.log(`Iniciando carregamento para: ${baseName}`);
 
-    // 1. Tabela Paginada
+    // 1. Carrega Tabela (Paginada)
     await this.loadNextPage();
 
-    // 2. Dashboard Completo
+    // 2. Carrega Dashboard (Completo em Background)
     this.service.getAllForDashboard(baseName).then(data => {
       this.dashboardData = data;
       this.updateDashboard();
@@ -204,6 +194,27 @@ export class CRMApp {
     }
   }
 
+  initLoadMoreButton() {
+    const tableContainer = document.querySelector('#clients-section .overflow-x-auto');
+    if (!tableContainer) return;
+
+    if (!document.getElementById('loadMoreContainer')) {
+      const container = document.createElement('div');
+      container.id = 'loadMoreContainer';
+      container.className = 'p-5 text-center border-t border-slate-100 bg-slate-50/30 hidden';
+
+      const btn = document.createElement('button');
+      btn.id = 'btnLoadMore';
+      btn.className = 'px-6 py-2 bg-white border border-slate-200 text-slate-600 rounded-full shadow-sm text-sm font-medium hover:bg-slate-50 hover:text-primary-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
+      btn.innerHTML = '<i class="fas fa-download me-2"></i>Carregar mais clientes';
+
+      btn.addEventListener('click', () => this.loadNextPage());
+
+      container.appendChild(btn);
+      tableContainer.parentNode.insertBefore(container, tableContainer.nextSibling);
+    }
+  }
+
   updateLoadMoreUI() {
     const container = document.getElementById('loadMoreContainer');
     const btn = document.getElementById('btnLoadMore');
@@ -218,8 +229,7 @@ export class CRMApp {
     }
   }
 
-  // --- UI & NAVEGAÇÃO ---
-
+  // --- NAVEGAÇÃO ---
   bindNav() {
     document.querySelectorAll('.nav-link[data-section]').forEach(link => {
       link.addEventListener('click', (e) => {
@@ -233,14 +243,10 @@ export class CRMApp {
 
   showSection(sectionId) {
     this.activeSection = sectionId;
-
     const titleEl = document.getElementById('sectionTitle');
+
     if (titleEl) {
-      const titles = {
-        'dashboard': 'Visão Geral',
-        'clients': 'Carteira de Clientes',
-        'finance': 'Gestão Financeira'
-      };
+      const titles = { 'dashboard': 'Visão Geral', 'clients': 'Carteira de Clientes', 'finance': 'Gestão Financeira' };
       titleEl.textContent = titles[sectionId] || 'CRM Energia';
     }
 
@@ -248,9 +254,7 @@ export class CRMApp {
     const target = document.getElementById(`${sectionId}-section`);
     if (target) {
       target.classList.remove('d-none');
-      target.style.animation = 'none';
-      target.offsetHeight;
-      target.style.animation = null;
+      target.classList.add('fade-in'); // Re-aplica animação
     }
 
     this.updateNavHighlight(sectionId);
@@ -277,10 +281,8 @@ export class CRMApp {
 
   updateDashboard() {
     renderKPIs({
-      total: 'kpi-total-clients',
-      active: 'kpi-active-clients',
-      overdue: 'kpi-overdue-clients',
-      revenue: 'kpi-monthly-revenue'
+      total: 'kpi-total-clients', active: 'kpi-active-clients',
+      overdue: 'kpi-overdue-clients', revenue: 'kpi-monthly-revenue'
     }, this.dashboardData, this.currentBase);
 
     const ctxLine = document.getElementById('clientsChart')?.getContext('2d');
@@ -304,10 +306,8 @@ export class CRMApp {
   renderFinanceWidgets() {
     import('../features/financeDashboard.js').then(module => {
       module.renderFinanceKPIs({
-        emitido: 'kpi-emitido',
-        pago: 'kpi-pago',
-        inadimplencia: 'kpi-inad',
-        dso: 'kpi-dso'
+        emitido: 'kpi-emitido', pago: 'kpi-pago',
+        inadimplencia: 'kpi-inad', dso: 'kpi-dso'
       }, this.invoices);
 
       const ctx1 = document.getElementById('revenueTrend')?.getContext('2d');
@@ -317,18 +317,27 @@ export class CRMApp {
     });
   }
 
-  // --- AÇÕES ---
-
+  // --- AÇÕES & EVENTOS ---
   bindActions() {
-    const applyFilters = () => this.table.applyFilters(this.tableData);
-    ['searchInput', 'statusFilter'].forEach(id =>
-      document.getElementById(id)?.addEventListener('input', applyFilters));
+    // BUSCA COM DEBOUNCE (Performance)
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+      // Aplica filtros apenas 300ms após parar de digitar
+      searchInput.addEventListener('input', debounce(() => {
+        this.table.applyFilters(this.tableData);
+      }, 300));
+    }
+
+    // Outros Filtros (Imediatos)
+    ['statusFilter', 'cityFilter'].forEach(id =>
+      document.getElementById(id)?.addEventListener('input', () => this.table.applyFilters(this.tableData)));
 
     document.getElementById('clearFiltersButton')?.addEventListener('click', () => {
-      this.table.clearFilters(); applyFilters();
+      this.table.clearFilters();
+      this.table.applyFilters(this.tableData);
     });
 
-    // IMPORTAÇÃO
+    // Botões de Importação/Exportação
     document.getElementById('importExcelButton')?.addEventListener('click', () => {
       if (this.userRole !== 'editor') return;
       if (this.currentBase === 'TODOS') {
@@ -341,13 +350,13 @@ export class CRMApp {
     });
 
     document.getElementById('excelFileInput')?.addEventListener('change', (e) => this.handleExcelImport(e));
-
     document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
     document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
 
     document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.dashboardData));
     document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
 
+    // Botões de CRUD
     document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
 
@@ -358,6 +367,7 @@ export class CRMApp {
     });
   }
 
+  // --- HANDLERS ---
   async handleExcelImport(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -380,24 +390,25 @@ export class CRMApp {
     e.target.value = null;
   }
 
-  // --- MODAL (COM RESET DE ABAS) ---
-
   showClientModal(id = null) {
     const f = document.getElementById('clientForm');
     f.reset();
     document.getElementById('clientId').value = '';
+
+    // Reset de UI do Modal
     const title = document.getElementById('clientModalTitle');
     const btnSave = document.getElementById('clientModalSaveButton');
 
-    // Reset das Abas (Sempre abre na aba de Dados)
+    // Força a aba 'Dados' a abrir primeiro
     const tabBtns = document.querySelectorAll('.tab-btn');
-    tabBtns.forEach(b => b.classList.remove('active', 'text-primary-700', 'bg-white', 'shadow-sm'));
+    tabBtns.forEach(b => b.classList.remove('active', 'bg-white', 'text-primary-700', 'shadow-sm'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
 
-    // Ativa a primeira aba
-    const firstTabBtn = document.querySelector('[data-tab="tab-data"]');
-    firstTabBtn?.classList.add('active', 'text-primary-700', 'bg-white', 'shadow-sm');
-    document.getElementById('tab-data')?.classList.remove('hidden');
+    const firstTab = document.querySelector('[data-tab="tab-data"]');
+    if (firstTab) {
+      firstTab.classList.add('active', 'bg-white', 'text-primary-700', 'shadow-sm');
+      document.getElementById('tab-data')?.classList.remove('hidden');
+    }
 
     if (this.userRole === 'visualizador') {
       title.textContent = 'Visualizar Cliente';
@@ -463,14 +474,8 @@ export class CRMApp {
       database: this.currentBase
     };
 
-    if (data.cpf && !validateCPF(data.cpf)) {
-      showToast("CPF inválido.", "warning");
-      return;
-    }
-    if (data.cnpj && !validateCNPJ(data.cnpj)) {
-      showToast("CNPJ inválido.", "warning");
-      return;
-    }
+    if (data.cpf && !validateCPF(data.cpf)) { showToast("CPF inválido.", "warning"); return; }
+    if (data.cnpj && !validateCNPJ(data.cnpj)) { showToast("CNPJ inválido.", "warning"); return; }
 
     try {
       await this.service.save(id, data);

@@ -77,7 +77,7 @@ export function normalizeStatus(val) {
   return v;
 }
 
-// --- VALIDAÇÕES (Mantidas do passo anterior) ---
+// --- VALIDAÇÕES ---
 
 export function validateCPF(cpf) {
   cpf = cpf.replace(/[^\d]+/g, '');
@@ -146,4 +146,16 @@ export function validateCNPJ(cnpj) {
   resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
   if (resultado != digitos.charAt(1)) return false;
   return true;
+}
+
+// --- PERFORMANCE & UX ---
+
+// Função debounce para limitar chamadas repetitivas (ex: busca)
+export function debounce(func, wait) {
+  let timeout;
+  return function (...args) {
+    const context = this;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(context, args), wait);
+  };
 }
