@@ -1,41 +1,46 @@
 export const clientMapping = {
   // === Identificação ===
   'INSTALAÇÃO': 'instalacao',           // Chave Principal (UC)
-  'Instalação': 'instalacao',           // Variação de caixa
+  'Instalação': 'instalacao',
   'ID EXTERNO': 'externalId',
   'NOME COMPLETO OU RAZÃO SOCIAL': 'name',
-  'Razão Social': 'name',               // Variação no arquivo de faturamento
-  'CPF': 'cpf',
+  'Razão Social': 'name',
   'CNPJ': 'cnpj',
+  'CPF': 'cpf',
   'DOC': 'doc',
   'CONTA CONTRATO': 'contaContrato',
 
   // === Contrato e Status ===
   'TIPO CONTRATO': 'contractType',
   'STATUS DO CLIENTE': 'status',
-  'STATUS DE CLIENTE': 'status',        // Variação EGS
+  'STATUS DE CLIENTE': 'status',        // Mapeado do base.csv
   'STATUS RATEIO': 'statusRateio',
   'ETAPA UC': 'etapaUc',
+
   'DATA DE ADESÃO': 'joinDate',
   'DATA CANCELAMENTO': 'dataCancelamento',
-  'MOTIVO CANCELAMENTO': 'motivoCancelamento',
-  'MOTIVO RETIRADA': 'motivoCancelamento', // Variação EGS
+  'DATA RETIRADA DE RATEIO': 'dataCancelamento', // Mapeado do base.csv
 
-  // === Técnico ===
+  'MOTIVO CANCELAMENTO': 'motivoCancelamento',
+  'MOTIVO RETIRADA': 'motivoCancelamento',       // Mapeado do base.csv
+
+  // === Técnico e Operacional ===
   'FORNECIMENTO': 'connectionType',
   'EMPRESA NO CONTRATO': 'projeto',
   'DISTRIBUIDORA': 'distribuidora',
-  'Distribuidora': 'distribuidora',     // Variação EGS
-  'REGIÃO': 'region',                   // Novo EGS (ex: MS)
+  'REGIÃO': 'region',                   // Mapeado do base.csv
 
   // === Financeiro e Consumo ===
   'DESCONTO CONTRATADO': 'discount',
   'MÉDIA DE CONSUMO MÓVEL KWH': 'consumption',
-  'CONS. DISPONÍVEL KWH': 'consumption', // Variação EGS
+  'CONS. DISPONÍVEL KWH': 'consumption', // Mapeado do base.csv
+  'CONSUMO ALVO': 'targetConsumption',   // NOVO: Para cálculo de vacância
   'PARTICIPAÇÃO DISPONÍVEL': 'participation',
+
+  'BOLETOS ATRASADOS': 'overdueBills',   // NOVO: Indicador rápido de risco
   'DATA FIXA VENCIMENTO': 'dueDate',
 
-  // === Endereço ===
+  // === Endereço e Contato ===
   'E-MAIL': 'email',
   'TELEFONE': 'phone',
   'CIDADE': 'city',
