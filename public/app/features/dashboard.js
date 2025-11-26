@@ -1,26 +1,72 @@
+import { getTargetGeneration } from "../config/projects.js";
+
 // Renderiza os KPIs e Lógica de Negócio
-export function renderKPIs(elIds, clients) {
+export function renderKPIs(elIds, clients, currentBase) {
   const total = clients.length;
   const active = clients.filter(c => (c.status || '').toUpperCase() === 'ATIVO').length;
 
-  // Inadimplentes (Lógica mantida)
+  // Inadimplentes
   const overdue = clients.filter(c => {
     const st = (c.status || '').toUpperCase();
     return st === 'INADIMPLENTE' || st === 'EM_COBRANCA';
   }).length;
 
-  // Cálculo de Receita (Lógica mantida)
+  // Cálculo de Receita Estimada (Soma do valor contratual)
   const monthly = clients.reduce((sum, c) => {
-    let cons = parseFloat(String(c.consumption || 0).replace(',', '.')) || 0;
-    let disc = parseFloat(String(c.discount || 15).replace(',', '.')) / 100;
-    return sum + (cons * 0.85 * (1 - disc));
+    // Tratamento robusto para números que vêm como string "1.200,50" ou number
+    let cons = 0;
+    if (typeof c.consumption === 'string') {
+      cons = parseFloat(c.consumption.replace('.', '').replace(',', '.')) || 0;
+    } else {
+      cons = c.consumption || 0;
+    }
+
+    let disc = 0;
+    if (typeof c.discount === 'string') {
+      disc = parseFloat(c.discount.replace(',', '.')) || 0;
+    } else {
+      disc = c.discount || 0;
+    }
+
+    // Lógica: Consumo * Tarifa Cheia (0.85 ref) * (1 - Desconto)
+    // Ajuste o 0.85 conforme a tarifa média real da região se necessário
+    return sum + (cons * 0.85 * (1 - (disc / 100)));
   }, 0);
 
-  // Atualiza elementos do DOM com formatação
+  // --- CÁLCULO DE VACÂNCIA CONTRATUAL ---
+  // 1. Soma do consumo médio dos clientes ATIVOS
+  const totalConsumoMedio = clients
+    .filter(c => (c.status || '').toUpperCase() === 'ATIVO')
+    .reduce((sum, c) => {
+      let val = 0;
+      if (typeof c.consumption === 'string') {
+        val = parseFloat(c.consumption.replace('.', '').replace(',', '.')) || 0;
+      } else {
+        val = c.consumption || 0;
+      }
+      return sum + val;
+    }, 0);
+
+  // 2. Geração Alvo (Vem do arquivo de configuração)
+  const geracaoAlvo = getTargetGeneration(currentBase);
+
+  // 3. Cálculo (%)
+  let vacanciaContratual = 100; // Começa 100% vazio
+  if (geracaoAlvo > 0) {
+    // Ocupação = Consumo / Alvo
+    const ocupacao = (totalConsumoMedio / geracaoAlvo) * 100;
+    vacanciaContratual = Math.max(0, 100 - ocupacao);
+  }
+
+  // Atualiza elementos do DOM
   updateText(elIds.total, total);
   updateText(elIds.active, active);
   updateText(elIds.overdue, overdue);
   updateText(elIds.revenue, monthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
+
+  // Se existir o elemento de vacância no HTML (sugerido adicionar depois)
+  // Por enquanto, mostramos no console para validar
+  console.log(`Base: ${currentBase} | Alvo: ${geracaoAlvo} | Ocupado: ${totalConsumoMedio} | Vacância: ${vacanciaContratual.toFixed(1)}%`);
 }
 
 function updateText(id, val) {
@@ -28,7 +74,7 @@ function updateText(id, val) {
   if (el) el.textContent = val;
 }
 
-// Configuração comum para gráficos modernos
+// Configuração comum para gráficos
 const commonOptions = {
   responsive: true,
   maintainAspectRatio: false,
@@ -42,7 +88,7 @@ const commonOptions = {
       }
     },
     tooltip: {
-      backgroundColor: 'rgba(30, 41, 59, 0.9)', // Slate-800
+      backgroundColor: 'rgba(30, 41, 59, 0.9)',
       padding: 12,
       titleFont: { family: "'Inter', sans-serif", size: 13 },
       bodyFont: { family: "'Inter', sans-serif", size: 12 },
@@ -53,9 +99,8 @@ const commonOptions = {
   layout: { padding: 10 }
 };
 
-// Gráfico de Barras (Funil de Vendas)
+// Gráfico de Barras (Funil)
 export function renderClientsChart(ctx, clients, chartInstanceRef) {
-  // Lógica de etapas mantida
   const etapas = {
     'Novo': 0,
     'Enviado Rateio': 0,
@@ -86,12 +131,7 @@ export function renderClientsChart(ctx, clients, chartInstanceRef) {
       datasets: [{
         label: 'Clientes',
         data,
-        backgroundColor: [
-          '#94a3b8', // Novo (Slate-400)
-          '#f59e0b', // Enviado (Amber-500)
-          '#3b82f6', // Cadastrado (Blue-500)
-          '#0d9488'  // Faturado (Teal-600 - Cor Principal)
-        ],
+        backgroundColor: ['#94a3b8', '#f59e0b', '#3b82f6', '#0d9488'],
         borderRadius: 6,
         barPercentage: 0.6,
         borderSkipped: false
@@ -99,11 +139,11 @@ export function renderClientsChart(ctx, clients, chartInstanceRef) {
     },
     options: {
       ...commonOptions,
-      plugins: { ...commonOptions.plugins, legend: { display: false } }, // Esconde legenda no funil
+      plugins: { ...commonOptions.plugins, legend: { display: false } },
       scales: {
         y: {
           beginAtZero: true,
-          grid: { color: '#f1f5f9', borderDash: [4, 4] }, // Grid muito sutil
+          grid: { color: '#f1f5f9', borderDash: [4, 4] },
           ticks: { font: { family: "'Inter', sans-serif", size: 10 }, color: '#64748b' },
           border: { display: false }
         },
@@ -117,7 +157,7 @@ export function renderClientsChart(ctx, clients, chartInstanceRef) {
   });
 }
 
-// Gráfico de Pizza (Status da Carteira)
+// Gráfico de Pizza (Status)
 export function renderStatusChart(ctx, clients, chartInstanceRef) {
   const counts = {};
 
@@ -130,14 +170,13 @@ export function renderStatusChart(ctx, clients, chartInstanceRef) {
   const sortedLabels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
   const data = sortedLabels.map(l => counts[l]);
 
-  // Cores mapeadas para o tema novo
   const backgroundColors = sortedLabels.map(label => {
-    if (label.includes('ATIVO')) return '#10b981'; // Emerald-500
-    if (label.includes('INATIVO')) return '#cbd5e1'; // Slate-300
-    if (label.includes('PENDENTE') || label.includes('ACOMPANHAR')) return '#f59e0b'; // Amber-500
-    if (label.includes('APTO')) return '#3b82f6'; // Blue-500
-    if (label.includes('CANCEL') || label.includes('INADIMPLENTE')) return '#f43f5e'; // Rose-500
-    return '#94a3b8'; // Default Slate
+    if (label.includes('ATIVO')) return '#10b981';
+    if (label.includes('INATIVO')) return '#cbd5e1';
+    if (label.includes('PENDENTE') || label.includes('ACOMPANHAR')) return '#f59e0b';
+    if (label.includes('APTO')) return '#3b82f6';
+    if (label.includes('CANCEL') || label.includes('INADIMPLENTE')) return '#f43f5e';
+    return '#94a3b8';
   });
 
   if (chartInstanceRef.value) chartInstanceRef.value.destroy();
@@ -149,13 +188,13 @@ export function renderStatusChart(ctx, clients, chartInstanceRef) {
       datasets: [{
         data,
         backgroundColor: backgroundColors,
-        borderWidth: 0, // Sem bordas para look flat
+        borderWidth: 0,
         hoverOffset: 4
       }]
     },
     options: {
       ...commonOptions,
-      cutout: '75%', // Rosca mais fina e moderna
+      cutout: '75%',
       plugins: {
         legend: {
           position: 'right',

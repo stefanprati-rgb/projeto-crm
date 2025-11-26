@@ -6,6 +6,7 @@ import { showToast } from "../ui/toast.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 import { validateCPF, validateCNPJ } from "../utils/helpers.js";
+import { PROJECTS } from "../config/projects.js";
 
 // Classes para o estado "Ativo" do Menu (Tailwind)
 const NAV_ACTIVE_CLASSES = ['bg-primary-50', 'text-primary-700', 'font-bold', 'shadow-sm'];
@@ -18,20 +19,21 @@ export class CRMApp {
     this.auth = auth;
 
     this.userRole = userData.role || 'visualizador';
-    this.allowedBases = userData.allowedBases || ['CGB'];
+    // Se o usuário não tiver bases definidas, damos acesso a todas por padrão
+    // No futuro, isso virá do Firestore do usuário
+    this.allowedBases = userData.allowedBases || Object.keys(PROJECTS);
     this.currentBase = this.allowedBases[0];
 
     // --- DADOS SEPARADOS ---
-    this.dashboardData = []; // Todos os dados (para KPIs precisos)
-    this.tableData = [];     // Dados paginados (para renderização rápida)
+    this.dashboardData = [];
+    this.tableData = [];
     this.invoices = [];
 
-    // Estado da Paginação
     this.pagination = {
       lastDoc: null,
       hasMore: true,
       isLoading: false,
-      pageSize: 50 // Carrega 50 clientes por clique
+      pageSize: 50
     };
 
     this.service = new ClientService(db);
@@ -49,11 +51,10 @@ export class CRMApp {
   init() {
     this.initRoleBasedUI();
     this.initBaseSelector();
-    this.initLoadMoreButton(); // Cria o botão dinamicamente
+    this.initLoadMoreButton();
     this.bindNav();
     this.bindActions();
 
-    // Carrega dados iniciais
     this.loadDataForBase(this.currentBase);
     this.updateNavHighlight(this.activeSection);
   }
@@ -76,20 +77,23 @@ export class CRMApp {
     if (!selector) return;
 
     selector.innerHTML = '';
-    if (this.allowedBases.length === 0) {
-      const opt = document.createElement('option');
-      opt.text = "Sem acesso";
-      selector.appendChild(opt);
-      selector.disabled = true;
-      return;
-    }
 
-    this.allowedBases.forEach(base => {
-      const opt = document.createElement('option');
-      opt.value = base;
-      opt.textContent = base;
-      if (base === this.currentBase) opt.selected = true;
-      selector.appendChild(opt);
+    // Adiciona opção "TODOS" (Consolidado)
+    const optAll = document.createElement('option');
+    optAll.value = 'TODOS';
+    optAll.textContent = 'Visão Consolidada (Todos)';
+    selector.appendChild(optAll);
+
+    // Adiciona Projetos Individuais
+    this.allowedBases.forEach(baseCode => {
+      const project = PROJECTS[baseCode];
+      if (project) {
+        const opt = document.createElement('option');
+        opt.value = baseCode;
+        opt.textContent = `${baseCode} - ${project.name}`;
+        if (baseCode === this.currentBase) opt.selected = true;
+        selector.appendChild(opt);
+      }
     });
 
     selector.addEventListener('change', (e) => {
@@ -97,21 +101,22 @@ export class CRMApp {
       if (newBase !== this.currentBase) {
         this.currentBase = newBase;
         this.loadDataForBase(this.currentBase);
-        showToast(`Base alterada para: ${this.currentBase}`, 'info');
+
+        // Feedback visual de troca de contexto
+        const msg = newBase === 'TODOS' ? 'Visão Geral Consolidada' : `Projeto: ${PROJECTS[newBase]?.name}`;
+        showToast(msg, 'info');
       }
     });
   }
 
-  // Injeta o botão "Carregar Mais" abaixo da tabela
   initLoadMoreButton() {
     const tableContainer = document.querySelector('#clients-section .overflow-x-auto');
     if (!tableContainer) return;
 
-    // Cria container para o botão se não existir
     if (!document.getElementById('loadMoreContainer')) {
       const container = document.createElement('div');
       container.id = 'loadMoreContainer';
-      container.className = 'p-4 text-center border-t border-slate-100 bg-slate-50/30 hidden'; // Inicia oculto
+      container.className = 'p-4 text-center border-t border-slate-100 bg-slate-50/30 hidden';
 
       const btn = document.createElement('button');
       btn.id = 'btnLoadMore';
@@ -125,31 +130,26 @@ export class CRMApp {
     }
   }
 
-  // --- CARREGAMENTO DE DADOS ---
+  // --- CARREGAMENTO ---
 
   async loadDataForBase(baseName) {
-    // Reset total
     this.dashboardData = [];
     this.tableData = [];
     this.pagination = { lastDoc: null, hasMore: true, isLoading: false, pageSize: 50 };
 
-    // Limpa UI da tabela antes de carregar
     this.table.applyFilters([]);
     this.updateLoadMoreUI();
 
     console.log(`Iniciando carregamento para: ${baseName}`);
-    showToast("Carregando base de dados...", "info");
 
-    // 1. Carrega PRIMEIRA PÁGINA para a Tabela (Rápido)
+    // 1. Tabela Paginada
     await this.loadNextPage();
 
-    // 2. Carrega DADOS DO DASHBOARD (Background - Completo)
-    // Não bloqueia a UI, apenas atualiza os gráficos quando terminar
+    // 2. Dashboard Completo (Background)
     this.service.getAllForDashboard(baseName).then(data => {
       this.dashboardData = data;
-      this.updateDashboard(); // Atualiza gráficos com dados reais
-      console.log(`Dashboard atualizado com ${data.length} registos.`);
-    }).catch(err => console.error("Erro ao carregar dashboard:", err));
+      this.updateDashboard();
+    }).catch(err => console.error("Erro dashboard:", err));
   }
 
   async loadNextPage() {
@@ -163,7 +163,6 @@ export class CRMApp {
     }
 
     try {
-      // Chama o serviço paginado
       const result = await this.service.getPage(
         this.currentBase,
         this.pagination.pageSize,
@@ -171,11 +170,8 @@ export class CRMApp {
       );
 
       if (result.data.length > 0) {
-        // Adiciona novos dados à lista existente
         this.tableData = [...this.tableData, ...result.data];
         this.pagination.lastDoc = result.lastDoc;
-
-        // Atualiza a tabela
         this.table.applyFilters(this.tableData);
       }
 
@@ -193,10 +189,8 @@ export class CRMApp {
   updateLoadMoreUI() {
     const container = document.getElementById('loadMoreContainer');
     const btn = document.getElementById('btnLoadMore');
-
     if (!container || !btn) return;
 
-    // Só mostra o botão se houver mais dados e estivermos na aba Clientes
     if (this.pagination.hasMore) {
       container.classList.remove('hidden');
       btn.disabled = false;
@@ -234,7 +228,6 @@ export class CRMApp {
 
     document.querySelectorAll('.section-content').forEach(s => s.classList.add('d-none'));
     const target = document.getElementById(`${sectionId}-section`);
-
     if (target) {
       target.classList.remove('d-none');
       target.style.animation = 'none';
@@ -258,20 +251,20 @@ export class CRMApp {
   refreshUI() {
     if (this.activeSection === 'dashboard') this.updateDashboard();
     if (this.activeSection === 'clients') {
-      this.table.applyFilters(this.tableData); // Usa apenas dados paginados
-      this.updateLoadMoreUI(); // Garante que o botão aparece/desaparece corretamente
+      this.table.applyFilters(this.tableData);
+      this.updateLoadMoreUI();
     }
     if (this.activeSection === 'finance') this.updateFinance();
   }
 
   updateDashboard() {
-    // Usa dashboardData (completo) para KPIs
+    // Passa a base atual para cálculo correto da vacância
     renderKPIs({
       total: 'kpi-total-clients',
       active: 'kpi-active-clients',
       overdue: 'kpi-overdue-clients',
       revenue: 'kpi-monthly-revenue'
-    }, this.dashboardData);
+    }, this.dashboardData, this.currentBase);
 
     const ctxLine = document.getElementById('clientsChart')?.getContext('2d');
     const ctxPie = document.getElementById('statusChart')?.getContext('2d');
@@ -320,9 +313,17 @@ export class CRMApp {
       this.table.clearFilters(); applyFilters();
     });
 
+    // IMPORTAÇÃO
     document.getElementById('importExcelButton')?.addEventListener('click', () => {
       if (this.userRole !== 'editor') return;
-      if (confirm(`Importar dados para a base: ${this.currentBase}?`)) {
+
+      // Proteção: Não permitir importar em "TODOS"
+      if (this.currentBase === 'TODOS') {
+        showToast("Selecione um projeto específico (ex: LNV) para importar.", "warning");
+        return;
+      }
+
+      if (confirm(`Você está importando dados para: ${PROJECTS[this.currentBase]?.name || this.currentBase}.\n\nConfirma?`)) {
         document.getElementById('excelFileInput').click();
       }
     });
@@ -332,10 +333,11 @@ export class CRMApp {
     document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
     document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
 
-    // Exporta TUDO (dashboardData) e não só o paginado
+    // Exportação
     document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.dashboardData));
     document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
 
+    // CRUD
     document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
 
@@ -353,7 +355,6 @@ export class CRMApp {
     if (!file) return;
     try {
       await readExcelFile(file, this.currentBase);
-      // Recarrega tudo após importação
       this.loadDataForBase(this.currentBase);
     } catch (err) { console.error(err); }
     e.target.value = null;
@@ -389,7 +390,6 @@ export class CRMApp {
     }
 
     if (id) {
-      // Procura nos dados da tabela
       const c = this.tableData.find(x => x.id === id) || this.dashboardData.find(x => x.id === id);
       if (c) {
         document.getElementById('clientId').value = c.id;
@@ -419,6 +419,12 @@ export class CRMApp {
     e.preventDefault();
     if (this.userRole !== 'editor') { showToast("Permissão negada.", "danger"); return; }
 
+    // Bloqueia salvar se estiver em TODOS
+    if (this.currentBase === 'TODOS') {
+      showToast("Selecione um projeto específico para salvar o cliente.", "warning");
+      return;
+    }
+
     const id = document.getElementById('clientId').value;
     const data = {
       name: document.getElementById('clientName').value,
@@ -435,16 +441,15 @@ export class CRMApp {
       joinDate: document.getElementById('clientJoinDate').value,
       consumption: document.getElementById('clientConsumption').value,
       discount: document.getElementById('clientDiscount').value,
-      database: this.currentBase
+      database: this.currentBase // Salva com a base selecionada
     };
 
-    // Validações
     if (data.cpf && !validateCPF(data.cpf)) {
-      showToast("CPF inválido. Verifique os números.", "warning");
+      showToast("CPF inválido.", "warning");
       return;
     }
     if (data.cnpj && !validateCNPJ(data.cnpj)) {
-      showToast("CNPJ inválido. Verifique os números.", "warning");
+      showToast("CNPJ inválido.", "warning");
       return;
     }
 
@@ -454,10 +459,7 @@ export class CRMApp {
       const modalEl = document.getElementById('clientModal');
       const modal = bootstrap.Modal.getInstance(modalEl);
       modal?.hide();
-
-      // Recarrega para mostrar o novo item
       this.loadDataForBase(this.currentBase);
-
     } catch (err) { console.error(err); showToast('Erro ao salvar.', 'danger'); }
   }
 }

@@ -19,34 +19,41 @@ export class ClientService {
     this.collectionName = 'clients';
   }
 
-  // --- PAGINAÇÃO REAL ---
-  // Busca apenas uma fatia dos dados (ex: 10 clientes)
-  // Retorna: { data: [...], lastDoc: object (para pedir a próxima pág), hasMore: boolean }
+  // --- PAGINAÇÃO REAL (COM SUPORTE A MULTI-PROJETOS) ---
   async getPage(baseFilter, pageSize, lastDoc = null) {
     let q;
+    const constraints = [];
 
-    // Query base: Filtra por base + Ordena por nome + Limite
-    const constraints = [
-      where('database', '==', baseFilter),
-      orderBy('name'),
-      limit(pageSize)
-    ];
+    // 1. Filtro de Base (Opcional)
+    // Se for 'TODOS' ou vazio, não aplica o filtro, trazendo todos os projetos (LNV, ALA, etc.)
+    if (baseFilter && baseFilter !== 'TODOS') {
+      constraints.push(where('database', '==', baseFilter));
+    }
 
-    // Se tivermos um cursor (último doc da página anterior), começamos depois dele
+    // 2. Ordenação
+    constraints.push(orderBy('name'));
+
+    // 3. Limite (Paginação)
+    constraints.push(limit(pageSize));
+
+    // 4. Cursor (Continuar de onde parou)
     if (lastDoc) {
       constraints.push(startAfter(lastDoc));
     }
 
     try {
+      // Tenta criar a query com ordenação
       q = query(collection(this.db, this.collectionName), ...constraints);
     } catch (e) {
-      console.warn("Índice de ordenação em falta. A usar fallback (ordem de criação).");
-      // Fallback: Se o índice composto (database + name) não existir, busca sem ordenar por nome
-      const simpleConstraints = [
-        where('database', '==', baseFilter),
-        limit(pageSize)
-      ];
+      console.warn("Erro de índice ou ordenação. Tentando fallback simples.");
+      // Fallback em caso de erro de índice no Firebase (comum no início)
+      const simpleConstraints = [];
+      if (baseFilter && baseFilter !== 'TODOS') {
+        simpleConstraints.push(where('database', '==', baseFilter));
+      }
+      simpleConstraints.push(limit(pageSize));
       if (lastDoc) simpleConstraints.push(startAfter(lastDoc));
+
       q = query(collection(this.db, this.collectionName), ...simpleConstraints);
     }
 
@@ -54,24 +61,27 @@ export class ClientService {
 
     return {
       data: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null, // O cursor para a próxima chamada
-      hasMore: snapshot.docs.length === pageSize // Se veio menos que o limite, acabou
+      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+      hasMore: snapshot.docs.length === pageSize
     };
   }
 
-  // --- DADOS PARA DASHBOARD ---
-  // Busca todos os dados APENAS para cálculo de KPIs (separado da tabela)
-  // No futuro, isto pode ser otimizado com 'Count' ou agregações no servidor
+  // --- DADOS PARA DASHBOARD (KPIs) ---
   async getAllForDashboard(baseFilter) {
-    const q = query(
-      collection(this.db, this.collectionName),
-      where('database', '==', baseFilter)
-    );
+    let q;
+    if (baseFilter && baseFilter !== 'TODOS') {
+      // Filtra apenas o projeto selecionado
+      q = query(collection(this.db, this.collectionName), where('database', '==', baseFilter));
+    } else {
+      // Traz TUDO para a visão consolidada (Diretoria)
+      q = query(collection(this.db, this.collectionName));
+    }
+
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   }
 
-  // --- OPERAÇÕES CRUD (Mantidas) ---
+  // --- OPERAÇÕES CRUD ---
 
   async save(id, data) {
     const cleanData = this.removeUndefined(data);
@@ -90,33 +100,40 @@ export class ClientService {
     await deleteDoc(ref);
   }
 
-  // Importação em Lote (Otimizada)
-  async batchImport(rows, mapFunction, existingClients, batchSize = 400) {
-    const items = rows.map(r => mapFunction ? mapFunction(r) : r);
-    const chunks = [];
-
-    for (let i = 0; i < items.length; i += batchSize) {
-      chunks.push(items.slice(i, i + batchSize));
+  // Limpeza de Base (Apenas se uma base específica for selecionada)
+  async deleteAll(baseFilter) {
+    if (!baseFilter || baseFilter === 'TODOS') {
+      throw new Error("Segurança: Selecione um projeto específico (ex: LNV) para limpar.");
     }
+
+    console.log(`Iniciando limpeza do projeto: ${baseFilter}...`);
+    const q = query(collection(this.db, this.collectionName), where('database', '==', baseFilter));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) return 0;
+
+    const batchSize = 400;
+    const chunks = [];
+    let currentChunk = [];
+
+    snapshot.docs.forEach((doc) => {
+      currentChunk.push(doc.ref);
+      if (currentChunk.length === batchSize) {
+        chunks.push(currentChunk);
+        currentChunk = [];
+      }
+    });
+    if (currentChunk.length > 0) chunks.push(currentChunk);
 
     let count = 0;
     for (const chunk of chunks) {
       const batch = writeBatch(this.db);
-
-      chunk.forEach(item => {
-        if (item.id) {
-          const ref = doc(this.db, this.collectionName, item.id);
-          batch.set(ref, item, { merge: true });
-        } else {
-          const ref = doc(collection(this.db, this.collectionName));
-          batch.set(ref, item);
-        }
-      });
-
+      chunk.forEach(ref => batch.delete(ref));
       await batch.commit();
-      count++;
-      console.log(`Lote ${count}/${chunks.length} processado.`);
+      count += chunk.length;
+      console.log(`Apagados ${count} registos...`);
     }
+    return count;
   }
 
   removeUndefined(obj) {
