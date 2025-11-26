@@ -8,9 +8,9 @@ import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 import { validateCPF, validateCNPJ } from "../utils/helpers.js";
 import { PROJECTS } from "../config/projects.js";
 
-// Classes para o estado "Ativo" do Menu (Tailwind)
-const NAV_ACTIVE_CLASSES = ['bg-primary-50', 'text-primary-700', 'font-bold', 'shadow-sm'];
-const NAV_INACTIVE_CLASSES = ['text-slate-500', 'hover:bg-primary-50', 'hover:text-primary-700'];
+// Classes para o estado "Ativo" do Menu Lateral
+const NAV_ACTIVE_CLASSES = ['bg-white', 'text-primary-700', 'shadow-sm'];
+const NAV_INACTIVE_CLASSES = ['text-slate-500', 'hover:bg-white', 'hover:text-primary-700', 'hover:shadow-sm'];
 
 export class CRMApp {
 
@@ -19,12 +19,10 @@ export class CRMApp {
     this.auth = auth;
 
     this.userRole = userData.role || 'visualizador';
-    // Se o usuário não tiver bases definidas, damos acesso a todas por padrão
-    // No futuro, isso virá do Firestore do usuário
     this.allowedBases = userData.allowedBases || Object.keys(PROJECTS);
     this.currentBase = this.allowedBases[0];
 
-    // --- DADOS SEPARADOS ---
+    // Dados
     this.dashboardData = [];
     this.tableData = [];
     this.invoices = [];
@@ -55,6 +53,9 @@ export class CRMApp {
     this.bindNav();
     this.bindActions();
 
+    // INICIALIZAÇÃO DAS ABAS DO MODAL (NOVO)
+    this.bindModalTabs();
+
     this.loadDataForBase(this.currentBase);
     this.updateNavHighlight(this.activeSection);
   }
@@ -78,13 +79,11 @@ export class CRMApp {
 
     selector.innerHTML = '';
 
-    // Adiciona opção "TODOS" (Consolidado)
     const optAll = document.createElement('option');
     optAll.value = 'TODOS';
     optAll.textContent = 'Visão Consolidada (Todos)';
     selector.appendChild(optAll);
 
-    // Adiciona Projetos Individuais
     this.allowedBases.forEach(baseCode => {
       const project = PROJECTS[baseCode];
       if (project) {
@@ -102,10 +101,29 @@ export class CRMApp {
         this.currentBase = newBase;
         this.loadDataForBase(this.currentBase);
 
-        // Feedback visual de troca de contexto
         const msg = newBase === 'TODOS' ? 'Visão Geral Consolidada' : `Projeto: ${PROJECTS[newBase]?.name}`;
         showToast(msg, 'info');
       }
+    });
+  }
+
+  // Lógica de Tabs do Modal (NOVO)
+  bindModalTabs() {
+    const tabBtns = document.querySelectorAll('.tab-btn');
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+
+        // 1. Remove ativo de todos
+        tabBtns.forEach(b => b.classList.remove('active', 'text-primary-700', 'bg-white', 'shadow-sm'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+        // 2. Ativa o atual
+        const targetId = btn.dataset.tab;
+        btn.classList.add('active', 'text-primary-700', 'bg-white', 'shadow-sm');
+        document.getElementById(targetId)?.classList.remove('hidden');
+      });
     });
   }
 
@@ -116,11 +134,11 @@ export class CRMApp {
     if (!document.getElementById('loadMoreContainer')) {
       const container = document.createElement('div');
       container.id = 'loadMoreContainer';
-      container.className = 'p-4 text-center border-t border-slate-100 bg-slate-50/30 hidden';
+      container.className = 'p-5 text-center border-t border-slate-100 bg-slate-50/30 hidden';
 
       const btn = document.createElement('button');
       btn.id = 'btnLoadMore';
-      btn.className = 'px-6 py-2 bg-white border border-slate-300 text-slate-600 rounded-full shadow-sm text-sm font-medium hover:bg-slate-50 hover:text-primary-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
+      btn.className = 'px-6 py-2 bg-white border border-slate-200 text-slate-600 rounded-full shadow-sm text-sm font-medium hover:bg-slate-50 hover:text-primary-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
       btn.innerHTML = '<i class="fas fa-download me-2"></i>Carregar mais clientes';
 
       btn.addEventListener('click', () => this.loadNextPage());
@@ -145,7 +163,7 @@ export class CRMApp {
     // 1. Tabela Paginada
     await this.loadNextPage();
 
-    // 2. Dashboard Completo (Background)
+    // 2. Dashboard Completo
     this.service.getAllForDashboard(baseName).then(data => {
       this.dashboardData = data;
       this.updateDashboard();
@@ -258,7 +276,6 @@ export class CRMApp {
   }
 
   updateDashboard() {
-    // Passa a base atual para cálculo correto da vacância
     renderKPIs({
       total: 'kpi-total-clients',
       active: 'kpi-active-clients',
@@ -304,10 +321,8 @@ export class CRMApp {
 
   bindActions() {
     const applyFilters = () => this.table.applyFilters(this.tableData);
-    ['searchInput', 'statusFilter', 'typeFilter'].forEach(id =>
+    ['searchInput', 'statusFilter'].forEach(id =>
       document.getElementById(id)?.addEventListener('input', applyFilters));
-
-    document.getElementById('cityFilter')?.addEventListener('input', applyFilters);
 
     document.getElementById('clearFiltersButton')?.addEventListener('click', () => {
       this.table.clearFilters(); applyFilters();
@@ -316,14 +331,11 @@ export class CRMApp {
     // IMPORTAÇÃO
     document.getElementById('importExcelButton')?.addEventListener('click', () => {
       if (this.userRole !== 'editor') return;
-
-      // Proteção: Não permitir importar em "TODOS"
       if (this.currentBase === 'TODOS') {
-        showToast("Selecione um projeto específico (ex: LNV) para importar.", "warning");
+        showToast("Selecione um projeto específico para importar.", "warning");
         return;
       }
-
-      if (confirm(`Você está importando dados para: ${PROJECTS[this.currentBase]?.name || this.currentBase}.\n\nConfirma?`)) {
+      if (confirm(`Importar para: ${PROJECTS[this.currentBase]?.name || this.currentBase}?`)) {
         document.getElementById('excelFileInput').click();
       }
     });
@@ -333,11 +345,9 @@ export class CRMApp {
     document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
     document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
 
-    // Exportação
     document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.dashboardData));
     document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
 
-    // CRUD
     document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
 
@@ -347,8 +357,6 @@ export class CRMApp {
       if (btn.dataset.action === 'edit') this.showClientModal(btn.dataset.id);
     });
   }
-
-  // --- HANDLERS ---
 
   async handleExcelImport(e) {
     const file = e.target.files[0];
@@ -372,6 +380,8 @@ export class CRMApp {
     e.target.value = null;
   }
 
+  // --- MODAL (COM RESET DE ABAS) ---
+
   showClientModal(id = null) {
     const f = document.getElementById('clientForm');
     f.reset();
@@ -379,8 +389,18 @@ export class CRMApp {
     const title = document.getElementById('clientModalTitle');
     const btnSave = document.getElementById('clientModalSaveButton');
 
+    // Reset das Abas (Sempre abre na aba de Dados)
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    tabBtns.forEach(b => b.classList.remove('active', 'text-primary-700', 'bg-white', 'shadow-sm'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+    // Ativa a primeira aba
+    const firstTabBtn = document.querySelector('[data-tab="tab-data"]');
+    firstTabBtn?.classList.add('active', 'text-primary-700', 'bg-white', 'shadow-sm');
+    document.getElementById('tab-data')?.classList.remove('hidden');
+
     if (this.userRole === 'visualizador') {
-      title.textContent = 'Ver Cliente';
+      title.textContent = 'Visualizar Cliente';
       Array.from(f.elements).forEach(el => el.disabled = true);
       if (btnSave) btnSave.classList.add('hidden');
     } else {
@@ -419,9 +439,8 @@ export class CRMApp {
     e.preventDefault();
     if (this.userRole !== 'editor') { showToast("Permissão negada.", "danger"); return; }
 
-    // Bloqueia salvar se estiver em TODOS
     if (this.currentBase === 'TODOS') {
-      showToast("Selecione um projeto específico para salvar o cliente.", "warning");
+      showToast("Selecione um projeto específico.", "warning");
       return;
     }
 
@@ -441,7 +460,7 @@ export class CRMApp {
       joinDate: document.getElementById('clientJoinDate').value,
       consumption: document.getElementById('clientConsumption').value,
       discount: document.getElementById('clientDiscount').value,
-      database: this.currentBase // Salva com a base selecionada
+      database: this.currentBase
     };
 
     if (data.cpf && !validateCPF(data.cpf)) {
