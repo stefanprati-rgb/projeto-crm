@@ -1,14 +1,15 @@
 import { ClientService } from "../services/clientService.js";
 import { ClientsTable } from "../features/clientsTable.js";
 import { renderKPIs, renderClientsChart, renderStatusChart } from "../features/dashboard.js";
-import { readExcelFile, exportJSON, exportExcel } from "../features/importExport.js";
+// Importamos a nova função exportPDF
+import { readExcelFile, exportJSON, exportExcel, exportPDF } from "../features/importExport.js";
 import { showToast } from "../ui/toast.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
-import { validateCPF, validateCNPJ, debounce } from "../utils/helpers.js"; // Importamos o debounce
+import { validateCPF, validateCNPJ, debounce } from "../utils/helpers.js";
 import { PROJECTS } from "../config/projects.js";
 
-// Classes para o estado "Ativo" do Menu Lateral (Estilo Apple/Clean)
+// Classes para o estado "Ativo" do Menu Lateral
 const NAV_ACTIVE_CLASSES = ['bg-white', 'text-primary-700', 'shadow-sm', 'font-semibold'];
 const NAV_INACTIVE_CLASSES = ['text-slate-500', 'hover:bg-white/60', 'hover:text-primary-700'];
 
@@ -22,7 +23,7 @@ export class CRMApp {
     this.allowedBases = userData.allowedBases || Object.keys(PROJECTS);
     this.currentBase = this.allowedBases[0];
 
-    // Dados em memória
+    // Dados
     this.dashboardData = [];
     this.tableData = [];
     this.invoices = [];
@@ -35,12 +36,10 @@ export class CRMApp {
       pageSize: 50
     };
 
-    // Serviços e Componentes
     this.service = new ClientService(db);
     this.invoiceService = new InvoiceService(db);
-    this.table = new ClientsTable(this.userRole);
 
-    // Refs de Gráficos
+    this.table = new ClientsTable(this.userRole);
     this.clientsChartRef = { value: null };
     this.statusChartRef = { value: null };
 
@@ -57,9 +56,8 @@ export class CRMApp {
 
     this.bindNav();
     this.bindActions();
-    this.bindModalTabs(); // <--- Lógica das Abas
+    this.bindModalTabs();
 
-    // Carregamento Inicial
     this.loadDataForBase(this.currentBase);
     this.updateNavHighlight(this.activeSection);
   }
@@ -84,13 +82,11 @@ export class CRMApp {
 
     selector.innerHTML = '';
 
-    // Opção Consolidada
     const optAll = document.createElement('option');
     optAll.value = 'TODOS';
     optAll.textContent = 'Visão Consolidada (Todos)';
     selector.appendChild(optAll);
 
-    // Projetos Individuais
     this.allowedBases.forEach(baseCode => {
       const project = PROJECTS[baseCode];
       if (project) {
@@ -114,7 +110,7 @@ export class CRMApp {
     });
   }
 
-  // --- ABAS DO MODAL (Lógica Nova) ---
+  // --- ABAS DO MODAL ---
   bindModalTabs() {
     const tabBtns = document.querySelectorAll('.tab-btn');
 
@@ -123,16 +119,15 @@ export class CRMApp {
         e.preventDefault();
         const targetId = btn.dataset.tab;
 
-        // 1. UI dos Botões: Remove ativo de todos e adiciona no clicado
+        // 1. UI dos Botões
         tabBtns.forEach(b => b.classList.remove('active', 'bg-white', 'text-primary-700', 'shadow-sm'));
-        btn.classList.add('active', 'bg-white', 'text-primary-700', 'shadow-sm'); // Estilo "Apple" ativo
+        btn.classList.add('active', 'bg-white', 'text-primary-700', 'shadow-sm');
 
-        // 2. Conteúdo: Esconde todos e mostra o alvo
+        // 2. Conteúdo
         document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
         const target = document.getElementById(targetId);
         if (target) {
           target.classList.remove('hidden');
-          // Pequena animação de fade
           target.classList.add('fade-in');
         }
       });
@@ -150,10 +145,8 @@ export class CRMApp {
 
     console.log(`Iniciando carregamento para: ${baseName}`);
 
-    // 1. Carrega Tabela (Paginada)
     await this.loadNextPage();
 
-    // 2. Carrega Dashboard (Completo em Background)
     this.service.getAllForDashboard(baseName).then(data => {
       this.dashboardData = data;
       this.updateDashboard();
@@ -254,7 +247,7 @@ export class CRMApp {
     const target = document.getElementById(`${sectionId}-section`);
     if (target) {
       target.classList.remove('d-none');
-      target.classList.add('fade-in'); // Re-aplica animação
+      target.classList.add('fade-in');
     }
 
     this.updateNavHighlight(sectionId);
@@ -319,16 +312,13 @@ export class CRMApp {
 
   // --- AÇÕES & EVENTOS ---
   bindActions() {
-    // BUSCA COM DEBOUNCE (Performance)
     const searchInput = document.getElementById('searchInput');
     if (searchInput) {
-      // Aplica filtros apenas 300ms após parar de digitar
       searchInput.addEventListener('input', debounce(() => {
         this.table.applyFilters(this.tableData);
       }, 300));
     }
 
-    // Outros Filtros (Imediatos)
     ['statusFilter', 'cityFilter'].forEach(id =>
       document.getElementById(id)?.addEventListener('input', () => this.table.applyFilters(this.tableData)));
 
@@ -337,7 +327,6 @@ export class CRMApp {
       this.table.applyFilters(this.tableData);
     });
 
-    // Botões de Importação/Exportação
     document.getElementById('importExcelButton')?.addEventListener('click', () => {
       if (this.userRole !== 'editor') return;
       if (this.currentBase === 'TODOS') {
@@ -353,10 +342,14 @@ export class CRMApp {
     document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
     document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
 
+    // Botões de Exportação
     document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.dashboardData));
     document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
 
-    // Botões de CRUD
+    // O NOVO BOTÃO PDF
+    document.getElementById('exportPdfButton')?.addEventListener('click', () => exportPDF(this.dashboardData));
+
+    // CRUD
     document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
 
@@ -395,11 +388,9 @@ export class CRMApp {
     f.reset();
     document.getElementById('clientId').value = '';
 
-    // Reset de UI do Modal
     const title = document.getElementById('clientModalTitle');
     const btnSave = document.getElementById('clientModalSaveButton');
 
-    // Força a aba 'Dados' a abrir primeiro
     const tabBtns = document.querySelectorAll('.tab-btn');
     tabBtns.forEach(b => b.classList.remove('active', 'bg-white', 'text-primary-700', 'shadow-sm'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
