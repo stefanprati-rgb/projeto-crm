@@ -5,6 +5,8 @@ import { readExcelFile, exportJSON, exportExcel } from "../features/importExport
 import { showToast } from "../ui/toast.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
+// Importamos as novas funções de validação
+import { validateCPF, validateCNPJ } from "../utils/helpers.js";
 
 // Classes para o estado "Ativo" do Menu (Tailwind)
 const NAV_ACTIVE_CLASSES = ['bg-primary-50', 'text-primary-700', 'font-bold', 'shadow-sm'];
@@ -379,6 +381,20 @@ export class CRMApp {
       discount: document.getElementById('clientDiscount').value,
       database: this.currentBase
     };
+
+    // --- VALIDAÇÃO ANTES DE SALVAR ---
+
+    // Validar CPF se preenchido
+    if (data.cpf && !validateCPF(data.cpf)) {
+      showToast("CPF inválido. Verifique os números.", "warning");
+      return; // Para a execução
+    }
+
+    // Validar CNPJ se preenchido
+    if (data.cnpj && !validateCNPJ(data.cnpj)) {
+      showToast("CNPJ inválido. Verifique os números.", "warning");
+      return; // Para a execução
+    }
 
     try {
       await this.service.save(id, data);
