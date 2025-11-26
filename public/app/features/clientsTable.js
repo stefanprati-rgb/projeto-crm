@@ -4,16 +4,17 @@ export class ClientsTable {
   constructor(userRole) {
     this.filtered = [];
     this.currentPage = 1;
-    this.perPage = 10;
+    this.perPage = 10; // Mostra menos por página para um visual mais leve
     this.userRole = userRole;
   }
 
-  // A lógica de filtro permanece idêntica, apenas a renderização muda
   applyFilters(clients) {
     const search = document.getElementById('searchInput').value.toLowerCase();
     const status = document.getElementById('statusFilter').value;
-    const type = document.getElementById('typeFilter').value;
-    // Verifica se o elemento cityFilter existe antes de tentar acessar o valor
+    // O filtro de tipo (PF/PJ) foi removido do HTML novo para simplificar, mas mantemos a lógica caso volte
+    const typeEl = document.getElementById('typeFilter');
+    const type = typeEl ? typeEl.value : '';
+
     const cityEl = document.getElementById('cityFilter');
     const city = cityEl ? cityEl.value.toLowerCase() : '';
 
@@ -67,108 +68,113 @@ export class ClientsTable {
 
     tbody.innerHTML = '';
 
-    // Estado Vazio (Empty State)
+    // Estado Vazio (Empty State elegante)
     if (this.filtered.length === 0) {
       tbody.innerHTML = `
         <tr>
-          <td colspan="6" class="p-12 text-center">
-            <div class="flex flex-col items-center justify-center text-slate-400">
-              <i class="fas fa-search text-3xl mb-3 opacity-50"></i>
-              <p class="font-medium">Nenhum cliente encontrado</p>
-              <p class="text-xs mt-1">Tente ajustar os filtros de busca.</p>
+          <td colspan="6" class="p-16 text-center">
+            <div class="flex flex-col items-center justify-center text-slate-300">
+              <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                <i class="fas fa-search text-2xl text-slate-400"></i>
+              </div>
+              <p class="font-semibold text-slate-500">Nenhum resultado encontrado</p>
+              <p class="text-sm mt-1">Tente ajustar os filtros ou buscar por outro termo.</p>
             </div>
           </td>
         </tr>`;
       nav.innerHTML = '';
-      summary.textContent = '0 clientes';
+      summary.textContent = '0 resultados';
       return;
     }
 
     const start = (this.currentPage - 1) * this.perPage;
     const pageClients = this.filtered.slice(start, start + this.perPage);
 
-    // Renderização das Linhas
     pageClients.forEach(c => {
       const tr = document.createElement('tr');
-      tr.className = "hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0";
+      // Estilo de linha: hover suave e transição
+      tr.className = "group hover:bg-slate-50/80 transition-colors duration-200";
 
-      // Botões de Ação Modernos
+      // Botões de Ação (Minimalistas e arredondados)
       let actionsHtml = '';
       if (this.userRole === 'editor') {
-        // Botão Editar (Verde/Primary)
         actionsHtml = `
-          <button class="h-8 w-8 rounded-full bg-white border border-slate-200 text-primary-600 hover:bg-primary-50 hover:border-primary-200 flex items-center justify-center transition-all shadow-sm group" data-id="${c.id}" data-action="edit" title="Editar">
-            <i class="fas fa-pen text-xs group-hover:scale-110 transition-transform"></i>
+          <button class="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-white hover:text-primary-600 hover:shadow-md border border-transparent hover:border-slate-100 flex items-center justify-center transition-all duration-200 transform hover:-translate-y-0.5" data-id="${c.id}" data-action="edit" title="Editar">
+            <i class="fas fa-pen text-[10px]"></i>
           </button>`;
       } else {
-        // Botão Visualizar (Cinza)
         actionsHtml = `
-          <button class="h-8 w-8 rounded-full bg-white border border-slate-200 text-slate-400 hover:bg-slate-50 hover:text-slate-600 flex items-center justify-center transition-all shadow-sm group" data-id="${c.id}" data-action="edit" title="Ver Detalhes">
-            <i class="fas fa-eye text-xs group-hover:scale-110 transition-transform"></i>
+          <button class="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-white hover:text-slate-600 hover:shadow-md border border-transparent hover:border-slate-100 flex items-center justify-center transition-all duration-200" data-id="${c.id}" data-action="edit" title="Ver Detalhes">
+            <i class="fas fa-eye text-[10px]"></i>
           </button>`;
       }
 
-      // Badge Status Rateio (Pequeno e discreto)
+      // Badge Status Rateio (Estilo Tag sutil)
       let statusRateioHtml = '';
       if (c.statusRateio) {
-        let colorClass = 'bg-slate-100 text-slate-600 border-slate-200';
+        let colorClass = 'bg-slate-100 text-slate-500';
         const st = c.statusRateio.toLowerCase();
-        if (st.includes('apto')) colorClass = 'bg-blue-50 text-blue-700 border-blue-100';
-        else if (st.includes('retirar')) colorClass = 'bg-rose-50 text-rose-700 border-rose-100';
-        else if (st.includes('acompanhar')) colorClass = 'bg-amber-50 text-amber-700 border-amber-100';
+        if (st.includes('apto')) colorClass = 'bg-blue-50 text-blue-600';
+        else if (st.includes('retirar')) colorClass = 'bg-rose-50 text-rose-600';
+        else if (st.includes('acompanhar')) colorClass = 'bg-amber-50 text-amber-600';
 
         statusRateioHtml = `
           <div class="mt-1.5">
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border ${colorClass}">
+            <span class="inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide ${colorClass}">
               ${c.statusRateio}
             </span>
           </div>`;
       }
 
       const projetoInfo = c.projeto
-        ? `<div class="text-xs text-slate-400 mt-0.5 flex items-center gap-1"><i class="fas fa-solar-panel text-amber-400 text-[10px]"></i>${c.projeto}</div>`
+        ? `<div class="text-[11px] font-medium text-slate-400 mt-0.5 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>${c.projeto}</div>`
         : '';
 
-      let idsInfo = `<div class="text-xs text-slate-400 font-mono mt-0.5 flex items-center gap-1"><i class="fas fa-plug text-[10px] opacity-50"></i>${c.instalacao}</div>`;
+      // UC e Conta Contrato
+      let idsInfo = `<div class="text-xs font-mono text-slate-500 mt-1 flex items-center gap-1">UC ${c.instalacao}</div>`;
       if (c.contaContrato) {
-        idsInfo += `<div class="text-[10px] text-slate-400 font-mono opacity-75">CC: ${c.contaContrato}</div>`;
+        idsInfo += `<div class="text-[10px] text-slate-400 font-mono">CC ${c.contaContrato}</div>`;
       }
 
-      // Preenchimento das Células com classes Tailwind
+      // Documento formatado (simulado, idealmente usaria helper)
+      const docDisplay = c.cpf || c.cnpj || 'N/A';
+
+      // HTML da linha
       tr.innerHTML = `
-        <td class="p-4 pl-6 align-top">
-          <div class="font-bold text-slate-700 text-sm">${c.name || 'Sem Nome'}</div>
+        <td class="p-5 pl-8 align-top">
+          <div class="font-bold text-slate-700 text-sm tracking-tight group-hover:text-primary-700 transition-colors">${c.name || 'Sem Nome'}</div>
           ${projetoInfo}
         </td>
-        <td class="p-4 align-top">
-          <div class="font-medium text-slate-600 text-xs">${c.cpf || c.cnpj || 'N/A'}</div>
+        <td class="p-5 align-top">
+          <div class="font-medium text-slate-600 text-xs">${docDisplay}</div>
           ${idsInfo}
         </td>
-        <td class="p-4 align-top">
+        <td class="p-5 align-top">
           ${statusBadge(c.status)}
           ${statusRateioHtml}
         </td>
-        <td class="p-4 align-top">
-          <div class="text-sm text-slate-600">${c.city || '-'}<span class="text-slate-400 text-xs mx-1">/</span>${c.state || '-'}</div>
-          <div class="text-xs text-slate-400 mt-0.5">${c.distribuidora || ''}</div>
+        <td class="p-5 align-top">
+          <div class="text-sm font-medium text-slate-600">${c.city || '-'}<span class="text-slate-300 mx-1">/</span>${c.state || '-'}</div>
+          <div class="text-[11px] font-semibold text-slate-400 uppercase mt-0.5 tracking-wider">${c.distribuidora || ''}</div>
         </td>
-        <td class="p-4 align-top">
+        <td class="p-5 align-top">
             <div class="font-bold text-slate-700 text-sm">${c.consumption || 0} <span class="text-xs text-slate-400 font-normal">kWh</span></div>
         </td>
-        <td class="p-4 pr-6 text-right align-top">
-          <div class="flex justify-end gap-2">
+        <td class="p-5 pr-8 text-right align-middle">
+          <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
             ${actionsHtml}
           </div>
         </td>`;
       tbody.appendChild(tr);
     });
 
-    // Paginação
+    // Paginação (Estilo iOS)
     const total = this.filtered.length;
     const totalPages = Math.ceil(total / this.perPage);
     const startItem = total === 0 ? 0 : start + 1;
     const endItem = Math.min(start + this.perPage, total);
-    summary.textContent = `Mostrando ${startItem}-${endItem} de ${total}`;
+
+    summary.textContent = `${startItem}-${endItem} de ${total}`;
 
     nav.innerHTML = '';
     if (totalPages > 1) {
@@ -176,35 +182,34 @@ export class ClientsTable {
       let endPage = Math.min(totalPages, startPage + 4);
       if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
 
-      // Botão Anterior
+      // Seta Esquerda
       if (this.currentPage > 1) {
         nav.innerHTML += `
-          <a href="#" data-page="${this.currentPage - 1}" class="page-link flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors text-xs">
-            <i class="fas fa-chevron-left"></i>
+          <a href="#" data-page="${this.currentPage - 1}" class="page-link w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:text-primary-600 hover:bg-slate-50 transition-colors">
+            <i class="fas fa-chevron-left text-xs"></i>
           </a>`;
       }
 
       // Números
       for (let i = startPage; i <= endPage; i++) {
         const activeClass = this.currentPage === i
-          ? 'bg-primary-600 text-white border-primary-600 shadow-md shadow-primary-500/20'
-          : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50';
+          ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20 font-bold'
+          : 'bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50';
 
         nav.innerHTML += `
-          <a href="#" data-page="${i}" class="page-link flex items-center justify-center w-8 h-8 rounded-lg border ${activeClass} transition-all text-xs font-bold">
+          <a href="#" data-page="${i}" class="page-link w-8 h-8 flex items-center justify-center rounded-full text-xs transition-all ${activeClass}">
             ${i}
           </a>`;
       }
 
-      // Botão Próximo
+      // Seta Direita
       if (this.currentPage < totalPages) {
         nav.innerHTML += `
-          <a href="#" data-page="${this.currentPage + 1}" class="page-link flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 transition-colors text-xs">
-            <i class="fas fa-chevron-right"></i>
+          <a href="#" data-page="${this.currentPage + 1}" class="page-link w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:text-primary-600 hover:bg-slate-50 transition-colors">
+            <i class="fas fa-chevron-right text-xs"></i>
           </a>`;
       }
 
-      // Event Listeners da Paginação
       nav.querySelectorAll('.page-link').forEach(a => a.addEventListener('click', (e) => {
         e.preventDefault();
         const p = parseInt(a.dataset.page, 10);

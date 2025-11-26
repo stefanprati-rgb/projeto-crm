@@ -1,35 +1,42 @@
-// Retorna o HTML de um Badge moderno com Tailwind CSS
+// Retorna o HTML de um Badge estilo "Apple/iOS" (Pílula Suave)
 export function statusBadge(status) {
   if (!status) {
-    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">N/A</span>';
+    return '<span class="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide bg-slate-100 text-slate-400">N/A</span>';
   }
 
   const s = status.toUpperCase();
-  let classes = 'bg-slate-100 text-slate-600 border border-slate-200'; // Default (Cinza)
+  let classes = 'bg-slate-100 text-slate-500'; // Default (Cinza neutro)
   let icon = '';
 
+  // Cores inspiradas no iOS System Colors (Pastel backgrounds + Dark text)
   if (s === 'ATIVO') {
-    classes = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
-    icon = '<i class="fas fa-check-circle me-1.5 text-xs opacity-75"></i>';
+    // Verde (Success)
+    classes = 'bg-emerald-50 text-emerald-600 border border-emerald-100';
+    icon = '<i class="fas fa-check-circle me-1.5 text-[10px]"></i>';
   }
   else if (s === 'INATIVO' || s === 'CANCELADO' || s === 'RESCINDIDO') {
-    classes = 'bg-slate-100 text-slate-600 border border-slate-200';
-    icon = '<i class="fas fa-ban me-1.5 text-xs opacity-75"></i>';
+    // Cinza (Inactive)
+    classes = 'bg-slate-100 text-slate-500 border border-slate-200';
+    icon = '<i class="fas fa-ban me-1.5 text-[10px]"></i>';
   }
-  else if (s === 'PENDENTE' || s === 'EM_ANALISE' || s === 'ACOMPANHAR') {
-    classes = 'bg-amber-50 text-amber-700 border border-amber-200';
-    icon = '<i class="fas fa-clock me-1.5 text-xs opacity-75"></i>';
+  else if (s === 'PENDENTE' || s === 'EM_ANALISE' || s === 'ACOMPANHAR' || s.includes('CRÉDITO')) {
+    // Laranja/Amarelo (Warning)
+    classes = 'bg-orange-50 text-orange-600 border border-orange-100';
+    icon = '<i class="fas fa-clock me-1.5 text-[10px]"></i>';
   }
   else if (s === 'EM_CANCELAMENTO' || s === 'INADIMPLENTE' || s.includes('RETIRAR')) {
-    classes = 'bg-rose-50 text-rose-700 border border-rose-200';
-    icon = '<i class="fas fa-exclamation-circle me-1.5 text-xs opacity-75"></i>';
+    // Vermelho (Danger)
+    classes = 'bg-red-50 text-red-600 border border-red-100';
+    icon = '<i class="fas fa-exclamation-circle me-1.5 text-[10px]"></i>';
   }
   else if (s.includes('APTO') || s === 'NOVO') {
-    classes = 'bg-blue-50 text-blue-700 border border-blue-200';
-    icon = '<i class="fas fa-thumbs-up me-1.5 text-xs opacity-75"></i>';
+    // Azul (Info)
+    classes = 'bg-blue-50 text-blue-600 border border-blue-100';
+    icon = '<i class="fas fa-thumbs-up me-1.5 text-[10px]"></i>';
   }
 
-  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shadow-sm ${classes}">${icon}${status}</span>`;
+  // Badge com design "Pill" (arredondado, fonte pequena e bold)
+  return `<span class="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide shadow-sm ${classes}">${icon}${status}</span>`;
 }
 
 // Formata Moeda (BRL)
@@ -40,7 +47,7 @@ export function formatCurrency(value) {
   }).format(value);
 }
 
-// Formata Documento (CPF/CNPJ)
+// Formata Documento (CPF/CNPJ) com máscara
 export function formatDoc(doc) {
   if (!doc) return '';
   const clean = doc.toString().replace(/\D/g, '');
@@ -70,12 +77,11 @@ export function normalizeStatus(val) {
   return v;
 }
 
-// --- NOVAS FUNÇÕES DE VALIDAÇÃO ---
+// --- VALIDAÇÕES (Mantidas do passo anterior) ---
 
 export function validateCPF(cpf) {
   cpf = cpf.replace(/[^\d]+/g, '');
   if (cpf == '') return false;
-  // Elimina CPFs invalidos conhecidos
   if (cpf.length != 11 ||
     cpf == "00000000000" ||
     cpf == "11111111111" ||
@@ -88,33 +94,25 @@ export function validateCPF(cpf) {
     cpf == "88888888888" ||
     cpf == "99999999999")
     return false;
-  // Valida 1o digito
   let add = 0;
   for (let i = 0; i < 9; i++)
     add += parseInt(cpf.charAt(i)) * (10 - i);
   let rev = 11 - (add % 11);
-  if (rev == 10 || rev == 11)
-    rev = 0;
-  if (rev != parseInt(cpf.charAt(9)))
-    return false;
-  // Valida 2o digito
+  if (rev == 10 || rev == 11) rev = 0;
+  if (rev != parseInt(cpf.charAt(9))) return false;
   add = 0;
   for (let i = 0; i < 10; i++)
     add += parseInt(cpf.charAt(i)) * (11 - i);
   rev = 11 - (add % 11);
-  if (rev == 10 || rev == 11)
-    rev = 0;
-  if (rev != parseInt(cpf.charAt(10)))
-    return false;
+  if (rev == 10 || rev == 11) rev = 0;
+  if (rev != parseInt(cpf.charAt(10))) return false;
   return true;
 }
 
 export function validateCNPJ(cnpj) {
   cnpj = cnpj.replace(/[^\d]+/g, '');
   if (cnpj == '') return false;
-  if (cnpj.length != 14)
-    return false;
-  // Elimina CNPJs invalidos conhecidos
+  if (cnpj.length != 14) return false;
   if (cnpj == "00000000000000" ||
     cnpj == "11111111111111" ||
     cnpj == "22222222222222" ||
@@ -126,8 +124,6 @@ export function validateCNPJ(cnpj) {
     cnpj == "88888888888888" ||
     cnpj == "99999999999999")
     return false;
-
-  // Valida DVs
   let tamanho = cnpj.length - 2
   let numeros = cnpj.substring(0, tamanho);
   let digitos = cnpj.substring(tamanho);
@@ -139,7 +135,6 @@ export function validateCNPJ(cnpj) {
   }
   let resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
   if (resultado != digitos.charAt(0)) return false;
-
   tamanho = tamanho + 1;
   numeros = cnpj.substring(0, tamanho);
   soma = 0;
@@ -150,6 +145,5 @@ export function validateCNPJ(cnpj) {
   }
   resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
   if (resultado != digitos.charAt(1)) return false;
-
   return true;
 }

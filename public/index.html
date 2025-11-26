@@ -8,7 +8,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 
@@ -18,12 +18,18 @@
       theme: {
         extend: {
           colors: {
-            // Suas cores personalizadas (Baseado no Teal/Slate)
+            // Mantendo a sua identidade (Teal/Green) mas com um toque mais vibrante
             primary: { "50": "#f0fdfa", "100": "#ccfbf1", "200": "#99f6e4", "300": "#5eead4", "400": "#2dd4bf", "500": "#14b8a6", "600": "#0d9488", "700": "#0f766e", "800": "#115e59", "900": "#134e4a" },
-            slate: { "800": "#1e293b", "500": "#64748b", "200": "#e2e8f0", "50": "#f8fafc" }
+            // Cinzas neutros "Apple-like"
+            slate: { "50": "#f8fafc", "100": "#f1f5f9", "200": "#e2e8f0", "300": "#cbd5e1", "400": "#94a3b8", "500": "#64748b", "600": "#475569", "700": "#334155", "800": "#1e293b", "900": "#0f172a" }
           },
           fontFamily: {
-            sans: ['Inter', 'sans-serif'],
+            // A fonte Inter com tracking-tight imita bem o San Francisco da Apple
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+          },
+          boxShadow: {
+            'apple': '0 4px 24px rgba(0, 0, 0, 0.04)', // Sombra suave e difusa
+            'apple-hover': '0 8px 32px rgba(0, 0, 0, 0.08)',
           }
         }
       }
@@ -31,213 +37,209 @@
   </script>
 
   <style>
-    /* Mantém compatibilidade com o JS que usa d-none */
+    /* Utilitários de compatibilidade */
     .d-none {
       display: none !important;
     }
 
-    /* Scrollbar mais bonita */
+    /* Scrollbar invisível/fina estilo Mac */
     ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
+      width: 0px;
       background: transparent;
     }
 
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 3px;
-    }
+    /* Opcional: esconde scrollbar */
+    /* Para mostrar fina: */
+    /* ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; } */
 
-    ::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
-
-    /* Animação suave para entrada de elementos */
+    /* Animações suaves */
     .fade-in {
-      animation: fadeIn 0.3s ease-out;
+      animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
+    /* Curva de animação iOS */
     @keyframes fadeIn {
       from {
         opacity: 0;
-        transform: translateY(5px);
+        transform: scale(0.98);
       }
 
       to {
         opacity: 1;
-        transform: translateY(0);
+        transform: scale(1);
       }
     }
+
+    body {
+      background-color: #F5F5F7;
+    }
+
+    /* Fundo clássico Apple */
   </style>
 </head>
 
-<body class="bg-slate-50 text-slate-800 antialiased font-sans">
+<body class="text-slate-800 antialiased font-sans tracking-tight selection:bg-primary-200 selection:text-primary-900">
 
   <div id="loading-spinner"
-    class="fixed inset-0 z-[60] flex items-center justify-center bg-white/90 backdrop-blur-sm transition-opacity duration-300">
-    <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-primary-600"></div>
+    class="fixed inset-0 z-[60] flex items-center justify-center bg-white/80 backdrop-blur-md transition-opacity duration-500">
+    <div class="animate-spin rounded-full h-10 w-10 border-[3px] border-slate-200 border-t-primary-600"></div>
   </div>
 
-  <main id="login-section"
-    class="d-none min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-slate-100 p-4">
-    <div
-      class="w-full max-w-md bg-white rounded-2xl shadow-xl shadow-primary-900/5 p-8 border border-slate-100 fade-in">
+  <main id="login-section" class="d-none min-h-screen flex items-center justify-center p-4 bg-[#F5F5F7]">
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-apple p-10 fade-in relative overflow-hidden">
 
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-50 text-primary-600 mb-4">
+      <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary-400 to-primary-600"></div>
+
+      <div class="text-center mb-10">
+        <div
+          class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-50 text-primary-600 mb-5 shadow-sm">
           <i class="fa-solid fa-bolt text-3xl"></i>
         </div>
-        <h4 class="text-2xl font-bold text-slate-800">CRM Energia</h4>
-        <p class="text-slate-500 mt-2">Gestão Inteligente de Clientes</p>
+        <h4 class="text-3xl font-bold text-slate-900 tracking-tight">Bem-vindo</h4>
+        <p class="text-slate-500 mt-2 text-sm font-medium">Gestão de Energia Inteligente</p>
       </div>
 
-      <div class="d-none mb-4 p-4 rounded-lg bg-red-50 text-red-600 text-sm border border-red-100"
+      <div class="d-none mb-6 p-4 rounded-2xl bg-red-50 text-red-600 text-sm font-medium text-center"
         id="login-auth-alert"></div>
 
       <form id="loginForm" class="space-y-5">
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">E-mail</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i
-                class="fas fa-envelope"></i></span>
-            <input type="email"
-              class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-              id="loginEmail" placeholder="seu@email.com" required>
-          </div>
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-400 uppercase ml-1">E-mail</label>
+          <input type="email"
+            class="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500/50 focus:bg-white transition-all text-slate-700 font-medium placeholder:text-slate-400"
+            id="loginEmail" placeholder="exemplo@empresa.com" required>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Senha</label>
-          <div class="relative">
-            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i
-                class="fas fa-lock"></i></span>
-            <input type="password"
-              class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
-              id="loginPassword" placeholder="******" required>
-          </div>
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-400 uppercase ml-1">Senha</label>
+          <input type="password"
+            class="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500/50 focus:bg-white transition-all text-slate-700 font-medium placeholder:text-slate-400"
+            id="loginPassword" placeholder="••••••" required>
         </div>
         <button type="submit"
-          class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-primary-600/30 transition-all active:scale-[0.98]">
-          Entrar na Plataforma
+          class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-4 rounded-2xl shadow-lg shadow-primary-600/20 transition-all transform active:scale-[0.98] mt-4">
+          Entrar
         </button>
-        <div class="text-center pt-2">
+        <div class="text-center pt-4">
           <a href="#" id="showCreateAccountLink"
-            class="text-sm font-medium text-primary-600 hover:text-primary-700">Criar uma conta</a>
+            class="text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors">Criar nova conta</a>
         </div>
       </form>
 
       <form id="createAccountForm" class="d-none space-y-5">
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Seu E-mail</label>
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-400 uppercase ml-1">Seu E-mail</label>
           <input type="email"
-            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+            class="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500/50 focus:bg-white transition-all"
             id="createEmail" required>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Crie uma Senha</label>
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-400 uppercase ml-1">Crie uma Senha</label>
           <input type="password"
-            class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+            class="w-full px-5 py-3.5 bg-slate-50 border-none rounded-2xl focus:ring-2 focus:ring-primary-500/50 focus:bg-white transition-all"
             id="createPassword" required>
-          <p class="text-xs text-slate-400 mt-1">Mínimo de 6 caracteres.</p>
         </div>
         <button type="submit"
-          class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 rounded-xl shadow-lg shadow-primary-600/30 transition-all active:scale-[0.98]">
-          Cadastrar Conta
+          class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold py-4 rounded-2xl shadow-lg shadow-primary-600/20 transition-all transform active:scale-[0.98] mt-4">
+          Cadastrar
         </button>
-        <div class="text-center pt-2">
-          <a href="#" id="showLoginLink" class="text-sm font-medium text-primary-600 hover:text-primary-700">Voltar para
-            Login</a>
+        <div class="text-center pt-4">
+          <a href="#" id="showLoginLink"
+            class="text-sm font-medium text-slate-500 hover:text-primary-600 transition-colors">Voltar para Login</a>
         </div>
       </form>
     </div>
   </main>
 
   <nav id="mainNavApp"
-    class="d-none fixed top-0 left-0 h-screen w-72 bg-white/80 backdrop-blur-xl border-r border-slate-200 flex flex-col z-50 transition-transform duration-300">
-    <div class="p-6 border-b border-slate-100">
+    class="d-none fixed top-4 left-4 bottom-4 w-64 bg-white/70 backdrop-blur-2xl rounded-3xl flex flex-col z-50 shadow-apple border border-white/50 transition-transform duration-300">
+
+    <div class="p-8 pb-4">
       <a class="flex items-center gap-3 group" href="#">
         <div
-          class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white flex items-center justify-center shadow-lg shadow-primary-500/30 group-hover:scale-110 transition-transform">
+          class="w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
           <i class="fa-solid fa-bolt"></i>
         </div>
-        <span class="font-bold text-xl text-slate-800 tracking-tight">CRM Energia</span>
+        <span class="font-bold text-lg text-slate-800 tracking-tight">CRM Energia</span>
       </a>
     </div>
 
-    <ul class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-      <li>
-        <a class="nav-link flex items-center gap-3 px-4 py-3.5 text-sm font-medium rounded-xl text-slate-500 hover:bg-primary-50 hover:text-primary-700 transition-all group"
-          href="#" data-section="dashboard">
-          <i class="fa-solid fa-chart-pie w-5 text-center group-hover:scale-110 transition-transform"></i>
-          Visão Geral
-        </a>
-      </li>
-      <li>
-        <a class="nav-link flex items-center gap-3 px-4 py-3.5 text-sm font-medium rounded-xl text-slate-500 hover:bg-primary-50 hover:text-primary-700 transition-all group"
-          href="#" data-section="clients">
-          <i class="fa-solid fa-users w-5 text-center group-hover:scale-110 transition-transform"></i>
-          Carteira de Clientes
-        </a>
-      </li>
-      <li>
-        <a class="nav-link flex items-center gap-3 px-4 py-3.5 text-sm font-medium rounded-xl text-slate-500 hover:bg-primary-50 hover:text-primary-700 transition-all group"
-          href="#" data-section="finance">
-          <i class="fa-solid fa-file-invoice-dollar w-5 text-center group-hover:scale-110 transition-transform"></i>
-          Gestão Financeira
-        </a>
-      </li>
-    </ul>
+    <div class="px-4 py-2">
+      <div class="text-xs font-bold text-slate-400 uppercase px-4 mb-2 tracking-wider">Menu</div>
+      <ul class="space-y-1">
+        <li>
+          <a class="nav-link flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-2xl text-slate-500 hover:bg-white hover:text-primary-700 hover:shadow-sm transition-all"
+            href="#" data-section="dashboard">
+            <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+            Visão Geral
+          </a>
+        </li>
+        <li>
+          <a class="nav-link flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-2xl text-slate-500 hover:bg-white hover:text-primary-700 hover:shadow-sm transition-all"
+            href="#" data-section="clients">
+            <i class="fa-solid fa-users w-5 text-center"></i>
+            Carteira
+          </a>
+        </li>
+        <li>
+          <a class="nav-link flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-2xl text-slate-500 hover:bg-white hover:text-primary-700 hover:shadow-sm transition-all"
+            href="#" data-section="finance">
+            <i class="fa-solid fa-file-invoice-dollar w-5 text-center"></i>
+            Financeiro
+          </a>
+        </li>
+      </ul>
+    </div>
 
-    <div class="p-4 border-t border-slate-100 bg-slate-50/50">
+    <div class="mt-auto p-4 mx-2 mb-2">
       <div
-        class="flex items-center gap-3 p-2 rounded-xl hover:bg-white transition-colors cursor-pointer group relative">
-        <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500">
+        class="flex items-center gap-3 p-3 rounded-2xl bg-white/50 border border-white/60 shadow-sm hover:bg-white transition-all cursor-pointer group">
+        <div class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-sm">
           <i class="fas fa-user"></i>
         </div>
         <div class="flex-1 min-w-0">
-          <p id="navbarUserEmail" class="text-sm font-bold text-slate-700 truncate">Carregando...</p>
-          <p id="navbarUserBases" class="text-xs text-slate-500 truncate">...</p>
+          <p id="navbarUserEmail" class="text-xs font-bold text-slate-700 truncate">Carregando...</p>
+          <p id="navbarUserBases" class="text-[10px] text-slate-400 truncate uppercase font-bold">...</p>
         </div>
-
-        <button id="logoutButton" class="text-slate-400 hover:text-red-500 p-2 transition-colors" title="Sair">
+        <button id="logoutButton"
+          class="text-slate-400 hover:text-red-500 p-1.5 transition-colors rounded-full hover:bg-red-50" title="Sair">
           <i class="fas fa-sign-out-alt"></i>
         </button>
       </div>
     </div>
   </nav>
 
-  <main id="mainContentApp" class="d-none md:ml-72 min-h-screen bg-slate-50 transition-all duration-300">
+  <main id="mainContentApp" class="d-none md:ml-72 min-h-screen transition-all duration-300 p-6 md:p-8 pb-20">
 
-    <header
-      class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+    <header class="flex items-center justify-between mb-10 pt-2">
       <div class="flex items-center gap-6">
         <div>
-          <h2 id="sectionTitle" class="text-xl font-bold text-slate-800">Visão Geral</h2>
-          <p class="hidden md:block text-xs text-slate-400 mt-0.5 flex items-center gap-1">
-            <i class="fas fa-folder-open"></i> CRM / Gestão GDC
+          <h2 id="sectionTitle" class="text-3xl font-bold text-slate-900 tracking-tight">Visão Geral</h2>
+          <p class="hidden md:block text-sm text-slate-400 font-medium mt-1">
+            Gestão Centralizada
           </p>
         </div>
 
-        <div class="hidden md:flex items-center border-l border-slate-200 pl-6">
-          <div class="relative">
-            <i class="fas fa-database absolute left-3 top-1/2 -translate-y-1/2 text-primary-600 text-xs"></i>
+        <div class="hidden md:block pl-6 border-l border-slate-200/60">
+          <div class="relative group">
             <select id="databaseSelector"
-              class="pl-9 pr-8 py-1.5 bg-primary-50 border border-primary-100 text-primary-700 text-sm font-bold rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 cursor-pointer appearance-none hover:bg-primary-100 transition-colors">
+              class="pl-4 pr-10 py-2 bg-white border-none rounded-full text-sm font-semibold text-slate-700 shadow-sm hover:shadow-md focus:ring-2 focus:ring-primary-500/20 cursor-pointer appearance-none transition-all w-64">
               <option value="" disabled selected>Carregando...</option>
             </select>
+            <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <i class="fas fa-chevron-down text-xs"></i>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="flex items-center gap-3">
         <button id="importExcelButton"
-          class="hidden md:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-all shadow-sm">
-          <i class="fas fa-file-import"></i> <span>Importar</span>
+          class="hidden md:flex items-center gap-2 px-5 py-2.5 bg-white text-slate-600 text-sm font-semibold rounded-full hover:bg-slate-50 hover:text-primary-700 transition-all shadow-sm hover:shadow-md">
+          <i class="fas fa-cloud-upload-alt"></i> <span>Importar</span>
         </button>
         <button id="addClientButton"
-          class="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-all shadow-lg shadow-primary-600/20 active:scale-95">
+          class="flex items-center gap-2 px-5 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-full hover:bg-primary-700 transition-all shadow-lg shadow-primary-600/25 active:scale-95">
           <i class="fas fa-plus"></i> <span class="hidden sm:inline">Novo Cliente</span>
         </button>
         <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden">
@@ -245,72 +247,77 @@
       </div>
     </header>
 
-    <div class="p-8 max-w-[1600px] mx-auto space-y-8">
+    <div class="max-w-[1600px] mx-auto space-y-8">
 
       <section id="dashboard-section" class="section-content fade-in">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+
           <div
-            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow group">
-            <div class="flex justify-between items-start mb-4">
-              <div>
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Clientes</p>
-                <h3 class="text-3xl font-bold text-slate-800 mt-1" id="kpi-total-clients">0</h3>
+            class="bg-white p-6 rounded-3xl shadow-apple hover:shadow-apple-hover transition-all duration-300 group border border-white/50">
+            <div class="flex justify-between items-start mb-2">
+              <div
+                class="p-3 bg-blue-50/80 text-blue-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                <i class="fas fa-users text-lg"></i>
               </div>
-              <div class="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-110 transition-transform">
-                <i class="fas fa-users"></i>
-              </div>
+            </div>
+            <div>
+              <h3 class="text-3xl font-bold text-slate-900 tracking-tight" id="kpi-total-clients">0</h3>
+              <p class="text-sm font-semibold text-slate-400 mt-1">Total de Clientes</p>
             </div>
           </div>
 
           <div
-            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow group">
-            <div class="flex justify-between items-start mb-4">
-              <div>
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Ativos</p>
-                <h3 class="text-3xl font-bold text-emerald-600 mt-1" id="kpi-active-clients">0</h3>
+            class="bg-white p-6 rounded-3xl shadow-apple hover:shadow-apple-hover transition-all duration-300 group border border-white/50">
+            <div class="flex justify-between items-start mb-2">
+              <div
+                class="p-3 bg-emerald-50/80 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                <i class="fas fa-check-circle text-lg"></i>
               </div>
-              <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform">
-                <i class="fas fa-check-circle"></i>
-              </div>
+            </div>
+            <div>
+              <h3 class="text-3xl font-bold text-slate-900 tracking-tight" id="kpi-active-clients">0</h3>
+              <p class="text-sm font-semibold text-slate-400 mt-1">Ativos</p>
             </div>
           </div>
 
           <div
-            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow group">
-            <div class="flex justify-between items-start mb-4">
-              <div>
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Inadimplentes</p>
-                <h3 class="text-3xl font-bold text-rose-600 mt-1" id="kpi-overdue-clients">0</h3>
+            class="bg-white p-6 rounded-3xl shadow-apple hover:shadow-apple-hover transition-all duration-300 group border border-white/50">
+            <div class="flex justify-between items-start mb-2">
+              <div
+                class="p-3 bg-rose-50/80 text-rose-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                <i class="fas fa-exclamation-triangle text-lg"></i>
               </div>
-              <div class="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:scale-110 transition-transform">
-                <i class="fas fa-exclamation-triangle"></i>
-              </div>
+            </div>
+            <div>
+              <h3 class="text-3xl font-bold text-slate-900 tracking-tight" id="kpi-overdue-clients">0</h3>
+              <p class="text-sm font-semibold text-slate-400 mt-1">Inadimplentes</p>
             </div>
           </div>
 
           <div
-            class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow group">
-            <div class="flex justify-between items-start mb-4">
-              <div>
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Receita Mensal Est.</p>
-                <h3 class="text-3xl font-bold text-amber-500 mt-1" id="kpi-monthly-revenue">R$ 0</h3>
+            class="bg-white p-6 rounded-3xl shadow-apple hover:shadow-apple-hover transition-all duration-300 group border border-white/50">
+            <div class="flex justify-between items-start mb-2">
+              <div
+                class="p-3 bg-amber-50/80 text-amber-500 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                <i class="fas fa-coins text-lg"></i>
               </div>
-              <div class="p-3 bg-amber-50 text-amber-500 rounded-xl group-hover:scale-110 transition-transform">
-                <i class="fas fa-coins"></i>
-              </div>
+            </div>
+            <div>
+              <h3 class="text-2xl font-bold text-slate-900 tracking-tight truncate" id="kpi-monthly-revenue">R$ 0</h3>
+              <p class="text-sm font-semibold text-slate-400 mt-1">Receita Mensal</p>
             </div>
           </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h6 class="font-bold text-slate-800 mb-6">Evolução da Base</h6>
+          <div class="lg:col-span-2 bg-white p-8 rounded-3xl shadow-apple border border-white/50">
+            <h6 class="text-lg font-bold text-slate-800 mb-6">Evolução da Base</h6>
             <div class="h-[300px] w-full relative">
               <canvas id="clientsChart"></canvas>
             </div>
           </div>
-          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h6 class="font-bold text-slate-800 mb-6">Status da Carteira</h6>
+          <div class="bg-white p-8 rounded-3xl shadow-apple border border-white/50">
+            <h6 class="text-lg font-bold text-slate-800 mb-6">Status da Carteira</h6>
             <div class="h-[250px] w-full flex items-center justify-center relative">
               <canvas id="statusChart"></canvas>
             </div>
@@ -319,50 +326,43 @@
       </section>
 
       <section id="clients-section" class="section-content d-none fade-in">
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="bg-white rounded-3xl shadow-apple border border-white/50 overflow-hidden">
 
-          <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex flex-wrap gap-3 items-center">
-            <div class="flex-1 min-w-[250px]">
+          <div class="p-5 border-b border-slate-100 bg-white/50 flex flex-wrap gap-4 items-center backdrop-blur-sm">
+            <div class="flex-1 min-w-[280px]">
               <div class="relative">
-                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
                 <input type="text" id="searchInput"
-                  class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 text-sm"
-                  placeholder="Buscar por nome, documento ou UC...">
+                  class="w-full pl-11 pr-4 py-3 bg-slate-100/80 border-none rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white text-sm font-medium transition-all placeholder:text-slate-400"
+                  placeholder="Buscar nome, documento ou UC...">
               </div>
             </div>
 
             <select id="statusFilter"
-              class="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-primary-500">
+              class="px-4 py-3 bg-slate-100/80 border-none rounded-xl text-sm font-semibold text-slate-600 focus:ring-2 focus:ring-primary-500/20 cursor-pointer hover:bg-slate-200/50 transition-colors">
               <option value="">Status: Todos</option>
               <option value="ATIVO">Ativo</option>
               <option value="INATIVO">Inativo</option>
               <option value="PENDENTE">Pendente</option>
             </select>
 
-            <select id="typeFilter"
-              class="px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-primary-500">
-              <option value="">Tipo: Todos</option>
-              <option value="PF">Pessoa Física</option>
-              <option value="PJ">Pessoa Jurídica</option>
-            </select>
-
             <div class="flex gap-2">
               <button id="clearFiltersButton"
-                class="p-2.5 bg-white border border-slate-200 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                title="Limpar Filtros">
+                class="p-3 bg-slate-100/80 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-200/80 transition-all"
+                title="Limpar">
                 <i class="fas fa-eraser"></i>
               </button>
               <div class="relative group">
-                <button class="p-2.5 bg-white border border-slate-200 rounded-lg text-primary-600 hover:bg-primary-50"
+                <button class="p-3 bg-slate-100/80 rounded-xl text-primary-600 hover:bg-primary-50 transition-all"
                   title="Exportar">
                   <i class="fas fa-download"></i>
                 </button>
                 <div
-                  class="absolute right-0 mt-2 w-32 bg-white border border-slate-100 rounded-lg shadow-xl hidden group-hover:block z-20">
+                  class="absolute right-0 mt-2 w-40 bg-white border border-slate-100 rounded-2xl shadow-xl hidden group-hover:block z-20 overflow-hidden p-1">
                   <button id="exportDataButton"
-                    class="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">JSON</button>
+                    class="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">JSON</button>
                   <button id="exportExcelButton"
-                    class="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Excel</button>
+                    class="w-full text-left px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-xl transition-colors">Excel</button>
                 </div>
               </div>
             </div>
@@ -371,24 +371,23 @@
           <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
               <thead>
-                <tr
-                  class="bg-slate-50/80 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-semibold">
-                  <th class="p-4 pl-6">Cliente / Projeto</th>
-                  <th class="p-4">Doc / UC</th>
-                  <th class="p-4">Status</th>
-                  <th class="p-4">Localização</th>
-                  <th class="p-4">Consumo</th>
-                  <th class="p-4 pr-6 text-right">Ações</th>
+                <tr class="border-b border-slate-100 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <th class="p-5 pl-8">Cliente</th>
+                  <th class="p-5">Documento / UC</th>
+                  <th class="p-5">Status</th>
+                  <th class="p-5">Local</th>
+                  <th class="p-5">Consumo</th>
+                  <th class="p-5 pr-8 text-right"></th>
                 </tr>
               </thead>
-              <tbody id="clientsTableBody" class="divide-y divide-slate-100 bg-white text-sm text-slate-600">
+              <tbody id="clientsTableBody" class="divide-y divide-slate-50 text-sm text-slate-600">
               </tbody>
             </table>
           </div>
 
-          <div class="p-4 border-t border-slate-100 bg-slate-50/30 flex justify-between items-center">
-            <span id="pagination-summary" class="text-xs text-slate-400">Carregando...</span>
-            <nav id="pagination-nav" class="flex gap-1"></nav>
+          <div class="p-5 border-t border-slate-100 bg-slate-50/30 flex justify-between items-center">
+            <span id="pagination-summary" class="text-xs font-medium text-slate-400">Carregando...</span>
+            <nav id="pagination-nav" class="flex gap-2"></nav>
           </div>
         </div>
       </section>
@@ -396,39 +395,39 @@
       <section id="finance-section" class="section-content d-none fade-in">
         <div class="flex justify-end mb-6">
           <button id="importInvoicesBtn"
-            class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 hover:text-primary-600 transition-all shadow-sm">
-            <i class="fas fa-upload"></i> Atualizar Faturas
+            class="flex items-center gap-2 px-5 py-2.5 bg-white text-slate-600 text-sm font-semibold rounded-full hover:bg-slate-50 hover:text-primary-700 transition-all shadow-sm">
+            <i class="fas fa-file-invoice"></i> Atualizar Faturas
           </button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <p class="text-xs font-bold text-slate-400 uppercase">Emitido (Mês)</p>
-            <h4 class="text-2xl font-bold text-primary-600 mt-1" id="kpi-emitido">R$ 0,00</h4>
+          <div class="bg-white p-6 rounded-3xl shadow-apple border border-white/50">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Emitido (Mês)</p>
+            <h4 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-emitido">R$ 0,00</h4>
           </div>
-          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <p class="text-xs font-bold text-slate-400 uppercase">Pago (Mês)</p>
-            <h4 class="text-2xl font-bold text-emerald-600 mt-1" id="kpi-pago">R$ 0,00</h4>
+          <div class="bg-white p-6 rounded-3xl shadow-apple border border-white/50">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Pago (Mês)</p>
+            <h4 class="text-2xl font-bold text-emerald-600 mt-2" id="kpi-pago">R$ 0,00</h4>
           </div>
-          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <p class="text-xs font-bold text-slate-400 uppercase">Inadimplência</p>
-            <h4 class="text-2xl font-bold text-rose-600 mt-1" id="kpi-inad">0%</h4>
+          <div class="bg-white p-6 rounded-3xl shadow-apple border border-white/50">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Inadimplência</p>
+            <h4 class="text-2xl font-bold text-rose-600 mt-2" id="kpi-inad">0%</h4>
           </div>
-          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <p class="text-xs font-bold text-slate-400 uppercase">DSO (Dias Vendas)</p>
-            <h4 class="text-2xl font-bold text-slate-800 mt-1" id="kpi-dso">0 dias</h4>
+          <div class="bg-white p-6 rounded-3xl shadow-apple border border-white/50">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">DSO</p>
+            <h4 class="text-2xl font-bold text-slate-900 mt-2" id="kpi-dso">0 dias</h4>
           </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h6 class="font-bold text-slate-800 mb-6">Fluxo de Caixa</h6>
+          <div class="lg:col-span-2 bg-white p-8 rounded-3xl shadow-apple border border-white/50">
+            <h6 class="text-lg font-bold text-slate-800 mb-6">Fluxo de Caixa</h6>
             <div class="h-[300px] w-full relative">
               <canvas id="revenueTrend"></canvas>
             </div>
           </div>
-          <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <h6 class="font-bold text-slate-800 mb-6">Aging (Atrasos)</h6>
+          <div class="bg-white p-8 rounded-3xl shadow-apple border border-white/50">
+            <h6 class="text-lg font-bold text-slate-800 mb-6">Aging (Atrasos)</h6>
             <div class="h-[300px] w-full relative">
               <canvas id="agingChart"></canvas>
             </div>
@@ -439,91 +438,103 @@
     </div>
   </main>
 
-  <div class="modal fade fixed inset-0 z-50 hidden" id="clientModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered relative w-full max-w-4xl mx-auto my-10 px-4">
-      <div class="modal-content bg-white rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh]">
+  <div class="modal fade fixed inset-0 z-[70] hidden" id="clientModal" tabindex="-1" aria-hidden="true">
+    <div class="absolute inset-0 bg-slate-900/20 backdrop-blur-sm"></div>
 
-        <div class="flex items-center justify-between p-6 border-b border-slate-100">
-          <h5 class="text-lg font-bold text-primary-700" id="clientModalTitle">Dados do Cliente</h5>
-          <button type="button" class="text-slate-400 hover:text-slate-600 transition-colors" data-bs-dismiss="modal">
-            <i class="fas fa-times text-xl"></i>
+    <div
+      class="modal-dialog modal-lg modal-dialog-centered relative w-full max-w-4xl mx-auto my-10 px-4 pointer-events-none">
+      <div
+        class="modal-content bg-white rounded-[2rem] shadow-2xl border border-white/50 flex flex-col max-h-[90vh] pointer-events-auto transform transition-all">
+
+        <div class="flex items-center justify-between p-8 pb-4 border-b border-slate-50">
+          <div>
+            <h5 class="text-2xl font-bold text-slate-800 tracking-tight" id="clientModalTitle">Cliente</h5>
+            <p class="text-sm text-slate-400 font-medium mt-1">Detalhes cadastrais</p>
+          </div>
+          <button type="button"
+            class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-all flex items-center justify-center"
+            data-bs-dismiss="modal">
+            <i class="fas fa-times text-lg"></i>
           </button>
         </div>
 
-        <div class="p-8 overflow-y-auto">
-          <form id="clientForm" class="space-y-6">
+        <div class="p-8 overflow-y-auto custom-scroll">
+          <form id="clientForm" class="space-y-8">
             <input type="hidden" id="clientId">
 
             <div>
-              <h6
-                class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-4 pb-2 border-b border-primary-100">
-                Informações Pessoais</h6>
-              <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <div class="md:col-span-8">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Nome / Razão Social</label>
+              <h6 class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-4">Dados Principais</h6>
+              <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+                <div class="md:col-span-8 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Nome / Razão Social</label>
                   <input type="text"
-                    class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientName" required>
                 </div>
-                <div class="md:col-span-4">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">ID Externo</label>
-                  <input type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="md:col-span-4 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">ID Externo</label>
+                  <input type="text"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientExternalId">
                 </div>
-                <div class="md:col-span-6">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">CPF</label>
-                  <input type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="md:col-span-6 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">CPF</label>
+                  <input type="text"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientCpf">
                 </div>
-                <div class="md:col-span-6">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">CNPJ</label>
-                  <input type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="md:col-span-6 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">CNPJ</label>
+                  <input type="text"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientCnpj">
                 </div>
               </div>
             </div>
 
             <div>
-              <h6
-                class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-4 pb-2 border-b border-primary-100">
-                Contato e Localização</h6>
-              <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <div class="md:col-span-6">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">E-mail</label>
-                  <input type="email" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              <h6 class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-4">Contato e Endereço</h6>
+              <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+                <div class="md:col-span-6 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">E-mail</label>
+                  <input type="email"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientEmail">
                 </div>
-                <div class="md:col-span-6">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Telefone</label>
-                  <input type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="md:col-span-6 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Telefone</label>
+                  <input type="text"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientPhone">
                 </div>
-                <div class="md:col-span-12">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Endereço</label>
-                  <input type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="md:col-span-12 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Endereço Completo</label>
+                  <input type="text"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientAddress">
                 </div>
-                <div class="md:col-span-5">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Cidade</label>
-                  <input type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="md:col-span-8 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Cidade</label>
+                  <input type="text"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientCity">
                 </div>
-                <div class="md:col-span-3">
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">UF</label>
-                  <input type="text" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="md:col-span-4 space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">UF</label>
+                  <input type="text"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientState">
                 </div>
               </div>
             </div>
 
             <div>
-              <h6
-                class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-4 pb-2 border-b border-primary-100">
-                Contrato</h6>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Status</label>
-                  <select class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+              <h6 class="text-xs font-bold text-primary-600 uppercase tracking-widest mb-4">Contrato</h6>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Status</label>
+                  <select
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientStatus">
                     <option value="ATIVO">Ativo</option>
                     <option value="INATIVO">Inativo</option>
@@ -531,27 +542,31 @@
                     <option value="EM_CANCELAMENTO">Em Cancelamento</option>
                   </select>
                 </div>
-                <div>
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Tipo</label>
-                  <select class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Tipo</label>
+                  <select
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientContractType">
                     <option value="PF">Pessoa Física</option>
                     <option value="PJ">Pessoa Jurídica</option>
                   </select>
                 </div>
-                <div>
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Data Adesão</label>
-                  <input type="date" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Data Adesão</label>
+                  <input type="date"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientJoinDate">
                 </div>
-                <div>
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Consumo (kWh)</label>
-                  <input type="number" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Consumo (kWh)</label>
+                  <input type="number"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientConsumption">
                 </div>
-                <div>
-                  <label class="block text-xs font-semibold text-slate-500 mb-1">Desconto (%)</label>
-                  <input type="number" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm"
+                <div class="space-y-1">
+                  <label class="text-xs font-semibold text-slate-400 ml-1">Desconto (%)</label>
+                  <input type="number"
+                    class="w-full px-4 py-3 bg-slate-50 border-none rounded-xl focus:ring-2 focus:ring-primary-500/20 text-sm font-medium"
                     id="clientDiscount">
                 </div>
               </div>
@@ -559,23 +574,23 @@
           </form>
         </div>
 
-        <div class="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 rounded-b-2xl">
+        <div class="p-6 border-t border-slate-50 bg-slate-50/50 flex justify-end gap-3 rounded-b-[2rem]">
           <button type="button"
-            class="px-5 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 transition-all"
+            class="px-6 py-3 text-sm font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all"
             data-bs-dismiss="modal">
             Cancelar
           </button>
           <button type="submit" form="clientForm"
-            class="px-5 py-2.5 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg shadow-lg shadow-primary-600/20 transition-all active:scale-95"
+            class="px-8 py-3 text-sm font-bold text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-lg shadow-primary-600/20 transition-all transform active:scale-95"
             id="clientModalSaveButton">
-            Salvar Alterações
+            Salvar
           </button>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="toast-container fixed top-5 right-5 z-[100] space-y-2"></div>
+  <div class="toast-container fixed top-5 right-5 z-[100] space-y-3"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
