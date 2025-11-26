@@ -1,7 +1,6 @@
 import { ClientService } from "../services/clientService.js";
 import { ClientsTable } from "../features/clientsTable.js";
 import { renderKPIs, renderClientsChart, renderStatusChart } from "../features/dashboard.js";
-// Importamos a nova função exportPDF
 import { readExcelFile, exportJSON, exportExcel, exportPDF } from "../features/importExport.js";
 import { showToast } from "../ui/toast.js";
 import { InvoiceService } from "../services/invoiceService.js";
@@ -21,7 +20,19 @@ export class CRMApp {
 
     this.userRole = userData.role || 'visualizador';
     this.allowedBases = userData.allowedBases || Object.keys(PROJECTS);
-    this.currentBase = this.allowedBases[0];
+
+    // --- LÓGICA DE INICIALIZAÇÃO INTELIGENTE ---
+    // 1. Tenta recuperar a última base acessada
+    const savedBase = localStorage.getItem('crm_last_project');
+
+    // 2. Define a base inicial: 
+    // Se tiver salva E o usuário tiver permissão para ela -> Usa a salva
+    // Se não, usa 'TODOS' (Consolidado)
+    if (savedBase && (this.allowedBases.includes(savedBase) || savedBase === 'TODOS')) {
+      this.currentBase = savedBase;
+    } else {
+      this.currentBase = 'TODOS';
+    }
 
     // Dados
     this.dashboardData = [];
@@ -82,11 +93,14 @@ export class CRMApp {
 
     selector.innerHTML = '';
 
+    // Opção Consolidada
     const optAll = document.createElement('option');
     optAll.value = 'TODOS';
     optAll.textContent = 'Visão Consolidada (Todos)';
+    if (this.currentBase === 'TODOS') optAll.selected = true;
     selector.appendChild(optAll);
 
+    // Projetos Individuais
     this.allowedBases.forEach(baseCode => {
       const project = PROJECTS[baseCode];
       if (project) {
@@ -102,6 +116,10 @@ export class CRMApp {
       const newBase = e.target.value;
       if (newBase !== this.currentBase) {
         this.currentBase = newBase;
+
+        // Salva a preferência para a próxima vez
+        localStorage.setItem('crm_last_project', newBase);
+
         this.loadDataForBase(this.currentBase);
 
         const msg = newBase === 'TODOS' ? 'Visão Geral Consolidada' : `Projeto: ${PROJECTS[newBase]?.name}`;
@@ -145,8 +163,10 @@ export class CRMApp {
 
     console.log(`Iniciando carregamento para: ${baseName}`);
 
+    // 1. Carrega Tabela (Paginada)
     await this.loadNextPage();
 
+    // 2. Carrega Dashboard (Completo em Background)
     this.service.getAllForDashboard(baseName).then(data => {
       this.dashboardData = data;
       this.updateDashboard();
@@ -342,14 +362,10 @@ export class CRMApp {
     document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
     document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
 
-    // Botões de Exportação
     document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.dashboardData));
     document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
-
-    // O NOVO BOTÃO PDF
     document.getElementById('exportPdfButton')?.addEventListener('click', () => exportPDF(this.dashboardData));
 
-    // CRUD
     document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
 
