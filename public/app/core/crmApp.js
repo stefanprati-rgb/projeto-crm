@@ -5,7 +5,6 @@ import { readExcelFile, exportJSON, exportExcel } from "../features/importExport
 import { showToast } from "../ui/toast.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
-// Importamos as novas funções de validação
 import { validateCPF, validateCNPJ } from "../utils/helpers.js";
 
 // Classes para o estado "Ativo" do Menu (Tailwind)
@@ -18,20 +17,26 @@ export class CRMApp {
     this.db = db;
     this.auth = auth;
 
-    // Definições de Utilizador e Permissões
     this.userRole = userData.role || 'visualizador';
     this.allowedBases = userData.allowedBases || ['CGB'];
     this.currentBase = this.allowedBases[0];
 
-    // Dados em memória
-    this.clients = [];
+    // --- DADOS SEPARADOS ---
+    this.dashboardData = []; // Todos os dados (para KPIs precisos)
+    this.tableData = [];     // Dados paginados (para renderização rápida)
     this.invoices = [];
 
-    // Serviços
+    // Estado da Paginação
+    this.pagination = {
+      lastDoc: null,
+      hasMore: true,
+      isLoading: false,
+      pageSize: 50 // Carrega 50 clientes por clique
+    };
+
     this.service = new ClientService(db);
     this.invoiceService = new InvoiceService(db);
 
-    // Componentes UI
     this.table = new ClientsTable(this.userRole);
     this.clientsChartRef = { value: null };
     this.statusChartRef = { value: null };
@@ -44,13 +49,12 @@ export class CRMApp {
   init() {
     this.initRoleBasedUI();
     this.initBaseSelector();
+    this.initLoadMoreButton(); // Cria o botão dinamicamente
     this.bindNav();
     this.bindActions();
 
-    // Carrega dados iniciais da base padrão
+    // Carrega dados iniciais
     this.loadDataForBase(this.currentBase);
-
-    // Atualiza visual da navegação inicial
     this.updateNavHighlight(this.activeSection);
   }
 
@@ -60,22 +64,18 @@ export class CRMApp {
   }
 
   initRoleBasedUI() {
-    // Esconde botões de edição se for apenas visualizador
     if (this.userRole === 'visualizador') {
       ['importExcelButton', 'addClientButton', 'clientModalSaveButton', 'importInvoicesBtn'].forEach(id => {
-        document.getElementById(id)?.classList.add('hidden'); // Tailwind hidden
+        document.getElementById(id)?.classList.add('hidden');
       });
     }
   }
-
-  // --- LÓGICA MULTI-BASE ---
 
   initBaseSelector() {
     const selector = document.getElementById('databaseSelector');
     if (!selector) return;
 
     selector.innerHTML = '';
-
     if (this.allowedBases.length === 0) {
       const opt = document.createElement('option');
       opt.text = "Sem acesso";
@@ -102,46 +102,126 @@ export class CRMApp {
     });
   }
 
-  loadDataForBase(baseName) {
-    if (this.unsubscribe) {
-      this.unsubscribe();
-      this.unsubscribe = null;
+  // Injeta o botão "Carregar Mais" abaixo da tabela
+  initLoadMoreButton() {
+    const tableContainer = document.querySelector('#clients-section .overflow-x-auto');
+    if (!tableContainer) return;
+
+    // Cria container para o botão se não existir
+    if (!document.getElementById('loadMoreContainer')) {
+      const container = document.createElement('div');
+      container.id = 'loadMoreContainer';
+      container.className = 'p-4 text-center border-t border-slate-100 bg-slate-50/30 hidden'; // Inicia oculto
+
+      const btn = document.createElement('button');
+      btn.id = 'btnLoadMore';
+      btn.className = 'px-6 py-2 bg-white border border-slate-300 text-slate-600 rounded-full shadow-sm text-sm font-medium hover:bg-slate-50 hover:text-primary-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
+      btn.innerHTML = '<i class="fas fa-download me-2"></i>Carregar mais clientes';
+
+      btn.addEventListener('click', () => this.loadNextPage());
+
+      container.appendChild(btn);
+      tableContainer.parentNode.insertBefore(container, tableContainer.nextSibling);
     }
-
-    console.log(`Carregando dados para: ${baseName}`);
-
-    this.unsubscribe = this.service.listen(baseName,
-      (data) => {
-        this.clients = data;
-        this.refreshUI();
-      },
-      (err) => {
-        console.error(err);
-        showToast("Erro ao carregar dados.", "danger");
-      }
-    );
   }
 
-  // --- NAVEGAÇÃO E UI ---
+  // --- CARREGAMENTO DE DADOS ---
+
+  async loadDataForBase(baseName) {
+    // Reset total
+    this.dashboardData = [];
+    this.tableData = [];
+    this.pagination = { lastDoc: null, hasMore: true, isLoading: false, pageSize: 50 };
+
+    // Limpa UI da tabela antes de carregar
+    this.table.applyFilters([]);
+    this.updateLoadMoreUI();
+
+    console.log(`Iniciando carregamento para: ${baseName}`);
+    showToast("Carregando base de dados...", "info");
+
+    // 1. Carrega PRIMEIRA PÁGINA para a Tabela (Rápido)
+    await this.loadNextPage();
+
+    // 2. Carrega DADOS DO DASHBOARD (Background - Completo)
+    // Não bloqueia a UI, apenas atualiza os gráficos quando terminar
+    this.service.getAllForDashboard(baseName).then(data => {
+      this.dashboardData = data;
+      this.updateDashboard(); // Atualiza gráficos com dados reais
+      console.log(`Dashboard atualizado com ${data.length} registos.`);
+    }).catch(err => console.error("Erro ao carregar dashboard:", err));
+  }
+
+  async loadNextPage() {
+    if (this.pagination.isLoading || !this.pagination.hasMore) return;
+
+    this.pagination.isLoading = true;
+    const btn = document.getElementById('btnLoadMore');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Carregando...';
+    }
+
+    try {
+      // Chama o serviço paginado
+      const result = await this.service.getPage(
+        this.currentBase,
+        this.pagination.pageSize,
+        this.pagination.lastDoc
+      );
+
+      if (result.data.length > 0) {
+        // Adiciona novos dados à lista existente
+        this.tableData = [...this.tableData, ...result.data];
+        this.pagination.lastDoc = result.lastDoc;
+
+        // Atualiza a tabela
+        this.table.applyFilters(this.tableData);
+      }
+
+      this.pagination.hasMore = result.hasMore;
+
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao carregar mais clientes.", "danger");
+    } finally {
+      this.pagination.isLoading = false;
+      this.updateLoadMoreUI();
+    }
+  }
+
+  updateLoadMoreUI() {
+    const container = document.getElementById('loadMoreContainer');
+    const btn = document.getElementById('btnLoadMore');
+
+    if (!container || !btn) return;
+
+    // Só mostra o botão se houver mais dados e estivermos na aba Clientes
+    if (this.pagination.hasMore) {
+      container.classList.remove('hidden');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-download me-2"></i>Carregar mais clientes';
+    } else {
+      container.classList.add('hidden');
+    }
+  }
+
+  // --- UI & NAVEGAÇÃO ---
 
   bindNav() {
     document.querySelectorAll('.nav-link[data-section]').forEach(link => {
       link.addEventListener('click', (e) => {
         e.preventDefault();
-        // Usa currentTarget para garantir que pegamos o elemento <a> mesmo clicando no ícone
         const sectionId = e.currentTarget.dataset.section;
         this.showSection(sectionId);
       });
     });
-
-    // Força a exibição inicial
     this.showSection(this.activeSection);
   }
 
   showSection(sectionId) {
     this.activeSection = sectionId;
 
-    // Atualiza Título e Breadcrumb
     const titleEl = document.getElementById('sectionTitle');
     if (titleEl) {
       const titles = {
@@ -152,65 +232,55 @@ export class CRMApp {
       titleEl.textContent = titles[sectionId] || 'CRM Energia';
     }
 
-    // Gerencia Visibilidade das Secções (Usando d-none do CSS global)
-    document.querySelectorAll('.section-content').forEach(s => {
-      s.classList.add('d-none');
-    });
-
+    document.querySelectorAll('.section-content').forEach(s => s.classList.add('d-none'));
     const target = document.getElementById(`${sectionId}-section`);
+
     if (target) {
       target.classList.remove('d-none');
-      // Reinicia animação fade-in (opcional, visual hack)
       target.style.animation = 'none';
-      target.offsetHeight; /* trigger reflow */
+      target.offsetHeight;
       target.style.animation = null;
     }
 
-    // Atualiza destaque no menu lateral
     this.updateNavHighlight(sectionId);
-
     this.refreshUI();
   }
 
   updateNavHighlight(activeId) {
     document.querySelectorAll('.nav-link').forEach(link => {
       const isTarget = link.dataset.section === activeId;
-
-      // Remove todas as classes para limpar
       link.classList.remove(...NAV_ACTIVE_CLASSES, ...NAV_INACTIVE_CLASSES);
-
-      if (isTarget) {
-        link.classList.add(...NAV_ACTIVE_CLASSES);
-      } else {
-        link.classList.add(...NAV_INACTIVE_CLASSES);
-      }
+      if (isTarget) link.classList.add(...NAV_ACTIVE_CLASSES);
+      else link.classList.add(...NAV_INACTIVE_CLASSES);
     });
   }
 
   refreshUI() {
     if (this.activeSection === 'dashboard') this.updateDashboard();
-    if (this.activeSection === 'clients') this.table.applyFilters(this.clients);
+    if (this.activeSection === 'clients') {
+      this.table.applyFilters(this.tableData); // Usa apenas dados paginados
+      this.updateLoadMoreUI(); // Garante que o botão aparece/desaparece corretamente
+    }
     if (this.activeSection === 'finance') this.updateFinance();
   }
 
   updateDashboard() {
+    // Usa dashboardData (completo) para KPIs
     renderKPIs({
       total: 'kpi-total-clients',
       active: 'kpi-active-clients',
       overdue: 'kpi-overdue-clients',
       revenue: 'kpi-monthly-revenue'
-    }, this.clients);
+    }, this.dashboardData);
 
     const ctxLine = document.getElementById('clientsChart')?.getContext('2d');
     const ctxPie = document.getElementById('statusChart')?.getContext('2d');
 
-    if (ctxLine) renderClientsChart(ctxLine, this.clients, this.clientsChartRef);
-    if (ctxPie) renderStatusChart(ctxPie, this.clients, this.statusChartRef);
+    if (ctxLine) renderClientsChart(ctxLine, this.dashboardData, this.clientsChartRef);
+    if (ctxPie) renderStatusChart(ctxPie, this.dashboardData, this.statusChartRef);
   }
 
   updateFinance() {
-    // Carrega dados financeiros (se ainda não carregou ou se precisar refresh)
-    // Nota: Em produção, idealmente invoiceService teria listener real-time também
     if (this.invoices.length === 0) {
       this.invoiceService.listen((data) => {
         this.invoices = data;
@@ -222,11 +292,6 @@ export class CRMApp {
   }
 
   renderFinanceWidgets() {
-    // Importado dinamicamente no topo, mas funções são globais ou passadas via módulo
-    // Precisamos importar as funções do financeDashboard no topo para usar aqui
-    // Já importado no topo deste arquivo? Não, vamos adicionar importação dinâmica ou assumir importação no topo.
-    // Correção: Adicionei imports do financeDashboard.js no topo do arquivo (assumindo que o usuário vai copiar tudo)
-
     import('../features/financeDashboard.js').then(module => {
       module.renderFinanceKPIs({
         emitido: 'kpi-emitido',
@@ -242,22 +307,19 @@ export class CRMApp {
     });
   }
 
-  // --- AÇÕES (Importação, Exportação, CRUD) ---
+  // --- AÇÕES ---
 
   bindActions() {
-    // Filtros de Tabela
-    const applyFilters = () => this.table.applyFilters(this.clients);
+    const applyFilters = () => this.table.applyFilters(this.tableData);
     ['searchInput', 'statusFilter', 'typeFilter'].forEach(id =>
       document.getElementById(id)?.addEventListener('input', applyFilters));
 
-    // City Filter (pode não existir no novo layout ou ser diferente)
     document.getElementById('cityFilter')?.addEventListener('input', applyFilters);
 
     document.getElementById('clearFiltersButton')?.addEventListener('click', () => {
       this.table.clearFilters(); applyFilters();
     });
 
-    // Importação
     document.getElementById('importExcelButton')?.addEventListener('click', () => {
       if (this.userRole !== 'editor') return;
       if (confirm(`Importar dados para a base: ${this.currentBase}?`)) {
@@ -267,35 +329,32 @@ export class CRMApp {
 
     document.getElementById('excelFileInput')?.addEventListener('change', (e) => this.handleExcelImport(e));
 
-    // Importação Financeira
     document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
     document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
 
-    // Exportação
-    document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.clients));
-    document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.clients));
+    // Exporta TUDO (dashboardData) e não só o paginado
+    document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.dashboardData));
+    document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
 
-    // Modal Cliente
     document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
 
-    // Edição via Tabela (Delegação de Eventos)
     document.getElementById('clientsTableBody')?.addEventListener('click', (e) => {
-      // Procura o botão ou ícone dentro do botão
       const btn = e.target.closest('button[data-action]');
       if (!btn) return;
       if (btn.dataset.action === 'edit') this.showClientModal(btn.dataset.id);
     });
   }
 
-  // --- MANIPULADORES DE EVENTOS ---
+  // --- HANDLERS ---
 
   async handleExcelImport(e) {
     const file = e.target.files[0];
     if (!file) return;
-
     try {
       await readExcelFile(file, this.currentBase);
+      // Recarrega tudo após importação
+      this.loadDataForBase(this.currentBase);
     } catch (err) { console.error(err); }
     e.target.value = null;
   }
@@ -319,7 +378,6 @@ export class CRMApp {
     const title = document.getElementById('clientModalTitle');
     const btnSave = document.getElementById('clientModalSaveButton');
 
-    // Ajuste de UI para visualizador
     if (this.userRole === 'visualizador') {
       title.textContent = 'Ver Cliente';
       Array.from(f.elements).forEach(el => el.disabled = true);
@@ -331,10 +389,10 @@ export class CRMApp {
     }
 
     if (id) {
-      const c = this.clients.find(x => x.id === id);
+      // Procura nos dados da tabela
+      const c = this.tableData.find(x => x.id === id) || this.dashboardData.find(x => x.id === id);
       if (c) {
         document.getElementById('clientId').value = c.id;
-        // Preenche campos
         const fields = {
           'Name': c.name, 'ExternalId': c.externalId, 'Cpf': c.cpf, 'Cnpj': c.cnpj,
           'Email': c.email, 'Phone': c.phone, 'Address': c.address,
@@ -348,12 +406,10 @@ export class CRMApp {
         }
       }
     } else {
-      // Data Hoje para novos
       const elDate = document.getElementById('clientJoinDate');
       if (elDate) elDate.value = new Date().toISOString().split('T')[0];
     }
 
-    // Abre Modal (Usando Bootstrap JS que ainda está no bundle)
     const modalEl = document.getElementById('clientModal');
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     modal.show();
@@ -382,18 +438,14 @@ export class CRMApp {
       database: this.currentBase
     };
 
-    // --- VALIDAÇÃO ANTES DE SALVAR ---
-
-    // Validar CPF se preenchido
+    // Validações
     if (data.cpf && !validateCPF(data.cpf)) {
       showToast("CPF inválido. Verifique os números.", "warning");
-      return; // Para a execução
+      return;
     }
-
-    // Validar CNPJ se preenchido
     if (data.cnpj && !validateCNPJ(data.cnpj)) {
       showToast("CNPJ inválido. Verifique os números.", "warning");
-      return; // Para a execução
+      return;
     }
 
     try {
@@ -402,6 +454,10 @@ export class CRMApp {
       const modalEl = document.getElementById('clientModal');
       const modal = bootstrap.Modal.getInstance(modalEl);
       modal?.hide();
+
+      // Recarrega para mostrar o novo item
+      this.loadDataForBase(this.currentBase);
+
     } catch (err) { console.error(err); showToast('Erro ao salvar.', 'danger'); }
   }
 }

@@ -4,10 +4,12 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  onSnapshot,
   query,
   where,
   orderBy,
+  limit,
+  startAfter,
+  getDocs,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -17,73 +19,79 @@ export class ClientService {
     this.collectionName = 'clients';
   }
 
-  // Ouvir atualizações em tempo real, filtradas pela base selecionada
-  listen(baseFilter, onData, onError) {
+  // --- PAGINAÇÃO REAL ---
+  // Busca apenas uma fatia dos dados (ex: 10 clientes)
+  // Retorna: { data: [...], lastDoc: object (para pedir a próxima pág), hasMore: boolean }
+  async getPage(baseFilter, pageSize, lastDoc = null) {
     let q;
 
-    if (baseFilter) {
-      // Filtra apenas clientes da base selecionada (ex: 'EGS')
-      // Nota: Se o Firestore reclamar de falta de índice composto (where + orderBy), 
-      // clique no link fornecido no console do navegador para criá-lo.
-      // Se o índice não existir, a query falhará.
-      try {
-        q = query(
-          collection(this.db, this.collectionName),
-          where('database', '==', baseFilter),
-          orderBy('name')
-        );
-      } catch (e) {
-        // Fallback: Se der erro de índice, tenta sem orderBy e ordena no cliente
-        console.warn("Tentando query sem ordenação (possível falta de índice).");
-        q = query(
-          collection(this.db, this.collectionName),
-          where('database', '==', baseFilter)
-        );
-      }
-    } else {
-      // Se não houver filtro (ex: admin vê tudo), traz tudo ordenado
-      q = query(collection(this.db, this.collectionName), orderBy('name'));
+    // Query base: Filtra por base + Ordena por nome + Limite
+    const constraints = [
+      where('database', '==', baseFilter),
+      orderBy('name'),
+      limit(pageSize)
+    ];
+
+    // Se tivermos um cursor (último doc da página anterior), começamos depois dele
+    if (lastDoc) {
+      constraints.push(startAfter(lastDoc));
     }
 
-    return onSnapshot(q, (snapshot) => {
-      const clients = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+    try {
+      q = query(collection(this.db, this.collectionName), ...constraints);
+    } catch (e) {
+      console.warn("Índice de ordenação em falta. A usar fallback (ordem de criação).");
+      // Fallback: Se o índice composto (database + name) não existir, busca sem ordenar por nome
+      const simpleConstraints = [
+        where('database', '==', baseFilter),
+        limit(pageSize)
+      ];
+      if (lastDoc) simpleConstraints.push(startAfter(lastDoc));
+      q = query(collection(this.db, this.collectionName), ...simpleConstraints);
+    }
 
-      // Ordenação manual no cliente caso a query tenha sido simplificada
-      if (baseFilter && !q._query.orderBy) { // Verificação simplificada
-        clients.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      }
+    const snapshot = await getDocs(q);
 
-      onData(clients);
-    }, onError);
+    return {
+      data: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+      lastDoc: snapshot.docs[snapshot.docs.length - 1] || null, // O cursor para a próxima chamada
+      hasMore: snapshot.docs.length === pageSize // Se veio menos que o limite, acabou
+    };
   }
 
-  // Adicionar/Salvar Cliente (com ID automático ou manual)
+  // --- DADOS PARA DASHBOARD ---
+  // Busca todos os dados APENAS para cálculo de KPIs (separado da tabela)
+  // No futuro, isto pode ser otimizado com 'Count' ou agregações no servidor
+  async getAllForDashboard(baseFilter) {
+    const q = query(
+      collection(this.db, this.collectionName),
+      where('database', '==', baseFilter)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  }
+
+  // --- OPERAÇÕES CRUD (Mantidas) ---
+
   async save(id, data) {
     const cleanData = this.removeUndefined(data);
 
     if (id) {
-      // Atualizar existente
       const ref = doc(this.db, this.collectionName, id);
       await updateDoc(ref, cleanData);
     } else {
-      // Criar novo
       cleanData.createdAt = new Date().toISOString();
       await addDoc(collection(this.db, this.collectionName), cleanData);
     }
   }
 
-  // Excluir Cliente
   async delete(id) {
     const ref = doc(this.db, this.collectionName, id);
     await deleteDoc(ref);
   }
 
-  // Importação em Lote (Batch)
+  // Importação em Lote (Otimizada)
   async batchImport(rows, mapFunction, existingClients, batchSize = 400) {
-    // Nota: O mapFunction agora pode ser opcional se os dados já vierem formatados
     const items = rows.map(r => mapFunction ? mapFunction(r) : r);
     const chunks = [];
 
@@ -96,12 +104,10 @@ export class ClientService {
       const batch = writeBatch(this.db);
 
       chunk.forEach(item => {
-        // Se o item já tem ID (do importador), usa ele como chave do documento
         if (item.id) {
           const ref = doc(this.db, this.collectionName, item.id);
           batch.set(ref, item, { merge: true });
         } else {
-          // Se não tem ID, deixa o Firestore criar
           const ref = doc(collection(this.db, this.collectionName));
           batch.set(ref, item);
         }
@@ -109,11 +115,10 @@ export class ClientService {
 
       await batch.commit();
       count++;
-      console.log(`Lote de clientes ${count}/${chunks.length} processado.`);
+      console.log(`Lote ${count}/${chunks.length} processado.`);
     }
   }
 
-  // Utilitário para limpar objetos antes de enviar ao Firebase
   removeUndefined(obj) {
     return Object.fromEntries(
       Object.entries(obj).filter(([_, v]) => v !== undefined && v !== null && v !== '')
