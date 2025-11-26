@@ -1,33 +1,42 @@
-// Retorna o HTML de um Badge baseado no status (Design Soft UI)
+// Retorna o HTML de um Badge moderno com Tailwind CSS
 export function statusBadge(status) {
-  if (!status) return '<span class="badge bg-secondary opacity-50">N/A</span>';
+  // Se não houver status, retorna N/A cinza
+  if (!status) {
+    return '<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500">N/A</span>';
+  }
 
   const s = status.toUpperCase();
-  let badgeClass = 'bg-secondary';
+  let classes = 'bg-slate-100 text-slate-600 border border-slate-200'; // Default (Cinza)
   let icon = '';
 
+  // Lógica de Cores e Ícones
   if (s === 'ATIVO') {
-    badgeClass = 'bg-success-soft'; // Verde suave
-    icon = '<i class="fas fa-check-circle me-1"></i>';
+    // Verde Esmeralda (Sucesso)
+    classes = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+    icon = '<i class="fas fa-check-circle me-1.5 text-xs opacity-75"></i>';
   }
-  else if (s === 'INATIVO' || s === 'CANCELADO') {
-    badgeClass = 'bg-secondary bg-opacity-25 text-dark'; // Cinza claro
-    icon = '<i class="fas fa-ban me-1"></i>';
+  else if (s === 'INATIVO' || s === 'CANCELADO' || s === 'RESCINDIDO') {
+    // Cinza/Slate (Inativo)
+    classes = 'bg-slate-100 text-slate-600 border border-slate-200';
+    icon = '<i class="fas fa-ban me-1.5 text-xs opacity-75"></i>';
   }
-  else if (s === 'PENDENTE' || s === 'EM_ANALISE') {
-    badgeClass = 'bg-warning-soft'; // Amarelo suave
-    icon = '<i class="fas fa-clock me-1"></i>';
+  else if (s === 'PENDENTE' || s === 'EM_ANALISE' || s === 'ACOMPANHAR') {
+    // Âmbar/Amarelo (Atenção)
+    classes = 'bg-amber-50 text-amber-700 border border-amber-200';
+    icon = '<i class="fas fa-clock me-1.5 text-xs opacity-75"></i>';
   }
-  else if (s === 'EM_CANCELAMENTO' || s === 'INADIMPLENTE') {
-    badgeClass = 'bg-danger-soft'; // Vermelho suave
-    icon = '<i class="fas fa-exclamation-circle me-1"></i>';
+  else if (s === 'EM_CANCELAMENTO' || s === 'INADIMPLENTE' || s.includes('RETIRAR')) {
+    // Rosa/Vermelho (Perigo)
+    classes = 'bg-rose-50 text-rose-700 border border-rose-200';
+    icon = '<i class="fas fa-exclamation-circle me-1.5 text-xs opacity-75"></i>';
   }
-  else if (s.includes('APTO')) {
-    badgeClass = 'bg-info-soft'; // Azul suave
-    icon = '<i class="fas fa-thumbs-up me-1"></i>';
+  else if (s.includes('APTO') || s === 'NOVO') {
+    // Azul (Info)
+    classes = 'bg-blue-50 text-blue-700 border border-blue-200';
+    icon = '<i class="fas fa-thumbs-up me-1.5 text-xs opacity-75"></i>';
   }
 
-  return `<span class="badge ${badgeClass}">${icon}${status}</span>`;
+  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shadow-sm ${classes}">${icon}${status}</span>`;
 }
 
 // Formata Moeda (BRL)
@@ -48,7 +57,7 @@ export function formatDoc(doc) {
   if (clean.length === 14) { // CNPJ
     return clean.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   }
-  return doc;
+  return doc; // Retorna original se não casar com padrões
 }
 
 export function normalizeString(str) {

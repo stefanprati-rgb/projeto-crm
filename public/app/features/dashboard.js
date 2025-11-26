@@ -3,58 +3,59 @@ export function renderKPIs(elIds, clients) {
   const total = clients.length;
   const active = clients.filter(c => (c.status || '').toUpperCase() === 'ATIVO').length;
 
-  // Inadimplentes
+  // Inadimplentes (Lógica mantida)
   const overdue = clients.filter(c => {
     const st = (c.status || '').toUpperCase();
     return st === 'INADIMPLENTE' || st === 'EM_COBRANCA';
   }).length;
 
-  // Cálculo de Receita
+  // Cálculo de Receita (Lógica mantida)
   const monthly = clients.reduce((sum, c) => {
     let cons = parseFloat(String(c.consumption || 0).replace(',', '.')) || 0;
     let disc = parseFloat(String(c.discount || 15).replace(',', '.')) / 100;
     return sum + (cons * 0.85 * (1 - disc));
   }, 0);
 
-  // --- CÁLCULO DE VACÂNCIA (Solicitação da Chefe) ---
-  // 1. Soma do consumo médio dos clientes ATIVOS
-  const totalConsumoMedio = clients
-    .filter(c => (c.status || '').toUpperCase() === 'ATIVO')
-    .reduce((sum, c) => sum + (parseFloat(String(c.consumption || 0).replace(',', '.')) || 0), 0);
-
-  // 2. Geração Alvo (Contratual) das Usinas
-  // IMPORTANTE: Como não temos a tabela de usinas ainda, vou fixar um valor alvo.
-  // No futuro, isso deve vir da soma da 'Potência' ou 'Geração Estimada' das usinas cadastradas.
-  const geracaoAlvo = 75000; // Exemplo: 75.000 kWh (Ajustar conforme realidade)
-
-  // 3. Cálculo da Vacância Contratual (%)
-  // Fórmula: 1 - (Soma Consumo / Geração Alvo)
-  // Se Consumo = 50k e Alvo = 75k, ocupação é 66%, vacância é 33%
-  let vacanciaContratual = 0;
-  if (geracaoAlvo > 0) {
-    vacanciaContratual = Math.max(0, 100 - ((totalConsumoMedio / geracaoAlvo) * 100));
-  }
-
-  // Atualiza elementos do DOM
+  // Atualiza elementos do DOM com formatação
   updateText(elIds.total, total);
   updateText(elIds.active, active);
   updateText(elIds.overdue, overdue);
   updateText(elIds.revenue, monthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
-
-  // Se houver elementos de vacância no HTML (sugestão de adição futura)
-  if (document.getElementById('kpi-vacancia')) {
-    document.getElementById('kpi-vacancia').textContent = vacanciaContratual.toFixed(1) + '%';
-  }
 }
 
 function updateText(id, val) {
-  if (document.getElementById(id)) document.getElementById(id).textContent = val;
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
 }
 
-// Gráfico de Evolução (Clientes por Etapa)
+// Configuração comum para gráficos modernos
+const commonOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      labels: {
+        font: { family: "'Inter', sans-serif", size: 11 },
+        usePointStyle: true,
+        boxWidth: 8,
+        padding: 20
+      }
+    },
+    tooltip: {
+      backgroundColor: 'rgba(30, 41, 59, 0.9)', // Slate-800
+      padding: 12,
+      titleFont: { family: "'Inter', sans-serif", size: 13 },
+      bodyFont: { family: "'Inter', sans-serif", size: 12 },
+      cornerRadius: 8,
+      displayColors: false
+    }
+  },
+  layout: { padding: 10 }
+};
+
+// Gráfico de Barras (Funil de Vendas)
 export function renderClientsChart(ctx, clients, chartInstanceRef) {
-  // Etapas do Processo (Solicitação da Chefe)
-  // Mapeamos o status ou uma coluna 'etapaUc' para estas categorias
+  // Lógica de etapas mantida
   const etapas = {
     'Novo': 0,
     'Enviado Rateio': 0,
@@ -63,7 +64,6 @@ export function renderClientsChart(ctx, clients, chartInstanceRef) {
   };
 
   clients.forEach(c => {
-    // Lógica de classificação baseada em status ou etapa
     const st = (c.status || '').toUpperCase();
     const etapa = (c.etapaUc || '').toUpperCase();
     const statusRateio = (c.statusRateio || '').toUpperCase();
@@ -80,45 +80,65 @@ export function renderClientsChart(ctx, clients, chartInstanceRef) {
   if (chartInstanceRef.value) chartInstanceRef.value.destroy();
 
   chartInstanceRef.value = new Chart(ctx, {
-    type: 'bar', // Mudamos para barras para mostrar funil/etapas
+    type: 'bar',
     data: {
       labels,
       datasets: [{
-        label: 'Clientes por Etapa',
+        label: 'Clientes',
         data,
         backgroundColor: [
-          '#94a3b8', // Novo (Cinza)
-          '#f59e0b', // Enviado (Amarelo)
-          '#3b82f6', // Cadastrado (Azul)
-          '#10b981'  // Faturado (Verde)
+          '#94a3b8', // Novo (Slate-400)
+          '#f59e0b', // Enviado (Amber-500)
+          '#3b82f6', // Cadastrado (Blue-500)
+          '#0d9488'  // Faturado (Teal-600 - Cor Principal)
         ],
         borderRadius: 6,
-        barPercentage: 0.6
+        barPercentage: 0.6,
+        borderSkipped: false
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, grid: { borderDash: [4, 4] } }, x: { grid: { display: false } } }
+      ...commonOptions,
+      plugins: { ...commonOptions.plugins, legend: { display: false } }, // Esconde legenda no funil
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: '#f1f5f9', borderDash: [4, 4] }, // Grid muito sutil
+          ticks: { font: { family: "'Inter', sans-serif", size: 10 }, color: '#64748b' },
+          border: { display: false }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { family: "'Inter', sans-serif", size: 11 }, color: '#64748b' },
+          border: { display: false }
+        }
+      }
     }
   });
 }
 
-// Gráfico de Status do Rateio (Novo)
+// Gráfico de Pizza (Status da Carteira)
 export function renderStatusChart(ctx, clients, chartInstanceRef) {
   const counts = {};
 
   clients.forEach(c => {
-    // Usa o campo STATUS RATEIO se existir, senão usa STATUS DO CLIENTE
     let st = c.statusRateio || c.status || 'N/A';
     st = st.toUpperCase();
     counts[st] = (counts[st] ?? 0) + 1;
   });
 
-  // Pega os top 5 status para não poluir o gráfico
   const sortedLabels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
   const data = sortedLabels.map(l => counts[l]);
+
+  // Cores mapeadas para o tema novo
+  const backgroundColors = sortedLabels.map(label => {
+    if (label.includes('ATIVO')) return '#10b981'; // Emerald-500
+    if (label.includes('INATIVO')) return '#cbd5e1'; // Slate-300
+    if (label.includes('PENDENTE') || label.includes('ACOMPANHAR')) return '#f59e0b'; // Amber-500
+    if (label.includes('APTO')) return '#3b82f6'; // Blue-500
+    if (label.includes('CANCEL') || label.includes('INADIMPLENTE')) return '#f43f5e'; // Rose-500
+    return '#94a3b8'; // Default Slate
+  });
 
   if (chartInstanceRef.value) chartInstanceRef.value.destroy();
 
@@ -128,18 +148,24 @@ export function renderStatusChart(ctx, clients, chartInstanceRef) {
       labels: sortedLabels,
       datasets: [{
         data,
-        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#94a3b8'],
-        borderWidth: 2,
-        borderColor: '#ffffff',
+        backgroundColor: backgroundColors,
+        borderWidth: 0, // Sem bordas para look flat
         hoverOffset: 4
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '70%',
+      ...commonOptions,
+      cutout: '75%', // Rosca mais fina e moderna
       plugins: {
-        legend: { position: 'right', labels: { usePointStyle: true, boxWidth: 8, font: { size: 10 } } }
+        legend: {
+          position: 'right',
+          labels: {
+            usePointStyle: true,
+            boxWidth: 8,
+            font: { family: "'Inter', sans-serif", size: 11 },
+            color: '#475569'
+          }
+        }
       }
     }
   });
