@@ -1,5 +1,5 @@
 import { db } from "../core/firebase.js";
-import { collection, doc, writeBatch } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+import { collection, doc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { showToast } from "../ui/toast.js";
 import { clientMapping } from "../utils/mapping.js";
 
@@ -39,7 +39,7 @@ class ExcelProcessor {
           // Tenta encontrar a aba correta (prioridade para 'base' ou 'clientes')
           let sheetName = workbook.SheetNames.find(n =>
             n.toLowerCase().includes('base') ||
-            n.toUpperCase().includes('CLIENTES')
+            n.toUpperCase().includes('clientes')
           ) || workbook.SheetNames[0];
 
           console.log(`Processando aba: ${sheetName}`);
