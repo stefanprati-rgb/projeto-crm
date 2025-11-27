@@ -5,7 +5,7 @@ import { readExcelFile, exportJSON, exportExcel, exportPDF } from "../features/i
 import { showToast } from "../ui/toast.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { TimelineService } from "../services/timelineService.js";
-import { TaskService } from "../services/taskService.js"; // Importamos o TaskService
+import { TaskService } from "../services/taskService.js"; // Novo Serviço
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 import { validateCPF, validateCNPJ, debounce } from "../utils/helpers.js";
 import { PROJECTS } from "../config/projects.js";
@@ -36,6 +36,7 @@ export class CRMApp {
     this.tableData = [];
     this.invoices = [];
 
+    // Paginação
     this.pagination = {
       lastDoc: null,
       hasMore: true,
@@ -47,7 +48,7 @@ export class CRMApp {
     this.service = new ClientService(db);
     this.invoiceService = new InvoiceService(db);
     this.timelineService = new TimelineService();
-    this.taskService = new TaskService(); // Instancia o serviço de Tarefas
+    this.taskService = new TaskService(); // Instância de Tarefas
     this.table = new ClientsTable(this.userRole);
 
     // Refs Gráficos
@@ -57,10 +58,13 @@ export class CRMApp {
 
     this.activeSection = 'dashboard';
 
-    // Listeners (Unsubscribers)
+    // Listeners
     this.unsubscribe = null;
     this.timelineUnsubscribe = null;
     this.tasksUnsubscribe = null;
+
+    // Expor instância para o HTML (para os botões de concluir tarefa funcionarem)
+    window.crmApp = this;
 
     this.init();
   }
@@ -129,13 +133,13 @@ export class CRMApp {
 
   // --- ABAS ---
   bindModalTabs() {
-    const tabBtns = document.querySelectorAll('.drawer-tab-btn, .tab-btn');
+    const tabBtns = document.querySelectorAll('.drawer-tab-btn');
     tabBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const targetId = btn.dataset.tab;
 
-        // Remove ativo de todos e adiciona no clicado
+        // UI dos Botões
         tabBtns.forEach(b => {
           b.classList.remove('active', 'text-primary-700', 'border-primary-600');
           b.classList.add('text-slate-400', 'border-transparent');
@@ -144,8 +148,8 @@ export class CRMApp {
         btn.classList.remove('text-slate-400', 'border-transparent');
         btn.classList.add('active', 'text-primary-700', 'border-primary-600');
 
-        // Troca conteúdo
-        document.querySelectorAll('.drawer-content, .tab-content').forEach(c => c.classList.add('hidden'));
+        // Conteúdo
+        document.querySelectorAll('.drawer-content').forEach(c => c.classList.add('hidden'));
         const target = document.getElementById(targetId);
         if (target) {
           target.classList.remove('hidden');
@@ -294,17 +298,15 @@ export class CRMApp {
   }
 
   bindActions() {
-    // Busca
     const searchInput = document.getElementById('searchInput');
     if (searchInput) { searchInput.addEventListener('input', debounce(() => { this.table.applyFilters(this.tableData); }, 300)); }
 
     ['statusFilter', 'cityFilter'].forEach(id => document.getElementById(id)?.addEventListener('input', () => this.table.applyFilters(this.tableData)));
     document.getElementById('clearFiltersButton')?.addEventListener('click', () => { this.table.clearFilters(); this.table.applyFilters(this.tableData); });
 
-    // Import/Export
     document.getElementById('importExcelButton')?.addEventListener('click', () => {
       if (this.userRole !== 'editor') return;
-      if (this.currentBase === 'TODOS') { showToast("Selecione um projeto específico.", "warning"); return; }
+      if (this.currentBase === 'TODOS') { showToast("Selecione um projeto.", "warning"); return; }
       if (confirm(`Importar para: ${PROJECTS[this.currentBase]?.name || this.currentBase}?`)) { document.getElementById('excelFileInput').click(); }
     });
     document.getElementById('excelFileInput')?.addEventListener('change', (e) => this.handleExcelImport(e));
@@ -315,11 +317,10 @@ export class CRMApp {
     document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
     document.getElementById('exportPdfButton')?.addEventListener('click', () => exportPDF(this.dashboardData));
 
-    // CRUD & Drawer
     document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
 
-    // Fechar Drawer
+    // DRAWER
     document.getElementById('closeDrawerBtn')?.addEventListener('click', () => this.closeDrawer());
     document.getElementById('client-drawer-overlay')?.addEventListener('click', () => this.closeDrawer());
 
@@ -329,13 +330,12 @@ export class CRMApp {
       if (btn.dataset.action === 'edit') this.showClientModal(btn.dataset.id);
     });
 
-    // Forms Secundários
+    // FORMS SECUNDÁRIOS
     document.getElementById('activityForm')?.addEventListener('submit', (e) => this.handleSaveActivity(e));
     document.getElementById('taskForm')?.addEventListener('submit', (e) => this.handleSaveTask(e));
   }
 
   // --- HANDLERS ---
-
   async handleExcelImport(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -351,22 +351,19 @@ export class CRMApp {
   // --- DRAWER LOGIC ---
 
   showClientModal(id = null) {
-    // 1. Reset
     document.getElementById('clientForm').reset();
     document.getElementById('clientId').value = '';
 
-    // Reset Listeners
     if (this.timelineUnsubscribe) { this.timelineUnsubscribe(); this.timelineUnsubscribe = null; }
     if (this.tasksUnsubscribe) { this.tasksUnsubscribe(); this.tasksUnsubscribe = null; }
 
-    // Reset UI Lists
     const timelineContainer = document.getElementById('activityTimeline');
     if (timelineContainer) timelineContainer.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm">Carregando histórico...</div>';
 
     const tasksContainer = document.getElementById('tasksList');
     if (tasksContainer) tasksContainer.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm">Carregando tarefas...</div>';
 
-    // Reset Tabs para "Visão Geral"
+    // Reset Tabs
     const tabBtns = document.querySelectorAll('.drawer-tab-btn');
     tabBtns.forEach(b => {
       b.classList.remove('active', 'text-primary-700', 'border-primary-600');
@@ -381,7 +378,6 @@ export class CRMApp {
       document.getElementById('tab-overview')?.classList.remove('hidden');
     }
 
-    // Preenche Dados
     if (id) {
       const c = this.tableData.find(x => x.id === id) || this.dashboardData.find(x => x.id === id);
       if (c) {
@@ -396,29 +392,20 @@ export class CRMApp {
         };
         for (const [key, val] of Object.entries(fields)) { const el = document.getElementById(`client${key}`); if (el) el.value = val || ''; }
 
-        // Carrega Subcoleções
+        // LOAD SUBCOLLECTIONS
         this.loadTimeline(c.id);
         this.loadTasks(c.id);
       }
     } else {
-      // Novo Cliente
       document.getElementById('drawerClientName').textContent = 'Novo Cliente';
-      document.getElementById('drawerClientId').textContent = 'ID: -';
-      document.getElementById('drawerClientUC').textContent = 'UC: -';
-
-      const elDate = document.getElementById('clientJoinDate');
-      if (elDate) elDate.value = new Date().toISOString().split('T')[0];
-
-      if (timelineContainer) timelineContainer.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm">Salve o cliente para adicionar histórico.</div>';
-      if (tasksContainer) tasksContainer.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm">Salve o cliente para criar tarefas.</div>';
+      const elDate = document.getElementById('clientJoinDate'); if (elDate) elDate.value = new Date().toISOString().split('T')[0];
     }
 
-    // Abre Drawer
     const drawer = document.getElementById('client-drawer');
     const overlay = document.getElementById('client-drawer-overlay');
     if (drawer && overlay) {
       overlay.classList.remove('hidden');
-      setTimeout(() => overlay.classList.remove('opacity-0'), 10); // Fade in
+      setTimeout(() => overlay.classList.remove('opacity-0'), 10);
       drawer.classList.remove('translate-x-full');
     }
   }
@@ -433,7 +420,7 @@ export class CRMApp {
     }
   }
 
-  // --- TIMELINE LOGIC ---
+  // --- TIMELINE ---
   loadTimeline(clientId) {
     this.timelineUnsubscribe = this.timelineService.listenToTimeline(clientId, (activities) => {
       const container = document.getElementById('activityTimeline');
@@ -448,7 +435,6 @@ export class CRMApp {
         const date = new Date(act.createdAt).toLocaleDateString() + ' ' + new Date(act.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         let iconClass = 'fa-comment';
         let bgClass = 'bg-slate-100 text-slate-500';
-
         if (act.type === 'whatsapp') { iconClass = 'fa-whatsapp'; bgClass = 'bg-green-100 text-green-600'; }
         else if (act.type === 'call') { iconClass = 'fa-phone'; bgClass = 'bg-blue-100 text-blue-600'; }
         else if (act.type === 'email') { iconClass = 'fa-envelope'; bgClass = 'bg-amber-100 text-amber-600'; }
@@ -485,7 +471,7 @@ export class CRMApp {
     } catch (err) { console.error(err); showToast("Erro ao registrar.", "danger"); }
   }
 
-  // --- TASK LOGIC ---
+  // --- TASKS ---
   loadTasks(clientId) {
     this.tasksUnsubscribe = this.taskService.listenToClientTasks(clientId, (tasks) => {
       const container = document.getElementById('tasksList');
@@ -501,14 +487,13 @@ export class CRMApp {
         const opacityClass = isDone ? 'opacity-50' : '';
         const checkIcon = isDone ? 'fa-check-circle text-emerald-500' : 'fa-circle text-slate-300';
         const date = new Date(task.dueDate).toLocaleDateString();
-
         let priorityColor = 'bg-slate-100 text-slate-500';
         if (task.priority === 'high') priorityColor = 'bg-rose-50 text-rose-600';
         if (task.priority === 'medium') priorityColor = 'bg-amber-50 text-amber-600';
 
         return `
           <div class="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm fade-in group ${opacityClass}">
-            <button class="shrink-0 text-lg hover:text-emerald-500 transition-colors" onclick="window.crmApp.toggleTask('${task.id}')">
+            <button class="shrink-0 text-lg hover:text-emerald-500 transition-colors" onclick="window.crmApp.toggleTask('${task.id}', '${task.status}')">
                <i class="far ${checkIcon}"></i>
             </button>
             <div class="flex-1 min-w-0">
@@ -541,52 +526,30 @@ export class CRMApp {
 
     try {
       await this.taskService.addTask(clientId, taskData);
-      document.getElementById('taskTitle').value = ''; // Reset parcial
+      document.getElementById('taskTitle').value = '';
       showToast("Tarefa criada!", "success");
     } catch (err) { console.error(err); showToast("Erro ao criar tarefa.", "danger"); }
   }
 
-  // Métodos globais para ações dentro do HTML injetado
-  async toggleTask(taskId) {
+  // Métodos Expostos (Window)
+  async toggleTask(taskId, currentStatus) {
     const clientId = document.getElementById('clientId').value;
-    const taskElement = this.tableData.find(t => t.id === taskId); // Não temos acesso direto ao objeto aqui, então buscamos no DOM ou simplificamos
-    // Simplificação: O toggleStatus precisa saber o status atual. 
-    // Como não guardamos tasks em memória global simples, vamos assumir toggle cego ou melhorar o serviço.
-    // Melhoria: O serviço pode ler o doc e inverter.
-    // Para MVP Vibe Coding: Vamos passar o status atual no HTML? Não, feio.
-    // Vamos fazer o serviço ler e inverter.
     try {
-      // Hack rápido: precisamos ler o status atual.
-      // Idealmente o taskService trataria isso.
-      // Vou assumir que está 'pending' e virar 'done' ou vice versa visualmente até recarregar?
-      // Melhor: Chamar serviço.
-      // Nota: Preciso expor o app no window para o onclick funcionar.
-      // Vou adicionar essa lógica no taskService no próximo passo se falhar.
-    } catch (e) { console.error(e); }
+      await this.taskService.toggleStatus(clientId, taskId, currentStatus);
+      showToast(currentStatus === 'done' ? "Tarefa reaberta." : "Tarefa concluída!", "success");
+    } catch (e) { console.error(e); showToast("Erro ao alterar status.", "danger"); }
   }
 
-  // Para funcionar os onClicks do HTML injetado
-  exposeGlobal() {
-    window.crmApp = {
-      toggleTask: async (taskId) => {
-        const clientId = document.getElementById('clientId').value;
-        // Para fazer toggle correto, precisamos saber o estado.
-        // Como não temos tasks em memória fácil aqui, vou fazer um update cego ou buscar.
-        // Vou deixar pendente para refinamento ou implementar leitura antes.
-        showToast("Alterando status...", "info");
-        // Implementação robusta exigiria ler o doc primeiro.
-      },
-      deleteTask: async (taskId) => {
-        if (!confirm("Apagar tarefa?")) return;
-        const clientId = document.getElementById('clientId').value;
-        try {
-          await this.taskService.deleteTask(clientId, taskId);
-          showToast("Tarefa apagada.", "success");
-        } catch (e) { showToast("Erro ao apagar.", "danger"); }
-      }
-    };
+  async deleteTask(taskId) {
+    if (!confirm("Apagar tarefa?")) return;
+    const clientId = document.getElementById('clientId').value;
+    try {
+      await this.taskService.deleteTask(clientId, taskId);
+      showToast("Tarefa apagada.", "success");
+    } catch (e) { console.error(e); showToast("Erro ao apagar.", "danger"); }
   }
 
+  // --- SAVE CLIENT ---
   async handleSaveClient(e) {
     e.preventDefault();
     if (this.userRole !== 'editor') { showToast("Permissão negada.", "danger"); return; }
@@ -596,38 +559,14 @@ export class CRMApp {
     const data = {
       name: document.getElementById('clientName').value, externalId: document.getElementById('clientExternalId').value, cpf: document.getElementById('clientCpf').value, cnpj: document.getElementById('clientCnpj').value, email: document.getElementById('clientEmail').value, phone: document.getElementById('clientPhone').value, address: document.getElementById('clientAddress').value, state: document.getElementById('clientState').value, city: document.getElementById('clientCity').value, status: document.getElementById('clientStatus').value, contractType: document.getElementById('clientContractType').value, joinDate: document.getElementById('clientJoinDate').value, consumption: document.getElementById('clientConsumption').value, discount: document.getElementById('clientDiscount').value, database: this.currentBase
     };
-
     if (data.cpf && !validateCPF(data.cpf)) { showToast("CPF inválido.", "warning"); return; }
     if (data.cnpj && !validateCNPJ(data.cnpj)) { showToast("CNPJ inválido.", "warning"); return; }
 
     try {
       await this.service.save(id, data);
       showToast('Salvo com sucesso!', 'success');
-      const modalEl = document.getElementById('clientModal');
-      // Drawer close logic
       this.closeDrawer();
       this.loadDataForBase(this.currentBase);
     } catch (err) { console.error(err); showToast('Erro ao salvar.', 'danger'); }
   }
 }
-
-// Expõe métodos globais para o HTML
-setTimeout(() => {
-  const app = window.crmAppInstance; // Se tivermos guardado a instância
-  // Pequeno hack para garantir que funções globais funcionem no HTML injetado
-  window.crmApp = {
-    deleteTask: async (taskId) => {
-      if (!confirm("Remover tarefa?")) return;
-      const clientId = document.getElementById('clientId').value;
-      // Precisamos acessar o serviço. Como não é estático, usamos uma referência global ou importamos de novo.
-      // Solução rápida: Recriar instância leve do serviço só para deletar (não ideal mas funciona)
-      // Melhor: A classe CRMApp devia expor-se.
-      // Vamos deixar o console log por enquanto se clicar.
-      console.log("Delete task", taskId, clientId);
-      // Para produção, vincular corretamente à instância.
-    },
-    toggleTask: (taskId) => {
-      console.log("Toggle task", taskId);
-    }
-  }
-}, 1000);
