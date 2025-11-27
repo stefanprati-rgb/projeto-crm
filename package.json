@@ -1,0 +1,31 @@
+{
+  "name": "projeto-crm",
+  "version": "1.0.0",
+  "description": "Sistema de CRM (Customer Relationship Management) para gestão de vendas, produção, estoque e finanças.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i ./code/css/tailwind-input.css -o ./public/css/tailwind.css --minify",
+    "dev:css": "tailwindcss -i ./code/css/tailwind-input.css -o ./public/css/tailwind.css --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stefanprati-rgb/projeto-crm.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/stefanprati-rgb/projeto-crm/issues"
+  },
+  "homepage": "https://github.com/stefanprati-rgb/projeto-crm#readme",
+  "devDependencies": {
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.18"
+  }
+}
