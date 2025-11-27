@@ -1,3 +1,5 @@
+// firebase.js
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getAuth,
@@ -17,125 +19,222 @@ import { firebaseConfig } from "../config/firebaseConfig.js";
 import { CRMApp } from "./crmApp.js";
 import { showToast } from "../ui/toast.js";
 
-// --- 1. INICIALIZAÇÃO ---
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// --- 1. INICIALIZAÇÃO COM TRATATIVA DE ERRO ---
+let app = null;
+let auth = null;
+let db = null;
 let crmAppInstance = null;
 
-// --- 2. ELEMENTOS UI ---
-const loginSection = document.getElementById('login-section');
-const mainNav = document.getElementById('mainNavApp');
-const mainContent = document.getElementById('mainContentApp');
-const loadingSpinner = document.getElementById('loading-spinner');
-
-const loginForm = document.getElementById('loginForm');
-const createAccountForm = document.getElementById('createAccountForm');
-const logoutButton = document.getElementById('logoutButton');
-
-const showCreateLink = document.getElementById('showCreateAccountLink');
-const showLoginLink = document.getElementById('showLoginLink');
-const loginAuthAlert = document.getElementById('login-auth-alert');
-
-// --- 3. LISTENER DE AUTENTICAÇÃO ---
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    console.log("Usuário logado:", user.email);
-
-    // Buscar perfil do usuário no Firestore para saber permissões
-    let userData = {
-      role: 'visualizador',
-      allowedBases: ['CGB'] // Base padrão se não tiver perfil
-    };
-
-    try {
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        userData = userDoc.data();
-      }
-    } catch (e) {
-      console.error("Erro ao buscar perfil:", e);
-    }
-
-    // Atualiza UI do Menu Lateral
-    if (document.getElementById('navbarUserEmail'))
-      document.getElementById('navbarUserEmail').textContent = user.email;
-
-    if (document.getElementById('navbarUserBases'))
-      document.getElementById('navbarUserBases').textContent = `Acesso: ${userData.allowedBases?.join(', ') || 'CGB'}`;
-
-    // Esconde Login / Mostra App
-    loadingSpinner.classList.add('d-none');
-    loginSection.classList.add('d-none');
-    mainNav.classList.remove('d-none');
-    mainContent.classList.remove('d-none');
-
-    // Inicia o App passando os dados do usuário (incluindo as bases permitidas)
-    if (!crmAppInstance) {
-      crmAppInstance = new CRMApp(db, auth, userData);
-    }
-
-  } else {
-    // Logout
-    if (crmAppInstance) {
-      crmAppInstance.destroy();
-      crmAppInstance = null;
-    }
-    loadingSpinner.classList.add('d-none');
-    mainNav.classList.add('d-none');
-    mainContent.classList.add('d-none');
-    loginSection.classList.remove('d-none');
-    if (loginForm) loginForm.reset();
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  console.log("Firebase inicializado com sucesso.");
+} catch (error) {
+  console.error("Erro ao inicializar Firebase:", error);
+  if (typeof showToast === "function") {
+    showToast("Erro ao inicializar Firebase. Verifique firebaseConfig.", "error");
   }
-});
+}
+
+// --- 2. ELEMENTOS UI ---
+const loginSection = document.getElementById("login-section");
+const mainNav = document.getElementById("mainNavApp");
+const mainContent = document.getElementById("mainContentApp");
+const loadingSpinner = document.getElementById("loading-spinner");
+
+const loginForm = document.getElementById("loginForm");
+const createAccountForm = document.getElementById("createAccountForm");
+const logoutButton = document.getElementById("logoutButton");
+
+const showCreateLink = document.getElementById("showCreateAccountLink");
+const showLoginLink = document.getElementById("showLoginLink");
+const loginAuthAlert = document.getElementById("login-auth-alert");
+
+// Helpers de UI para evitar erro se algum elemento não existir
+function hideElement(el) {
+  if (el) el.classList.add("d-none");
+}
+function showElement(el) {
+  if (el) el.classList.remove("d-none");
+}
+
+// --- 3. LISTENER DE AUTENTICAÇÃO (só se auth existir) ---
+if (auth && db) {
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      console.log("Usuário logado:", user.email);
+
+      // Perfil padrão
+      let userData = {
+        role: "visualizador",
+        allowedBases: ["CGB"]
+      };
+
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          userData = userDoc.data();
+        }
+      } catch (e) {
+        console.error("Erro ao buscar perfil:", e);
+      }
+
+      const navbarUserEmail = document.getElementById("navbarUserEmail");
+      const navbarUserBases = document.getElementById("navbarUserBases");
+
+      if (navbarUserEmail) {
+        navbarUserEmail.textContent = user.email;
+      }
+
+      if (navbarUserBases) {
+        const bases = userData.allowedBases?.join(", ") || "CGB";
+        navbarUserBases.textContent = `Acesso: ${bases}`;
+      }
+
+      // Esconde Login / Mostra App
+      hideElement(loadingSpinner);
+      hideElement(loginSection);
+      showElement(mainNav);
+      showElement(mainContent);
+
+      // Inicia o App passando os dados do usuário
+      if (!crmAppInstance) {
+        crmAppInstance = new CRMApp(db, auth, userData);
+      }
+    } else {
+      // Usuário deslogado
+      if (crmAppInstance) {
+        if (typeof crmAppInstance.destroy === "function") {
+          crmAppInstance.destroy();
+        }
+        crmAppInstance = null;
+      }
+
+      hideElement(loadingSpinner);
+      showElement(loginSection);
+      hideElement(mainNav);
+      hideElement(mainContent);
+
+      if (loginForm) loginForm.reset();
+    }
+  });
+} else {
+  console.error("Auth ou Firestore não inicializados. Verifique firebaseConfig.");
+}
 
 // --- 4. EVENTOS DE FORMULÁRIO ---
 
-showCreateLink?.addEventListener('click', (e) => { e.preventDefault(); loginForm.classList.add('d-none'); createAccountForm.classList.remove('d-none'); });
-showLoginLink?.addEventListener('click', (e) => { e.preventDefault(); createAccountForm.classList.add('d-none'); loginForm.classList.remove('d-none'); });
+// Alternar entre Login e Criar Conta
+if (showCreateLink && loginForm && createAccountForm) {
+  showCreateLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    hideElement(loginForm);
+    showElement(createAccountForm);
+  });
+}
+
+if (showLoginLink && loginForm && createAccountForm) {
+  showLoginLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    hideElement(createAccountForm);
+    showElement(loginForm);
+  });
+}
 
 // Login
-loginForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  loginAuthAlert.classList.add('d-none');
-  try {
-    await signInWithEmailAndPassword(auth, document.getElementById('loginEmail').value, document.getElementById('loginPassword').value);
-  } catch (err) {
-    console.error(err);
-    loginAuthAlert.textContent = "Login falhou. Verifique as credenciais.";
-    loginAuthAlert.classList.remove('d-none');
-  }
-});
+if (loginForm && auth) {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    if (loginAuthAlert) {
+      hideElement(loginAuthAlert);
+      loginAuthAlert.textContent = "";
+    }
+
+    const emailInput = document.getElementById("loginEmail");
+    const passInput = document.getElementById("loginPassword");
+    const email = emailInput?.value || "";
+    const pass = passInput?.value || "";
+
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+      // onAuthStateChanged vai cuidar do resto
+    } catch (err) {
+      console.error("Erro no login:", err);
+      if (loginAuthAlert) {
+        loginAuthAlert.textContent = "Login falhou. Verifique as credenciais.";
+        showElement(loginAuthAlert);
+      }
+      if (typeof showToast === "function") {
+        showToast("Falha no login. Verifique e-mail e senha.", "error");
+      }
+    }
+  });
+}
 
 // Criar Conta
-createAccountForm?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  try {
-    const email = document.getElementById('createEmail').value;
-    const pass = document.getElementById('createPassword').value;
+if (createAccountForm && auth && db) {
+  createAccountForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-    // 1. Cria Auth
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    const emailInput = document.getElementById("createEmail");
+    const passInput = document.getElementById("createPassword");
+    const email = emailInput?.value || "";
+    const pass = passInput?.value || "";
 
-    // 2. Cria Perfil no Firestore com permissões padrão
-    // MVP: Damos permissão às duas bases para facilitar o teste
-    await setDoc(doc(db, "users", cred.user.uid), {
-      email: email,
-      role: "editor",
-      allowedBases: ["CGB", "EGS"],
-      createdAt: new Date().toISOString()
-    });
+    try {
+      // 1. Cria Auth
+      const cred = await createUserWithEmailAndPassword(auth, email, pass);
 
-    showToast('Conta criada com sucesso!', 'success');
-  } catch (err) {
-    alert("Erro ao criar conta: " + err.message);
-  }
-});
+      // 2. Cria Perfil no Firestore com permissões padrão
+      await setDoc(doc(db, "users", cred.user.uid), {
+        email: email,
+        role: "editor",
+        allowedBases: ["CGB", "EGS"],
+        createdAt: new Date().toISOString()
+      });
 
-logoutButton?.addEventListener('click', (e) => {
-  e.preventDefault();
-  signOut(auth);
-});
+      if (typeof showToast === "function") {
+        showToast("Conta criada com sucesso!", "success");
+      } else {
+        alert("Conta criada com sucesso!");
+      }
+
+      // Volta para o formulário de login
+      if (loginForm && createAccountForm) {
+        hideElement(createAccountForm);
+        showElement(loginForm);
+      }
+    } catch (err) {
+      console.error("Erro ao criar conta:", err);
+      const msg = err?.message || "Erro ao criar conta.";
+      if (typeof showToast === "function") {
+        showToast(msg, "error");
+      } else {
+        alert("Erro ao criar conta: " + msg);
+      }
+    }
+  });
+}
+
+// Logout
+if (logoutButton && auth) {
+  logoutButton.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Erro ao sair:", err);
+      if (typeof showToast === "function") {
+        showToast("Erro ao sair da conta.", "error");
+      } else {
+        alert("Erro ao sair da conta.");
+      }
+    }
+  });
+}
 
 // Exportações
 export { app, db, auth };
