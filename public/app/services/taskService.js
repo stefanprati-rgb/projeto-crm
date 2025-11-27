@@ -5,7 +5,6 @@ import {
     doc,
     deleteDoc,
     query,
-    where,
     orderBy,
     onSnapshot,
     serverTimestamp
@@ -14,7 +13,7 @@ import { db, auth } from "../core/firebase.js";
 
 export class TaskService {
     constructor() {
-        // As tarefas ficarão numa subcoleção do cliente: clients/{id}/tasks
+        // Tarefas são subcoleção: clients/{id}/tasks
     }
 
     /**
@@ -30,9 +29,9 @@ export class TaskService {
             title: taskData.title,
             description: taskData.description || '',
             dueDate: taskData.dueDate, // YYYY-MM-DD
-            status: 'pending', // pending, done, overdue
+            status: 'pending', // pending, done
             priority: taskData.priority || 'medium', // low, medium, high
-            type: taskData.type || 'follow_up', // follow_up, collection, onboarding
+            type: taskData.type || 'general',
 
             assignedTo: user ? user.uid : null,
             assignedToEmail: user ? user.email : 'Sistema',
@@ -73,7 +72,6 @@ export class TaskService {
         if (!clientId) return null;
 
         const path = `clients/${clientId}/tasks`;
-        // Ordena por status (pendentes primeiro) e depois por data de vencimento
         const q = query(collection(db, path), orderBy('status', 'desc'), orderBy('dueDate', 'asc'));
 
         return onSnapshot(q, (snapshot) => {

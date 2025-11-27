@@ -1,15 +1,11 @@
-import { PROJECTS, getTargetGeneration } from "../config/projects.js";
+import { PROJECTS } from "../config/projects.js";
 
-// Renderiza os KPIs, Saudação e o Hub de Projetos
+// Renderiza KPIs, Saudação e o Hub de Projetos
 export function renderKPIs(elIds, clients, currentBase) {
 
-  // 1. Atualiza Saudação (UX "Apple")
   updateGreeting(currentBase);
-
-  // 2. Renderiza o Hub de Projetos (Apenas se estiver em 'TODOS')
   renderProjectHub(clients, currentBase);
 
-  // 3. Cálculos Globais (KPIs Principais)
   const total = clients.length;
   const active = clients.filter(c => (c.status || '').toUpperCase() === 'ATIVO').length;
 
@@ -18,22 +14,17 @@ export function renderKPIs(elIds, clients, currentBase) {
     return st === 'INADIMPLENTE' || st === 'EM_COBRANCA';
   }).length;
 
-  // Cálculo de Receita (Robusto para strings ou numbers)
   const monthly = clients.reduce((sum, c) => {
     let cons = typeof c.consumption === 'string' ? parseFloat(c.consumption.replace('.', '').replace(',', '.')) : (c.consumption || 0);
     let disc = typeof c.discount === 'string' ? parseFloat(c.discount.replace(',', '.')) : (c.discount || 0);
-    // Regra: Consumo * 0.85 * (1 - Desconto)
     return sum + (cons * 0.85 * (1 - (disc / 100)));
   }, 0);
 
-  // Atualiza DOM dos KPIs
   updateText(elIds.total, total);
   updateText(elIds.active, active);
   updateText(elIds.overdue, overdue);
   updateText(elIds.revenue, monthly.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 }
-
-// --- FUNÇÕES AUXILIARES DE UI ---
 
 function updateText(id, val) {
   const el = document.getElementById(id);
@@ -61,13 +52,10 @@ function updateGreeting(currentBase) {
   }
 }
 
-// --- HUB DE PROJETOS (OS CARDS MÁGICOS) ---
-
 function renderProjectHub(allClients, currentBase) {
   const grid = document.getElementById('projects-overview-grid');
   if (!grid) return;
 
-  // Só mostra o grid se estivermos na visão consolidada
   if (currentBase !== 'TODOS') {
     grid.classList.add('hidden');
     grid.classList.remove('grid');
@@ -75,51 +63,41 @@ function renderProjectHub(allClients, currentBase) {
   }
 
   grid.classList.remove('hidden');
-  grid.classList.add('grid'); // Ativa o grid do Tailwind
+  grid.classList.add('grid');
   grid.innerHTML = '';
 
-  // Itera sobre cada projeto configurado (LNV, ALA, etc.)
   Object.entries(PROJECTS).forEach(([code, project]) => {
-
-    // 1. Filtra clientes deste projeto específico
     const projClients = allClients.filter(c => c.database === code);
 
-    // 2. Calcula métricas locais
     const activeClients = projClients.filter(c => (c.status || '').toUpperCase() === 'ATIVO');
 
-    // Soma Consumo
     const totalConsumo = activeClients.reduce((sum, c) => {
       let val = typeof c.consumption === 'string' ? parseFloat(c.consumption.replace('.', '').replace(',', '.')) : (c.consumption || 0);
       return sum + (val || 0);
     }, 0);
 
-    // Soma Receita
     const projRevenue = projClients.reduce((sum, c) => {
       let cons = typeof c.consumption === 'string' ? parseFloat(c.consumption.replace('.', '').replace(',', '.')) : (c.consumption || 0);
       let disc = typeof c.discount === 'string' ? parseFloat(c.discount.replace(',', '.')) : (c.discount || 0);
       return sum + (cons * 0.85 * (1 - (disc / 100)));
     }, 0);
 
-    // Vacância
-    const target = project.target || 1; // Evita divisão por zero
+    const target = project.target || 1;
     const occupancyPct = Math.min(100, (totalConsumo / target) * 100);
     const vacancyPct = (100 - occupancyPct).toFixed(1);
 
-    // Cor da barra de progresso baseada na ocupação
     let progressColor = 'bg-emerald-500';
     if (occupancyPct < 40) progressColor = 'bg-amber-500';
     if (occupancyPct < 20) progressColor = 'bg-rose-500';
 
-    // 3. Gera o Card HTML (Glassmorphism + Apple Style)
     const card = document.createElement('div');
     card.className = 'bg-white p-6 rounded-3xl shadow-apple hover:shadow-apple-hover border border-white/60 transition-all duration-300 group cursor-pointer relative overflow-hidden';
 
-    // Ação ao clicar: Mudar o filtro global para este projeto
     card.onclick = () => {
       const selector = document.getElementById('databaseSelector');
       if (selector) {
         selector.value = code;
-        selector.dispatchEvent(new Event('change')); // Dispara a troca de base
+        selector.dispatchEvent(new Event('change'));
       }
     };
 
@@ -144,7 +122,7 @@ function renderProjectHub(allClients, currentBase) {
 
         <div>
           <div class="flex justify-between text-xs mb-1">
-            <span class="text-slate-500">Ocupação Usina</span>
+            <span class="text-slate-500">Ocupação</span>
             <span class="font-bold ${occupancyPct > 90 ? 'text-emerald-600' : 'text-slate-700'}">${occupancyPct.toFixed(1)}%</span>
           </div>
           <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -153,63 +131,37 @@ function renderProjectHub(allClients, currentBase) {
           <div class="text-[10px] text-slate-400 mt-1 text-right">Vacância: ${vacancyPct}%</div>
         </div>
       </div>
-
-      <div class="absolute -bottom-4 -right-4 w-24 h-24 bg-primary-50 rounded-full opacity-0 group-hover:opacity-50 transition-opacity duration-500 blur-xl"></div>
     `;
 
     grid.appendChild(card);
   });
 }
 
-// --- GRÁFICOS (CONFIGURAÇÃO) ---
-
 const commonOptions = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: {
-      labels: {
-        font: { family: "'Inter', sans-serif", size: 11 },
-        usePointStyle: true,
-        boxWidth: 8,
-        padding: 20,
-        color: '#64748b'
-      }
+      labels: { font: { family: "'Inter', sans-serif", size: 11 }, usePointStyle: true, boxWidth: 8, padding: 20, color: '#64748b' }
     },
     tooltip: {
-      backgroundColor: 'rgba(15, 23, 42, 0.95)', // Slate-900
+      backgroundColor: 'rgba(15, 23, 42, 0.95)',
       padding: 12,
       titleFont: { family: "'Inter', sans-serif", size: 13 },
       bodyFont: { family: "'Inter', sans-serif", size: 12 },
       cornerRadius: 12,
-      displayColors: true,
-      boxPadding: 4
+      displayColors: true
     }
   },
   layout: { padding: 10 },
   scales: {
-    y: {
-      beginAtZero: true,
-      grid: { color: '#f1f5f9', borderDash: [4, 4] },
-      ticks: { font: { size: 10 }, color: '#94a3b8' },
-      border: { display: false }
-    },
-    x: {
-      grid: { display: false },
-      ticks: { font: { size: 11 }, color: '#64748b' },
-      border: { display: false }
-    }
+    y: { beginAtZero: true, grid: { color: '#f1f5f9', borderDash: [4, 4] }, ticks: { font: { size: 10 }, color: '#94a3b8' }, border: { display: false } },
+    x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#64748b' }, border: { display: false } }
   }
 };
 
-// Gráfico de Barras (Funil)
 export function renderClientsChart(ctx, clients, chartInstanceRef) {
-  const etapas = {
-    'Novo': 0,
-    'Enviado Rateio': 0,
-    'Rateio Cadastrado': 0,
-    'Faturado': 0
-  };
+  const etapas = { 'Novo': 0, 'Enviado Rateio': 0, 'Rateio Cadastrado': 0, 'Faturado': 0 };
 
   clients.forEach(c => {
     const st = (c.status || '').toUpperCase();
@@ -234,7 +186,7 @@ export function renderClientsChart(ctx, clients, chartInstanceRef) {
       datasets: [{
         label: 'Clientes',
         data,
-        backgroundColor: ['#cbd5e1', '#f59e0b', '#3b82f6', '#10b981'], // Slate, Amber, Blue, Emerald
+        backgroundColor: ['#cbd5e1', '#f59e0b', '#3b82f6', '#10b981'],
         borderRadius: 8,
         barPercentage: 0.5,
         borderSkipped: false
@@ -247,7 +199,6 @@ export function renderClientsChart(ctx, clients, chartInstanceRef) {
   });
 }
 
-// Gráfico de Pizza (Status)
 export function renderStatusChart(ctx, clients, chartInstanceRef) {
   const counts = {};
 
@@ -261,11 +212,11 @@ export function renderStatusChart(ctx, clients, chartInstanceRef) {
   const data = sortedLabels.map(l => counts[l]);
 
   const backgroundColors = sortedLabels.map(label => {
-    if (label.includes('ATIVO')) return '#10b981'; // Emerald
-    if (label.includes('INATIVO')) return '#e2e8f0'; // Slate-200
-    if (label.includes('PENDENTE') || label.includes('ACOMPANHAR')) return '#f59e0b'; // Amber
-    if (label.includes('APTO')) return '#3b82f6'; // Blue
-    if (label.includes('CANCEL') || label.includes('INADIMPLENTE')) return '#f43f5e'; // Rose
+    if (label.includes('ATIVO')) return '#10b981';
+    if (label.includes('INATIVO')) return '#e2e8f0';
+    if (label.includes('PENDENTE') || label.includes('ACOMPANHAR')) return '#f59e0b';
+    if (label.includes('APTO')) return '#3b82f6';
+    if (label.includes('CANCEL') || label.includes('INADIMPLENTE')) return '#f43f5e';
     return '#94a3b8';
   });
 
@@ -288,14 +239,50 @@ export function renderStatusChart(ctx, clients, chartInstanceRef) {
       plugins: {
         legend: {
           position: 'right',
-          labels: {
-            usePointStyle: true,
-            boxWidth: 10,
-            font: { family: "'Inter', sans-serif", size: 11 },
-            color: '#475569'
-          }
+          labels: { usePointStyle: true, boxWidth: 10, font: { family: "'Inter', sans-serif", size: 11 }, color: '#475569' }
         }
       }
+    }
+  });
+}
+
+// --- GRÁFICO DE CHURN (FALTAVA ESTE EXPORT) ---
+export function renderChurnChart(ctx, clients, chartInstanceRef) {
+  // Filtra apenas quem tem motivo de saída registrado
+  const churnData = clients.filter(c => c.churnReason || c.motivoCancelamento);
+
+  const counts = {};
+  churnData.forEach(c => {
+    let reason = c.churnReason || c.motivoCancelamento;
+    // Pega as primeiras 3 palavras para não quebrar o gráfico
+    reason = reason.split(' ').slice(0, 3).join(' ');
+    counts[reason] = (counts[reason] || 0) + 1;
+  });
+
+  const labels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
+  const data = labels.map(l => counts[l]);
+
+  if (chartInstanceRef && chartInstanceRef.value) chartInstanceRef.value.destroy();
+
+  // Se não houver dados, não renderiza nada (evita erro)
+  if (data.length === 0) return;
+
+  chartInstanceRef.value = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Cancelamentos',
+        data,
+        backgroundColor: '#f43f5e',
+        borderRadius: 4,
+        barPercentage: 0.5
+      }]
+    },
+    options: {
+      ...commonOptions,
+      indexAxis: 'y',
+      scales: { x: { display: false }, y: { grid: { display: false } } }
     }
   });
 }
