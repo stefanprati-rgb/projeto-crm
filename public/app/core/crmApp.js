@@ -1,9 +1,10 @@
 import { ClientService } from "../services/clientService.js";
 import { ClientsTable } from "../features/clientsTable.js";
-import { renderKPIs, renderClientsChart, renderStatusChart } from "../features/dashboard.js";
+import { renderKPIs, renderClientsChart, renderStatusChart, renderChurnChart } from "../features/dashboard.js";
 import { readExcelFile, exportJSON, exportExcel, exportPDF } from "../features/importExport.js";
 import { showToast } from "../ui/toast.js";
 import { InvoiceService } from "../services/invoiceService.js";
+import { TimelineService } from "../services/timelineService.js"; // Importamos o serviço de Timeline
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 import { validateCPF, validateCNPJ, debounce } from "../utils/helpers.js";
 import { PROJECTS } from "../config/projects.js";
@@ -21,13 +22,8 @@ export class CRMApp {
     this.userRole = userData.role || 'visualizador';
     this.allowedBases = userData.allowedBases || Object.keys(PROJECTS);
 
-    // --- LÓGICA DE INICIALIZAÇÃO INTELIGENTE ---
-    // 1. Tenta recuperar a última base acessada
+    // Inicialização Inteligente (Lembra último projeto)
     const savedBase = localStorage.getItem('crm_last_project');
-
-    // 2. Define a base inicial: 
-    // Se tiver salva E o usuário tiver permissão para ela -> Usa a salva
-    // Se não, usa 'TODOS' (Consolidado)
     if (savedBase && (this.allowedBases.includes(savedBase) || savedBase === 'TODOS')) {
       this.currentBase = savedBase;
     } else {
@@ -39,7 +35,6 @@ export class CRMApp {
     this.tableData = [];
     this.invoices = [];
 
-    // Paginação
     this.pagination = {
       lastDoc: null,
       hasMore: true,
@@ -47,15 +42,20 @@ export class CRMApp {
       pageSize: 50
     };
 
+    // Serviços
     this.service = new ClientService(db);
     this.invoiceService = new InvoiceService(db);
-
+    this.timelineService = new TimelineService(); // Instância da Timeline
     this.table = new ClientsTable(this.userRole);
+
+    // Refs Gráficos
     this.clientsChartRef = { value: null };
     this.statusChartRef = { value: null };
+    this.churnChartRef = { value: null };
 
     this.activeSection = 'dashboard';
     this.unsubscribe = null;
+    this.timelineUnsubscribe = null; // Listener da timeline
 
     this.init();
   }
@@ -75,7 +75,7 @@ export class CRMApp {
 
   destroy() {
     if (this.unsubscribe) this.unsubscribe();
-    console.log("CRMApp destruído.");
+    if (this.timelineUnsubscribe) this.timelineUnsubscribe();
   }
 
   initRoleBasedUI() {
@@ -86,21 +86,17 @@ export class CRMApp {
     }
   }
 
-  // --- SELETOR DE PROJETOS ---
+  // --- SELETOR ---
   initBaseSelector() {
     const selector = document.getElementById('databaseSelector');
     if (!selector) return;
 
     selector.innerHTML = '';
-
-    // Opção Consolidada
     const optAll = document.createElement('option');
     optAll.value = 'TODOS';
     optAll.textContent = 'Visão Consolidada (Todos)';
-    if (this.currentBase === 'TODOS') optAll.selected = true;
     selector.appendChild(optAll);
 
-    // Projetos Individuais
     this.allowedBases.forEach(baseCode => {
       const project = PROJECTS[baseCode];
       if (project) {
@@ -116,32 +112,25 @@ export class CRMApp {
       const newBase = e.target.value;
       if (newBase !== this.currentBase) {
         this.currentBase = newBase;
-
-        // Salva a preferência para a próxima vez
         localStorage.setItem('crm_last_project', newBase);
-
         this.loadDataForBase(this.currentBase);
-
         const msg = newBase === 'TODOS' ? 'Visão Geral Consolidada' : `Projeto: ${PROJECTS[newBase]?.name}`;
         showToast(msg, 'info');
       }
     });
   }
 
-  // --- ABAS DO MODAL ---
+  // --- ABAS ---
   bindModalTabs() {
     const tabBtns = document.querySelectorAll('.tab-btn');
-
     tabBtns.forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         const targetId = btn.dataset.tab;
 
-        // 1. UI dos Botões
         tabBtns.forEach(b => b.classList.remove('active', 'bg-white', 'text-primary-700', 'shadow-sm'));
         btn.classList.add('active', 'bg-white', 'text-primary-700', 'shadow-sm');
 
-        // 2. Conteúdo
         document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
         const target = document.getElementById(targetId);
         if (target) {
@@ -152,7 +141,7 @@ export class CRMApp {
     });
   }
 
-  // --- CARREGAMENTO DE DADOS ---
+  // --- CARREGAMENTO ---
   async loadDataForBase(baseName) {
     this.dashboardData = [];
     this.tableData = [];
@@ -160,13 +149,10 @@ export class CRMApp {
 
     this.table.applyFilters([]);
     this.updateLoadMoreUI();
-
     console.log(`Iniciando carregamento para: ${baseName}`);
 
-    // 1. Carrega Tabela (Paginada)
     await this.loadNextPage();
 
-    // 2. Carrega Dashboard (Completo em Background)
     this.service.getAllForDashboard(baseName).then(data => {
       this.dashboardData = data;
       this.updateDashboard();
@@ -175,54 +161,34 @@ export class CRMApp {
 
   async loadNextPage() {
     if (this.pagination.isLoading || !this.pagination.hasMore) return;
-
     this.pagination.isLoading = true;
     const btn = document.getElementById('btnLoadMore');
-    if (btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Carregando...';
-    }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Carregando...'; }
 
     try {
-      const result = await this.service.getPage(
-        this.currentBase,
-        this.pagination.pageSize,
-        this.pagination.lastDoc
-      );
-
+      const result = await this.service.getPage(this.currentBase, this.pagination.pageSize, this.pagination.lastDoc);
       if (result.data.length > 0) {
         this.tableData = [...this.tableData, ...result.data];
         this.pagination.lastDoc = result.lastDoc;
         this.table.applyFilters(this.tableData);
       }
-
       this.pagination.hasMore = result.hasMore;
-
-    } catch (err) {
-      console.error(err);
-      showToast("Erro ao carregar mais clientes.", "danger");
-    } finally {
-      this.pagination.isLoading = false;
-      this.updateLoadMoreUI();
-    }
+    } catch (err) { console.error(err); showToast("Erro ao carregar.", "danger"); }
+    finally { this.pagination.isLoading = false; this.updateLoadMoreUI(); }
   }
 
   initLoadMoreButton() {
     const tableContainer = document.querySelector('#clients-section .overflow-x-auto');
     if (!tableContainer) return;
-
     if (!document.getElementById('loadMoreContainer')) {
       const container = document.createElement('div');
       container.id = 'loadMoreContainer';
       container.className = 'p-5 text-center border-t border-slate-100 bg-slate-50/30 hidden';
-
       const btn = document.createElement('button');
       btn.id = 'btnLoadMore';
       btn.className = 'px-6 py-2 bg-white border border-slate-200 text-slate-600 rounded-full shadow-sm text-sm font-medium hover:bg-slate-50 hover:text-primary-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed';
       btn.innerHTML = '<i class="fas fa-download me-2"></i>Carregar mais clientes';
-
       btn.addEventListener('click', () => this.loadNextPage());
-
       container.appendChild(btn);
       tableContainer.parentNode.insertBefore(container, tableContainer.nextSibling);
     }
@@ -232,14 +198,8 @@ export class CRMApp {
     const container = document.getElementById('loadMoreContainer');
     const btn = document.getElementById('btnLoadMore');
     if (!container || !btn) return;
-
-    if (this.pagination.hasMore) {
-      container.classList.remove('hidden');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-download me-2"></i>Carregar mais clientes';
-    } else {
-      container.classList.add('hidden');
-    }
+    if (this.pagination.hasMore) { container.classList.remove('hidden'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-download me-2"></i>Carregar mais clientes'; }
+    else { container.classList.add('hidden'); }
   }
 
   // --- NAVEGAÇÃO ---
@@ -257,19 +217,13 @@ export class CRMApp {
   showSection(sectionId) {
     this.activeSection = sectionId;
     const titleEl = document.getElementById('sectionTitle');
-
     if (titleEl) {
       const titles = { 'dashboard': 'Visão Geral', 'clients': 'Carteira de Clientes', 'finance': 'Gestão Financeira' };
       titleEl.textContent = titles[sectionId] || 'CRM Energia';
     }
-
     document.querySelectorAll('.section-content').forEach(s => s.classList.add('d-none'));
     const target = document.getElementById(`${sectionId}-section`);
-    if (target) {
-      target.classList.remove('d-none');
-      target.classList.add('fade-in');
-    }
-
+    if (target) { target.classList.remove('d-none'); target.classList.add('fade-in'); }
     this.updateNavHighlight(sectionId);
     this.refreshUI();
   }
@@ -285,24 +239,20 @@ export class CRMApp {
 
   refreshUI() {
     if (this.activeSection === 'dashboard') this.updateDashboard();
-    if (this.activeSection === 'clients') {
-      this.table.applyFilters(this.tableData);
-      this.updateLoadMoreUI();
-    }
+    if (this.activeSection === 'clients') { this.table.applyFilters(this.tableData); this.updateLoadMoreUI(); }
     if (this.activeSection === 'finance') this.updateFinance();
   }
 
   updateDashboard() {
-    renderKPIs({
-      total: 'kpi-total-clients', active: 'kpi-active-clients',
-      overdue: 'kpi-overdue-clients', revenue: 'kpi-monthly-revenue'
-    }, this.dashboardData, this.currentBase);
+    renderKPIs({ total: 'kpi-total-clients', active: 'kpi-active-clients', overdue: 'kpi-overdue-clients', revenue: 'kpi-monthly-revenue' }, this.dashboardData, this.currentBase);
 
     const ctxLine = document.getElementById('clientsChart')?.getContext('2d');
     const ctxPie = document.getElementById('statusChart')?.getContext('2d');
+    const ctxChurn = document.getElementById('churnChart')?.getContext('2d');
 
     if (ctxLine) renderClientsChart(ctxLine, this.dashboardData, this.clientsChartRef);
     if (ctxPie) renderStatusChart(ctxPie, this.dashboardData, this.statusChartRef);
+    if (ctxChurn) renderChurnChart(ctxChurn, this.dashboardData, this.churnChartRef);
   }
 
   updateFinance() {
@@ -318,46 +268,31 @@ export class CRMApp {
 
   renderFinanceWidgets() {
     import('../features/financeDashboard.js').then(module => {
-      module.renderFinanceKPIs({
-        emitido: 'kpi-emitido', pago: 'kpi-pago',
-        inadimplencia: 'kpi-inad', dso: 'kpi-dso'
-      }, this.invoices);
-
+      module.renderFinanceKPIs({ emitido: 'kpi-emitido', pago: 'kpi-pago', inadimplencia: 'kpi-inad', dso: 'kpi-dso' }, this.invoices);
       const ctx1 = document.getElementById('revenueTrend')?.getContext('2d');
       const ctx2 = document.getElementById('agingChart')?.getContext('2d');
+      const ctx3 = document.getElementById('leakageChart')?.getContext('2d');
+
       if (ctx1) module.renderRevenueTrend(ctx1, this.invoices);
       if (ctx2) module.renderAgingChart(ctx2, this.invoices);
+      if (ctx3) module.renderLeakageChart(ctx3, this.invoices);
     });
   }
 
-  // --- AÇÕES & EVENTOS ---
   bindActions() {
+    // Busca
     const searchInput = document.getElementById('searchInput');
-    if (searchInput) {
-      searchInput.addEventListener('input', debounce(() => {
-        this.table.applyFilters(this.tableData);
-      }, 300));
-    }
+    if (searchInput) { searchInput.addEventListener('input', debounce(() => { this.table.applyFilters(this.tableData); }, 300)); }
 
-    ['statusFilter', 'cityFilter'].forEach(id =>
-      document.getElementById(id)?.addEventListener('input', () => this.table.applyFilters(this.tableData)));
+    ['statusFilter', 'cityFilter'].forEach(id => document.getElementById(id)?.addEventListener('input', () => this.table.applyFilters(this.tableData)));
+    document.getElementById('clearFiltersButton')?.addEventListener('click', () => { this.table.clearFilters(); this.table.applyFilters(this.tableData); });
 
-    document.getElementById('clearFiltersButton')?.addEventListener('click', () => {
-      this.table.clearFilters();
-      this.table.applyFilters(this.tableData);
-    });
-
+    // Import/Export
     document.getElementById('importExcelButton')?.addEventListener('click', () => {
       if (this.userRole !== 'editor') return;
-      if (this.currentBase === 'TODOS') {
-        showToast("Selecione um projeto específico para importar.", "warning");
-        return;
-      }
-      if (confirm(`Importar para: ${PROJECTS[this.currentBase]?.name || this.currentBase}?`)) {
-        document.getElementById('excelFileInput').click();
-      }
+      if (this.currentBase === 'TODOS') { showToast("Selecione um projeto.", "warning"); return; }
+      if (confirm(`Importar para: ${PROJECTS[this.currentBase]?.name || this.currentBase}?`)) { document.getElementById('excelFileInput').click(); }
     });
-
     document.getElementById('excelFileInput')?.addEventListener('change', (e) => this.handleExcelImport(e));
     document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
     document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
@@ -366,131 +301,145 @@ export class CRMApp {
     document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
     document.getElementById('exportPdfButton')?.addEventListener('click', () => exportPDF(this.dashboardData));
 
+    // CRUD Cliente
     document.getElementById('addClientButton')?.addEventListener('click', () => this.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
-
     document.getElementById('clientsTableBody')?.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-action]');
       if (!btn) return;
       if (btn.dataset.action === 'edit') this.showClientModal(btn.dataset.id);
     });
+
+    // Nova Atividade (Timeline)
+    document.getElementById('activityForm')?.addEventListener('submit', (e) => this.handleSaveActivity(e));
   }
 
   // --- HANDLERS ---
+
   async handleExcelImport(e) {
     const file = e.target.files[0];
     if (!file) return;
-    try {
-      await readExcelFile(file, this.currentBase);
-      this.loadDataForBase(this.currentBase);
-    } catch (err) { console.error(err); }
-    e.target.value = null;
+    try { await readExcelFile(file, this.currentBase); this.loadDataForBase(this.currentBase); } catch (err) { console.error(err); } e.target.value = null;
   }
 
   async handleInvoiceImport(e) {
     const file = e.target.files[0];
     if (!file) return;
-    try {
-      showToast('Lendo faturamento...', 'info');
-      const rows = await readInvoicesExcel(file);
-      await this.invoiceService.batchImport(rows, 400);
-      showToast('Faturamento importado!', 'success');
-    } catch (err) { console.error(err); showToast('Erro na importação.', 'danger'); }
-    e.target.value = null;
+    try { showToast('Lendo faturamento...', 'info'); const rows = await readInvoicesExcel(file); await this.invoiceService.batchImport(rows, 400); showToast('Importado com sucesso!', 'success'); } catch (err) { console.error(err); showToast('Erro na importação.', 'danger'); } e.target.value = null;
   }
 
   showClientModal(id = null) {
-    const f = document.getElementById('clientForm');
-    f.reset();
-    document.getElementById('clientId').value = '';
+    const f = document.getElementById('clientForm'); f.reset(); document.getElementById('clientId').value = '';
+    const title = document.getElementById('clientModalTitle'); const btnSave = document.getElementById('clientModalSaveButton');
 
-    const title = document.getElementById('clientModalTitle');
-    const btnSave = document.getElementById('clientModalSaveButton');
-
+    // Reset Abas
     const tabBtns = document.querySelectorAll('.tab-btn');
     tabBtns.forEach(b => b.classList.remove('active', 'bg-white', 'text-primary-700', 'shadow-sm'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-
     const firstTab = document.querySelector('[data-tab="tab-data"]');
-    if (firstTab) {
-      firstTab.classList.add('active', 'bg-white', 'text-primary-700', 'shadow-sm');
-      document.getElementById('tab-data')?.classList.remove('hidden');
-    }
+    if (firstTab) { firstTab.classList.add('active', 'bg-white', 'text-primary-700', 'shadow-sm'); document.getElementById('tab-data')?.classList.remove('hidden'); }
 
-    if (this.userRole === 'visualizador') {
-      title.textContent = 'Visualizar Cliente';
-      Array.from(f.elements).forEach(el => el.disabled = true);
-      if (btnSave) btnSave.classList.add('hidden');
-    } else {
-      title.textContent = id ? 'Editar Cliente' : 'Novo Cliente';
-      Array.from(f.elements).forEach(el => el.disabled = false);
-      if (btnSave) btnSave.classList.remove('hidden');
-    }
+    // Reset Timeline (para de ouvir o anterior)
+    if (this.timelineUnsubscribe) { this.timelineUnsubscribe(); this.timelineUnsubscribe = null; }
+    const timelineContainer = document.getElementById('activityTimeline');
+    if (timelineContainer) timelineContainer.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm">Carregando histórico...</div>';
+
+    if (this.userRole === 'visualizador') { title.textContent = 'Visualizar Cliente'; Array.from(f.elements).forEach(el => el.disabled = true); if (btnSave) btnSave.classList.add('hidden'); }
+    else { title.textContent = id ? 'Editar Cliente' : 'Novo Cliente'; Array.from(f.elements).forEach(el => el.disabled = false); if (btnSave) btnSave.classList.remove('hidden'); }
 
     if (id) {
       const c = this.tableData.find(x => x.id === id) || this.dashboardData.find(x => x.id === id);
       if (c) {
         document.getElementById('clientId').value = c.id;
         const fields = {
-          'Name': c.name, 'ExternalId': c.externalId, 'Cpf': c.cpf, 'Cnpj': c.cnpj,
-          'Email': c.email, 'Phone': c.phone, 'Address': c.address,
-          'State': c.state, 'City': c.city, 'Status': c.status, 'ContractType': c.contractType,
-          'JoinDate': c.joinDate ? c.joinDate.split('T')[0] : '',
-          'Consumption': c.consumption, 'Discount': c.discount
+          'Name': c.name, 'ExternalId': c.externalId, 'Cpf': c.cpf, 'Cnpj': c.cnpj, 'Email': c.email, 'Phone': c.phone, 'Address': c.address, 'State': c.state, 'City': c.city, 'Status': c.status, 'ContractType': c.contractType, 'JoinDate': c.joinDate ? c.joinDate.split('T')[0] : '', 'Consumption': c.consumption, 'Discount': c.discount
         };
-        for (const [key, val] of Object.entries(fields)) {
-          const el = document.getElementById(`client${key}`);
-          if (el) el.value = val || '';
-        }
+        for (const [key, val] of Object.entries(fields)) { const el = document.getElementById(`client${key}`); if (el) el.value = val || ''; }
+
+        // CARREGA TIMELINE
+        this.loadTimeline(c.id);
       }
     } else {
-      const elDate = document.getElementById('clientJoinDate');
-      if (elDate) elDate.value = new Date().toISOString().split('T')[0];
+      const elDate = document.getElementById('clientJoinDate'); if (elDate) elDate.value = new Date().toISOString().split('T')[0];
+      if (timelineContainer) timelineContainer.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm">Salve o cliente para adicionar histórico.</div>';
     }
 
-    const modalEl = document.getElementById('clientModal');
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    modal.show();
+    const modalEl = document.getElementById('clientModal'); const modal = bootstrap.Modal.getOrCreateInstance(modalEl); modal.show();
+  }
+
+  // --- TIMELINE LOGIC ---
+  loadTimeline(clientId) {
+    this.timelineUnsubscribe = this.timelineService.listenToTimeline(clientId, (activities) => {
+      const container = document.getElementById('activityTimeline');
+      if (!container) return;
+
+      if (activities.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-slate-400 text-sm">Nenhuma atividade registrada.</div>';
+        return;
+      }
+
+      container.innerHTML = activities.map(act => {
+        const date = new Date(act.createdAt).toLocaleDateString() + ' ' + new Date(act.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        let iconClass = 'fa-comment';
+        let bgClass = 'bg-slate-100 text-slate-500';
+
+        if (act.type === 'whatsapp') { iconClass = 'fa-whatsapp'; bgClass = 'bg-green-100 text-green-600'; }
+        else if (act.type === 'call') { iconClass = 'fa-phone'; bgClass = 'bg-blue-100 text-blue-600'; }
+        else if (act.type === 'email') { iconClass = 'fa-envelope'; bgClass = 'bg-amber-100 text-amber-600'; }
+
+        return `
+          <div class="flex gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm fade-in">
+            <div class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${bgClass}">
+              <i class="fab ${iconClass} text-xs"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex justify-between items-start">
+                <p class="text-xs font-bold text-slate-700 uppercase tracking-wider">${act.type}</p>
+                <span class="text-[10px] text-slate-400">${date}</span>
+              </div>
+              <p class="text-sm text-slate-600 mt-1 leading-relaxed">${act.content}</p>
+              <p class="text-[10px] text-slate-300 mt-2">Por: ${act.createdBy || 'Sistema'}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    });
+  }
+
+  async handleSaveActivity(e) {
+    e.preventDefault();
+    const clientId = document.getElementById('clientId').value;
+    if (!clientId) { showToast("Salve o cliente primeiro.", "warning"); return; }
+
+    const type = document.getElementById('activityType').value;
+    const content = document.getElementById('activityContent').value;
+
+    try {
+      await this.timelineService.addActivity(clientId, type, content);
+      document.getElementById('activityContent').value = ''; // Limpa campo
+      showToast("Atividade registrada!", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao registrar atividade.", "danger");
+    }
   }
 
   async handleSaveClient(e) {
     e.preventDefault();
     if (this.userRole !== 'editor') { showToast("Permissão negada.", "danger"); return; }
-
-    if (this.currentBase === 'TODOS') {
-      showToast("Selecione um projeto específico.", "warning");
-      return;
-    }
+    if (this.currentBase === 'TODOS') { showToast("Selecione um projeto.", "warning"); return; }
 
     const id = document.getElementById('clientId').value;
     const data = {
-      name: document.getElementById('clientName').value,
-      externalId: document.getElementById('clientExternalId').value,
-      cpf: document.getElementById('clientCpf').value,
-      cnpj: document.getElementById('clientCnpj').value,
-      email: document.getElementById('clientEmail').value,
-      phone: document.getElementById('clientPhone').value,
-      address: document.getElementById('clientAddress').value,
-      state: document.getElementById('clientState').value,
-      city: document.getElementById('clientCity').value,
-      status: document.getElementById('clientStatus').value,
-      contractType: document.getElementById('clientContractType').value,
-      joinDate: document.getElementById('clientJoinDate').value,
-      consumption: document.getElementById('clientConsumption').value,
-      discount: document.getElementById('clientDiscount').value,
-      database: this.currentBase
+      name: document.getElementById('clientName').value, externalId: document.getElementById('clientExternalId').value, cpf: document.getElementById('clientCpf').value, cnpj: document.getElementById('clientCnpj').value, email: document.getElementById('clientEmail').value, phone: document.getElementById('clientPhone').value, address: document.getElementById('clientAddress').value, state: document.getElementById('clientState').value, city: document.getElementById('clientCity').value, status: document.getElementById('clientStatus').value, contractType: document.getElementById('clientContractType').value, joinDate: document.getElementById('clientJoinDate').value, consumption: document.getElementById('clientConsumption').value, discount: document.getElementById('clientDiscount').value, database: this.currentBase
     };
-
     if (data.cpf && !validateCPF(data.cpf)) { showToast("CPF inválido.", "warning"); return; }
     if (data.cnpj && !validateCNPJ(data.cnpj)) { showToast("CNPJ inválido.", "warning"); return; }
 
     try {
       await this.service.save(id, data);
       showToast('Salvo com sucesso!', 'success');
-      const modalEl = document.getElementById('clientModal');
-      const modal = bootstrap.Modal.getInstance(modalEl);
-      modal?.hide();
-      this.loadDataForBase(this.currentBase);
+      const modalEl = document.getElementById('clientModal'); const modal = bootstrap.Modal.getInstance(modalEl); modal?.hide(); this.loadDataForBase(this.currentBase);
     } catch (err) { console.error(err); showToast('Erro ao salvar.', 'danger'); }
   }
 }
