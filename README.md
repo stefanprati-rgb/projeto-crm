@@ -9,6 +9,15 @@ Sistema de CRM (Customer Relationship Management) para gestão de vendas, produ�
 - **Estilo**: Tailwind CSS
 - **Deploy**: GitHub Actions → Firebase Hosting
 
+## 🔐 Segurança
+
+**IMPORTANTE**: Leia o [Guia de Segurança](docs/SECURITY.md) antes de contribuir com o projeto.
+
+Este guia contém informações essenciais sobre:
+- Proteção de credenciais e service accounts
+- Configuração segura do Firebase
+- Boas práticas de segurança
+
 ## 📦 Estrutura do Projeto
 
 ```
@@ -53,21 +62,13 @@ O projeto está configurado com **GitHub Actions** para deploy automático:
 
 ### Configuração do Deploy
 
-Para configurar o deploy automático, você precisa adicionar a service account do Firebase aos secrets do GitHub:
+O projeto utiliza GitHub Actions para deploy automático no Firebase Hosting.
 
-1. Acesse: https://github.com/stefanprati-rgb/projeto-crm/settings/secrets/actions
-2. Clique em **"New repository secret"**
-3. Nome: `FIREBASE_SERVICE_ACCOUNT_CRM_ENERGIA_SOLAR`
-4. Valor: JSON da service account do Firebase
+**Requisitos**:
+- Secret `FIREBASE_SERVICE_ACCOUNT_CRM_ENERGIA_SOLAR` configurado no repositório
+- Permissões adequadas no projeto Firebase
 
-#### Como obter a Service Account:
-
-1. Acesse o [Firebase Console](https://console.firebase.google.com/)
-2. Selecione o projeto `crm-energia-solar`
-3. Vá em **Project Settings** → **Service Accounts**
-4. Clique em **"Generate new private key"**
-5. Copie todo o conteúdo do arquivo JSON gerado
-6. Cole como valor do secret no GitHub
+> ⚠️ **Nota de Segurança**: Nunca compartilhe ou commite service accounts ou credenciais do Firebase. Mantenha os secrets seguros no GitHub Actions.
 
 ## 📝 Como Contribuir
 

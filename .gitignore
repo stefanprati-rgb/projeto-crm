@@ -64,10 +64,20 @@ node_modules/
 
 # dotenv environment variables file
 .env
+.env.local
+.env.*.local
 
 # Firebase service account keys (sensitive)
 firebase-key.json
 *-firebase-adminsdk-*.json
+
+# Firebase config files (se usar .env para config)
+firebaseConfig.js
+.firebaseConfig.js
+
+# Arquivos legados ou backup que podem conter credenciais
+*.backup.js
+*.old.js
 
 # Dados sensíveis de clientes (arquivos antigos)
 old/
