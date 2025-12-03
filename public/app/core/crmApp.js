@@ -3,9 +3,11 @@ import { ClientsTable } from "../features/clientsTable.js";
 import { renderKPIs, renderClientsChart, renderStatusChart, renderChurnChart } from "../features/dashboard.js";
 import { readExcelFile, exportJSON, exportExcel, exportPDF } from "../features/importExport.js";
 import { showToast } from "../ui/toast.js";
+import { showButtonLoading, showSkeleton, showEmptyState } from "../ui/loadingStates.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { TimelineService } from "../services/timelineService.js";
-import { TaskService } from "../services/taskService.js"; // Novo Serviço
+import { TaskService } from "../services/taskService.js";
+import { TicketsUI } from "../features/ticketsUI.js";
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 import { validateCPF, validateCNPJ, debounce } from "../utils/helpers.js";
 import { PROJECTS } from "../config/projects.js";
