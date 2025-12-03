@@ -241,9 +241,9 @@ export class CRMApp {
       const titles = { 'dashboard': 'Visão Geral', 'clients': 'Carteira de Clientes', 'finance': 'Gestão Financeira' };
       titleEl.textContent = titles[sectionId] || 'CRM Energia';
     }
-    document.querySelectorAll('.section-content').forEach(s => s.classList.add('d-none'));
+    document.querySelectorAll('.section-content').forEach(s => s.classList.add('hidden'));
     const target = document.getElementById(`${sectionId}-section`);
-    if (target) { target.classList.remove('d-none'); target.classList.add('fade-in'); }
+    if (target) { target.classList.remove('hidden'); target.classList.add('fade-in'); }
     this.updateNavHighlight(sectionId);
     this.refreshUI();
   }

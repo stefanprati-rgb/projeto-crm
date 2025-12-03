@@ -64,10 +64,10 @@ const loginAuthAlert = document.getElementById("login-auth-alert");
 
 // Helpers de UI para evitar erro se algum elemento não existir
 function hideElement(el) {
-  if (el) el.classList.add("d-none");
+  if (el) el.classList.add("hidden");
 }
 function showElement(el) {
-  if (el) el.classList.remove("d-none");
+  if (el) el.classList.remove("hidden");
 }
 
 // --- 3. LISTENER DE AUTENTICAÇÃO (só se auth existir) ---
