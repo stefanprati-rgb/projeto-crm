@@ -18,7 +18,7 @@ import {
 // Configuração do Firebase (inline temporário)
 // TODO: Mover para ../config/firebaseConfig.js com export correto
 const firebaseConfig = {
-  apiKey: "AIzaSyBD_qBqWHHnq1QQjROI2jkJu1K6RbBnE",
+  apiKey: "AIzaSyBO_jqBqWHHnq1QQlROi2lajKu1K6RbBnE", // Chave correta recuperada do legado
   authDomain: "crm-energia-solar.firebaseapp.com",
   projectId: "crm-energia-solar",
   storageBucket: "crm-energia-solar.firebasestorage.app",

@@ -2,7 +2,7 @@
 // IMPORTANTE: Copie este arquivo para firebaseConfig.js e adicione suas credenciais
 
 export const firebaseConfig = {
-    apiKey: "AIzaSyBD_qBqWHHnq1QQjROI2jkJu1K6RbBnE",
+    apiKey: "AIzaSyBO_jqBqWHHnq1QQlROi2lajKu1K6RbBnE",
     authDomain: "crm-energia-solar.firebaseapp.com",
     projectId: "crm-energia-solar",
     storageBucket: "crm-energia-solar.firebasestorage.app",
