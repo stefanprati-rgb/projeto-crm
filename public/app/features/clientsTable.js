@@ -9,8 +9,12 @@ export class ClientsTable {
   }
 
   applyFilters(clients) {
-    const search = document.getElementById('searchInput').value.toLowerCase();
-    const status = document.getElementById('statusFilter').value;
+    const searchInput = document.getElementById('searchInput');
+    const search = searchInput ? searchInput.value.toLowerCase() : '';
+
+    const statusFilter = document.getElementById('statusFilter');
+    const status = statusFilter ? statusFilter.value : '';
+
     // O filtro de tipo (PF/PJ) foi removido do HTML novo para simplificar, mas mantemos a lógica caso volte
     const typeEl = document.getElementById('typeFilter');
     const type = typeEl ? typeEl.value : '';

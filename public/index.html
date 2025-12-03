@@ -305,6 +305,15 @@
                 class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
             </div>
             <div class="flex gap-3 flex-wrap">
+              <select id="statusFilter"
+                class="px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="">Todos os Status</option>
+                <option value="Ativo">Ativo</option>
+                <option value="Inativo">Inativo</option>
+                <option value="Pendente">Pendente</option>
+              </select>
+              <input id="cityFilter" type="text" placeholder="Cidade"
+                class="px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 w-32">
               <select id="databaseSelector"
                 class="px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
                 <option value="TODOS">Todos os Projetos</option>
