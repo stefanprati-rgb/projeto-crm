@@ -82,7 +82,7 @@ export class CRMApp {
     this.unsubscribe = null;
     this.financeUnsubscribe = null;
 
-    // Expor instância para o HTML
+    // Expor instância para o HTML (AGORA FEITO ANTES DO INIT)
     window.crmApp = this;
     // Expõe showClientModal para ser usado no bindActions da tabela
     window.crmApp.showClientModal = this.drawerManager.showClientModal.bind(this.drawerManager);
@@ -96,8 +96,17 @@ export class CRMApp {
     this.initLoadMoreButton();
 
     this.bindActions();
+    this.exposeWindowMethods(); // <--- ADICIONADO AQUI PARA EXPOR MÉTODOS GLOBAIS
 
     this.loadDataForBase(this.currentBase);
+  }
+
+  // NOVO MÉTODO PARA EXPOR FUNÇÕES PARA O HTML
+  exposeWindowMethods() {
+    // Funções necessárias para o HTML (ex: botões de concluir/deletar tarefa no Drawer)
+    // O window.crmApp já está definido no construtor.
+    window.crmApp.toggleTask = this.tasksUI.toggleTask.bind(this.tasksUI);
+    window.crmApp.deleteTask = this.tasksUI.deleteTask.bind(this.tasksUI);
   }
 
   destroy() {
@@ -323,7 +332,7 @@ export class CRMApp {
   async handleInvoiceImport(e) {
     const file = e.target.files[0];
     if (!file) return;
-    try { showToast('Lendo faturamento...', 'info'); const rows = await readInvoicesExcel(file); await this.invoiceService.batchImport(rows, 400); showToast('Importado com sucesso!', 'success'); } catch (err) { console.error(err); showToast('Erro na importação.', 'danger'); } e.target.value = null;
+    try { showToast('Lendo faturamento...', 'info'); const rows = await readInvoicesExcel(file); await this.invoiceService.batchImport(rows, 400); showToast('Importado com sucesso!', 'success'); } catch (err) { console.error(err); showToast('Erro na importação.', "danger"); } e.target.value = null;
   }
 
   // --- SAVE CLIENT ---
