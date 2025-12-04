@@ -65,8 +65,8 @@ export class DrawerManager {
         document.getElementById('clientId').value = '';
 
         // Limpa listeners (os UIs já devem cuidar disso, mas reforçamos)
-        this.timelineUI.destroy();
-        this.tasksUI.destroy();
+        if (this.timelineUI) this.timelineUI.destroy();
+        if (this.tasksUI) this.tasksUI.destroy();
 
         const isEditing = !!id;
 
@@ -93,8 +93,8 @@ export class DrawerManager {
                 }
 
                 // Carrega subcoleções
-                this.timelineUI.loadTimeline(c.id);
-                this.tasksUI.loadTasks(c.id);
+                if (this.timelineUI) this.timelineUI.loadTimeline(c.id);
+                if (this.tasksUI) this.tasksUI.loadTasks(c.id);
             }
         } else {
             document.getElementById('drawerClientName').textContent = 'Novo Cliente';
@@ -128,8 +128,8 @@ export class DrawerManager {
             this.overlay.classList.add('opacity-0');
             setTimeout(() => {
                 this.overlay.classList.add('hidden');
-                this.timelineUI.destroy();
-                this.tasksUI.destroy();
+                if (this.timelineUI) this.timelineUI.destroy();
+                if (this.tasksUI) this.tasksUI.destroy();
             }, 300);
         }
     }
