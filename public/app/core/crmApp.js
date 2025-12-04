@@ -7,7 +7,7 @@ import { showButtonLoading, showSkeleton, showEmptyState } from "../ui/loadingSt
 import { InvoiceService } from "../services/invoiceService.js";
 import { TimelineService } from "../services/timelineService.js";
 import { TaskService } from "../services/taskService.js";
-import { TicketsUI } from "../features/ticketsUI.js";
+import { TicketsUI } from "../features/ticketsUI.js"; // Importa TicketsUI
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 import { validateCPF, validateCNPJ, debounce } from "../utils/helpers.js";
 import { PROJECTS } from "../config/projects.js";
@@ -51,6 +51,7 @@ export class CRMApp {
     this.invoiceService = new InvoiceService(db);
     this.timelineService = new TimelineService();
     this.taskService = new TaskService(); // Instância de Tarefas
+    this.ticketsUI = new TicketsUI(db, auth); // Inicializa TicketsUI
     this.table = new ClientsTable(this.userRole);
 
     // Refs Gráficos
@@ -88,10 +89,12 @@ export class CRMApp {
     if (this.unsubscribe) this.unsubscribe();
     if (this.timelineUnsubscribe) this.timelineUnsubscribe();
     if (this.tasksUnsubscribe) this.tasksUnsubscribe();
+    if (this.ticketsUI) this.ticketsUI.destroy(); // Destroi listener de tickets
     console.log("CRMApp destruído.");
   }
 
   initRoleBasedUI() {
+    // Corrige a lógica para ocultar botões de importação/criação para visualizador
     if (this.userRole === 'visualizador') {
       ['importExcelButton', 'addClientButton', 'clientModalSaveButton', 'importInvoicesBtn'].forEach(id => {
         document.getElementById(id)?.classList.add('hidden');
@@ -249,7 +252,12 @@ export class CRMApp {
     this.activeSection = sectionId;
     const titleEl = document.getElementById('sectionTitle');
     if (titleEl) {
-      const titles = { 'dashboard': 'Visão Geral', 'clients': 'Carteira de Clientes', 'finance': 'Gestão Financeira' };
+      const titles = {
+        'dashboard': 'Visão Geral',
+        'clients': 'Carteira de Clientes',
+        'finance': 'Gestão Financeira',
+        'tickets': 'Central de Tickets' // Adiciona título da seção Tickets
+      };
       titleEl.textContent = titles[sectionId] || 'CRM Energia';
     }
     document.querySelectorAll('.section-content').forEach(s => s.classList.add('hidden'));
@@ -272,6 +280,7 @@ export class CRMApp {
     if (this.activeSection === 'dashboard') this.updateDashboard();
     if (this.activeSection === 'clients') { this.table.applyFilters(this.tableData); this.updateLoadMoreUI(); }
     if (this.activeSection === 'finance') this.updateFinance();
+    if (this.activeSection === 'tickets') this.ticketsUI.init(); // Inicializa o TicketsUI
   }
 
   updateDashboard() {
@@ -323,7 +332,12 @@ export class CRMApp {
       if (confirm(`Importar para: ${PROJECTS[this.currentBase]?.name || this.currentBase}?`)) { document.getElementById('excelFileInput').click(); }
     });
     document.getElementById('excelFileInput')?.addEventListener('change', (e) => this.handleExcelImport(e));
-    document.getElementById('importInvoicesBtn')?.addEventListener('click', () => document.getElementById('invoicesFileInput')?.click());
+
+    // Vincula o botão Importar Faturas ao input file
+    document.getElementById('importInvoicesBtn')?.addEventListener('click', () => {
+      if (this.userRole !== 'editor') return;
+      document.getElementById('invoicesFileInput').click();
+    });
     document.getElementById('invoicesFileInput')?.addEventListener('change', (e) => this.handleInvoiceImport(e));
 
     document.getElementById('exportDataButton')?.addEventListener('click', () => exportJSON(this.dashboardData));
@@ -399,9 +413,12 @@ export class CRMApp {
         document.getElementById('drawerClientId').textContent = `ID: ${c.externalId || '-'}`;
         document.getElementById('drawerClientUC').textContent = `UC: ${c.instalacao || '-'}`;
 
+        // Adiciona a leitura do novo campo 'clientInstalacao' (UC)
         const fields = {
           'Name': c.name, 'ExternalId': c.externalId, 'Cpf': c.cpf, 'Cnpj': c.cnpj,
-          'Email': c.email, 'Phone': c.phone, 'Address': c.address, 'State': c.state, 'City': c.city, 'Status': c.status, 'ContractType': c.contractType, 'JoinDate': c.joinDate ? c.joinDate.split('T')[0] : '', 'Consumption': c.consumption, 'Discount': c.discount
+          'Email': c.email, 'Phone': c.phone, 'Address': c.address, 'State': c.state, 'City': c.city,
+          'Status': c.status, 'ContractType': c.contractType, 'JoinDate': c.joinDate ? c.joinDate.split('T')[0] : '',
+          'Consumption': c.consumption, 'Discount': c.discount, 'Instalacao': c.instalacao // Novo campo
         };
         for (const [key, val] of Object.entries(fields)) { const el = document.getElementById(`client${key}`); if (el) el.value = val || ''; }
 
@@ -570,7 +587,24 @@ export class CRMApp {
 
     const id = document.getElementById('clientId').value;
     const data = {
-      name: document.getElementById('clientName').value, externalId: document.getElementById('clientExternalId').value, cpf: document.getElementById('clientCpf').value, cnpj: document.getElementById('clientCnpj').value, email: document.getElementById('clientEmail').value, phone: document.getElementById('clientPhone').value, address: document.getElementById('clientAddress').value, state: document.getElementById('clientState').value, city: document.getElementById('clientCity').value, status: document.getElementById('clientStatus').value, contractType: document.getElementById('clientContractType').value, joinDate: document.getElementById('clientJoinDate').value, consumption: document.getElementById('clientConsumption').value, discount: document.getElementById('clientDiscount').value, database: this.currentBase
+      // TODOS OS CAMPOS AGORA SÃO CAPTURADOS, INCLUINDO OS NOVOS DO FORMULÁRIO COMPLETO
+      name: document.getElementById('clientName').value,
+      externalId: document.getElementById('clientExternalId').value,
+      instalacao: document.getElementById('clientInstalacao').value, // Campo UC/Conta Contrato
+      address: document.getElementById('clientAddress').value,
+      joinDate: document.getElementById('clientJoinDate').value,
+      consumption: document.getElementById('clientConsumption').value,
+      discount: document.getElementById('clientDiscount').value,
+
+      cpf: document.getElementById('clientCpf').value,
+      cnpj: document.getElementById('clientCnpj').value,
+      email: document.getElementById('clientEmail').value,
+      phone: document.getElementById('clientPhone').value,
+      state: document.getElementById('clientState').value,
+      city: document.getElementById('clientCity').value,
+      status: document.getElementById('clientStatus').value,
+      contractType: document.getElementById('clientContractType').value,
+      database: this.currentBase
     };
     if (data.cpf && !validateCPF(data.cpf)) { showToast("CPF inválido.", "warning"); return; }
     if (data.cnpj && !validateCNPJ(data.cnpj)) { showToast("CNPJ inválido.", "warning"); return; }
