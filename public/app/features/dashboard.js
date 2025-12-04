@@ -1,5 +1,12 @@
 import { PROJECTS } from "../config/projects.js";
 
+// Throttle para evitar renderizações excessivas
+let chartRenderTimeout;
+function throttleChartRender(callback, delay = 300) {
+  if (chartRenderTimeout) clearTimeout(chartRenderTimeout);
+  chartRenderTimeout = setTimeout(callback, delay);
+}
+
 // Renderiza KPIs, Saudação e o Hub de Projetos
 export function renderKPIs(elIds, clients, currentBase) {
 
@@ -161,128 +168,134 @@ const commonOptions = {
 };
 
 export function renderClientsChart(ctx, clients, chartInstanceRef) {
-  const etapas = { 'Novo': 0, 'Enviado Rateio': 0, 'Rateio Cadastrado': 0, 'Faturado': 0 };
+  throttleChartRender(() => {
+    const etapas = { 'Novo': 0, 'Enviado Rateio': 0, 'Rateio Cadastrado': 0, 'Faturado': 0 };
 
-  clients.forEach(c => {
-    const st = (c.status || '').toUpperCase();
-    const etapa = (c.etapaUc || '').toUpperCase();
-    const statusRateio = (c.statusRateio || '').toUpperCase();
+    clients.forEach(c => {
+      const st = (c.status || '').toUpperCase();
+      const etapa = (c.etapaUc || '').toUpperCase();
+      const statusRateio = (c.statusRateio || '').toUpperCase();
 
-    if (etapa.includes('FATURADO') || st === 'ATIVO') etapas['Faturado']++;
-    else if (statusRateio.includes('APTO') || etapa.includes('CADASTRADO')) etapas['Rateio Cadastrado']++;
-    else if (etapa.includes('ENVIADO')) etapas['Enviado Rateio']++;
-    else etapas['Novo']++;
-  });
+      if (etapa.includes('FATURADO') || st === 'ATIVO') etapas['Faturado']++;
+      else if (statusRateio.includes('APTO') || etapa.includes('CADASTRADO')) etapas['Rateio Cadastrado']++;
+      else if (etapa.includes('ENVIADO')) etapas['Enviado Rateio']++;
+      else etapas['Novo']++;
+    });
 
-  const data = Object.values(etapas);
-  const labels = Object.keys(etapas);
+    const data = Object.values(etapas);
+    const labels = Object.keys(etapas);
 
-  if (chartInstanceRef.value) chartInstanceRef.value.destroy();
+    if (chartInstanceRef.value) chartInstanceRef.value.destroy();
 
-  chartInstanceRef.value = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Clientes',
-        data,
-        backgroundColor: ['#cbd5e1', '#f59e0b', '#3b82f6', '#10b981'],
-        borderRadius: 8,
-        barPercentage: 0.5,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      ...commonOptions,
-      plugins: { ...commonOptions.plugins, legend: { display: false } }
-    }
+    chartInstanceRef.value = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Clientes',
+          data,
+          backgroundColor: ['#cbd5e1', '#f59e0b', '#3b82f6', '#10b981'],
+          borderRadius: 8,
+          barPercentage: 0.5,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        ...commonOptions,
+        plugins: { ...commonOptions.plugins, legend: { display: false } }
+      }
+    });
   });
 }
 
 export function renderStatusChart(ctx, clients, chartInstanceRef) {
-  const counts = {};
+  throttleChartRender(() => {
+    const counts = {};
 
-  clients.forEach(c => {
-    let st = c.statusRateio || c.status || 'N/A';
-    st = st.toUpperCase();
-    counts[st] = (counts[st] ?? 0) + 1;
-  });
+    clients.forEach(c => {
+      let st = c.statusRateio || c.status || 'N/A';
+      st = st.toUpperCase();
+      counts[st] = (counts[st] ?? 0) + 1;
+    });
 
-  const sortedLabels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
-  const data = sortedLabels.map(l => counts[l]);
+    const sortedLabels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
+    const data = sortedLabels.map(l => counts[l]);
 
-  const backgroundColors = sortedLabels.map(label => {
-    if (label.includes('ATIVO')) return '#10b981';
-    if (label.includes('INATIVO')) return '#e2e8f0';
-    if (label.includes('PENDENTE') || label.includes('ACOMPANHAR')) return '#f59e0b';
-    if (label.includes('APTO')) return '#3b82f6';
-    if (label.includes('CANCEL') || label.includes('INADIMPLENTE')) return '#f43f5e';
-    return '#94a3b8';
-  });
+    const backgroundColors = sortedLabels.map(label => {
+      if (label.includes('ATIVO')) return '#10b981';
+      if (label.includes('INATIVO')) return '#e2e8f0';
+      if (label.includes('PENDENTE') || label.includes('ACOMPANHAR')) return '#f59e0b';
+      if (label.includes('APTO')) return '#3b82f6';
+      if (label.includes('CANCEL') || label.includes('INADIMPLENTE')) return '#f43f5e';
+      return '#94a3b8';
+    });
 
-  if (chartInstanceRef.value) chartInstanceRef.value.destroy();
+    if (chartInstanceRef.value) chartInstanceRef.value.destroy();
 
-  chartInstanceRef.value = new Chart(ctx, {
-    type: 'doughnut',
-    data: {
-      labels: sortedLabels,
-      datasets: [{
-        data,
-        backgroundColor: backgroundColors,
-        borderWidth: 0,
-        hoverOffset: 10
-      }]
-    },
-    options: {
-      ...commonOptions,
-      cutout: '80%',
-      plugins: {
-        legend: {
-          position: 'right',
-          labels: { usePointStyle: true, boxWidth: 10, font: { family: "'Inter', sans-serif", size: 11 }, color: '#475569' }
+    chartInstanceRef.value = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: sortedLabels,
+        datasets: [{
+          data,
+          backgroundColor: backgroundColors,
+          borderWidth: 0,
+          hoverOffset: 10
+        }]
+      },
+      options: {
+        ...commonOptions,
+        cutout: '80%',
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: { usePointStyle: true, boxWidth: 10, font: { family: "'Inter', sans-serif", size: 11 }, color: '#475569' }
+          }
         }
       }
-    }
+    });
   });
 }
 
 // --- GRÁFICO DE CHURN (FALTAVA ESTE EXPORT) ---
 export function renderChurnChart(ctx, clients, chartInstanceRef) {
-  // Filtra apenas quem tem motivo de saída registrado
-  const churnData = clients.filter(c => c.churnReason || c.motivoCancelamento);
+  throttleChartRender(() => {
+    // Filtra apenas quem tem motivo de saída registrado
+    const churnData = clients.filter(c => c.churnReason || c.motivoCancelamento);
 
-  const counts = {};
-  churnData.forEach(c => {
-    let reason = c.churnReason || c.motivoCancelamento;
-    // Pega as primeiras 3 palavras para não quebrar o gráfico
-    reason = reason.split(' ').slice(0, 3).join(' ');
-    counts[reason] = (counts[reason] || 0) + 1;
-  });
+    const counts = {};
+    churnData.forEach(c => {
+      let reason = c.churnReason || c.motivoCancelamento;
+      // Pega as primeiras 3 palavras para não quebrar o gráfico
+      reason = reason.split(' ').slice(0, 3).join(' ');
+      counts[reason] = (counts[reason] || 0) + 1;
+    });
 
-  const labels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
-  const data = labels.map(l => counts[l]);
+    const labels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 5);
+    const data = labels.map(l => counts[l]);
 
-  if (chartInstanceRef && chartInstanceRef.value) chartInstanceRef.value.destroy();
+    if (chartInstanceRef && chartInstanceRef.value) chartInstanceRef.value.destroy();
 
-  // Se não houver dados, não renderiza nada (evita erro)
-  if (data.length === 0) return;
+    // Se não houver dados, não renderiza nada (evita erro)
+    if (data.length === 0) return;
 
-  chartInstanceRef.value = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Cancelamentos',
-        data,
-        backgroundColor: '#f43f5e',
-        borderRadius: 4,
-        barPercentage: 0.5
-      }]
-    },
-    options: {
-      ...commonOptions,
-      indexAxis: 'y',
-      scales: { x: { display: false }, y: { grid: { display: false } } }
-    }
+    chartInstanceRef.value = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Cancelamentos',
+          data,
+          backgroundColor: '#f43f5e',
+          borderRadius: 4,
+          barPercentage: 0.5
+        }]
+      },
+      options: {
+        ...commonOptions,
+        indexAxis: 'y',
+        scales: { x: { display: false }, y: { grid: { display: false } } }
+      }
+    });
   });
 }

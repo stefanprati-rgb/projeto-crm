@@ -57,6 +57,65 @@ export class ClientsTable {
       if (el) el.value = '';
     });
   }
+import { statusBadge } from "../utils/helpers.js";
+
+export class ClientsTable {
+  constructor(userRole) {
+    this.filtered = [];
+    this.currentPage = 1;
+    this.perPage = 10; // Mostra menos por página para um visual mais leve
+    this.userRole = userRole;
+  }
+
+  applyFilters(clients) {
+    const searchInput = document.getElementById('searchInput');
+    const search = searchInput ? searchInput.value.toLowerCase() : '';
+
+    const statusFilter = document.getElementById('statusFilter');
+    const status = statusFilter ? statusFilter.value : '';
+
+    // O filtro de tipo (PF/PJ) foi removido do HTML novo para simplificar, mas mantemos a lógica caso volte
+    const typeEl = document.getElementById('typeFilter');
+    const type = typeEl ? typeEl.value : '';
+
+    const cityEl = document.getElementById('cityFilter');
+    const city = cityEl ? cityEl.value.toLowerCase() : '';
+
+    this.filtered = clients.filter(c => {
+      const name = c.name || '';
+      const cpf = c.cpf || '';
+      const cnpj = c.cnpj || '';
+      const instalacao = c.instalacao ? c.instalacao.toString() : '';
+      const contaContrato = c.contaContrato ? c.contaContrato.toString() : '';
+      const projeto = c.projeto || '';
+      const statusRateio = c.statusRateio || '';
+
+      const matchesSearch = !search ||
+        name.toLowerCase().includes(search) ||
+        cpf.replace(/[.\-/]/g, '').includes(search) ||
+        cnpj.replace(/[.\-/]/g, '').includes(search) ||
+        instalacao.includes(search) ||
+        contaContrato.includes(search) ||
+        projeto.toLowerCase().includes(search) ||
+        statusRateio.toLowerCase().includes(search);
+
+      const matchesStatus = !status || c.status === status;
+      const matchesType = !type || c.contractType === type;
+      const matchesCity = !city || (c.city && c.city.toLowerCase().includes(city));
+
+      return matchesSearch && matchesStatus && matchesType && matchesCity;
+    });
+
+    this.currentPage = 1;
+    this.render();
+  }
+
+  clearFilters() {
+    ['searchInput', 'statusFilter', 'typeFilter', 'cityFilter'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+  }
 
   changePage(p) {
     this.currentPage = p;
@@ -70,9 +129,7 @@ export class ClientsTable {
 
     if (!tbody || !nav || !summary) return;
 
-    tbody.innerHTML = '';
-
-    // Estado Vazio (Empty State elegante)
+    // Estado Vazio
     if (this.filtered.length === 0) {
       tbody.innerHTML = `
         <tr>
@@ -94,12 +151,14 @@ export class ClientsTable {
     const start = (this.currentPage - 1) * this.perPage;
     const pageClients = this.filtered.slice(start, start + this.perPage);
 
+    // OTIMIZAÇÃO: Usar DocumentFragment para minimizar reflows
+    const fragment = document.createDocumentFragment();
+
     pageClients.forEach(c => {
       const tr = document.createElement('tr');
-      // Estilo de linha: hover suave e transição
       tr.className = "group hover:bg-slate-50/80 transition-colors duration-200";
 
-      // Botões de Ação (Minimalistas e arredondados)
+      // Botões de Ação
       let actionsHtml = '';
       if (this.userRole === 'editor') {
         actionsHtml = `
@@ -113,7 +172,7 @@ export class ClientsTable {
           </button>`;
       }
 
-      // Badge Status Rateio (Estilo Tag sutil)
+      // Badge Status Rateio
       let statusRateioHtml = '';
       if (c.statusRateio) {
         let colorClass = 'bg-slate-100 text-slate-500';
@@ -134,16 +193,13 @@ export class ClientsTable {
         ? `<div class="text-[11px] font-medium text-slate-400 mt-0.5 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>${c.projeto}</div>`
         : '';
 
-      // UC e Conta Contrato
       let idsInfo = `<div class="text-xs font-mono text-slate-500 mt-1 flex items-center gap-1">UC ${c.instalacao}</div>`;
       if (c.contaContrato) {
         idsInfo += `<div class="text-[10px] text-slate-400 font-mono">CC ${c.contaContrato}</div>`;
       }
 
-      // Documento formatado (simulado, idealmente usaria helper)
       const docDisplay = c.cpf || c.cnpj || 'N/A';
 
-      // HTML da linha
       tr.innerHTML = `
         <td class="p-5 pl-8 align-top">
           <div class="font-bold text-slate-700 text-sm tracking-tight group-hover:text-primary-700 transition-colors">${c.name || 'Sem Nome'}</div>
@@ -169,10 +225,15 @@ export class ClientsTable {
             ${actionsHtml}
           </div>
         </td>`;
-      tbody.appendChild(tr);
+
+      fragment.appendChild(tr);
     });
 
-    // Paginação (Estilo iOS)
+    // OTIMIZAÇÃO: Uma única atualização do DOM
+    tbody.innerHTML = '';
+    tbody.appendChild(fragment);
+
+    // Paginação
     const total = this.filtered.length;
     const totalPages = Math.ceil(total / this.perPage);
     const startItem = total === 0 ? 0 : start + 1;
@@ -180,45 +241,58 @@ export class ClientsTable {
 
     summary.textContent = `${startItem}-${endItem} de ${total}`;
 
-    nav.innerHTML = '';
+    // OTIMIZAÇÃO: Construir paginação com fragment
+    const navFragment = document.createDocumentFragment();
+
     if (totalPages > 1) {
       let startPage = Math.max(1, this.currentPage - 2);
       let endPage = Math.min(totalPages, startPage + 4);
       if (endPage - startPage < 4) startPage = Math.max(1, endPage - 4);
 
-      // Seta Esquerda
       if (this.currentPage > 1) {
-        nav.innerHTML += `
-          <a href="#" data-page="${this.currentPage - 1}" class="page-link w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:text-primary-600 hover:bg-slate-50 transition-colors">
-            <i class="fas fa-chevron-left text-xs"></i>
-          </a>`;
+        const prevLink = document.createElement('a');
+        prevLink.href = '#';
+        prevLink.className = 'page-link w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:text-primary-600 hover:bg-slate-50 transition-colors';
+        prevLink.dataset.page = this.currentPage - 1;
+        prevLink.innerHTML = '<i class="fas fa-chevron-left text-xs"></i>';
+        navFragment.appendChild(prevLink);
       }
 
-      // Números
       for (let i = startPage; i <= endPage; i++) {
+        const pageLink = document.createElement('a');
+        pageLink.href = '#';
+        pageLink.dataset.page = i;
+        pageLink.textContent = i;
+
         const activeClass = this.currentPage === i
           ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20 font-bold'
           : 'bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50';
 
-        nav.innerHTML += `
-          <a href="#" data-page="${i}" class="page-link w-8 h-8 flex items-center justify-center rounded-full text-xs transition-all ${activeClass}">
-            ${i}
-          </a>`;
+        pageLink.className = `page-link w-8 h-8 flex items-center justify-center rounded-full text-xs transition-all ${activeClass}`;
+        navFragment.appendChild(pageLink);
       }
 
-      // Seta Direita
       if (this.currentPage < totalPages) {
-        nav.innerHTML += `
-          <a href="#" data-page="${this.currentPage + 1}" class="page-link w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:text-primary-600 hover:bg-slate-50 transition-colors">
-            <i class="fas fa-chevron-right text-xs"></i>
-          </a>`;
+        const nextLink = document.createElement('a');
+        nextLink.href = '#';
+        nextLink.className = 'page-link w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-400 hover:text-primary-600 hover:bg-slate-50 transition-colors';
+        nextLink.dataset.page = this.currentPage + 1;
+        nextLink.innerHTML = '<i class="fas fa-chevron-right text-xs"></i>';
+        navFragment.appendChild(nextLink);
       }
 
-      nav.querySelectorAll('.page-link').forEach(a => a.addEventListener('click', (e) => {
+      nav.innerHTML = '';
+      nav.appendChild(navFragment);
+
+      // OTIMIZAÇÃO: Event delegation ao invés de múltiplos listeners
+      nav.onclick = (e) => {
         e.preventDefault();
-        const p = parseInt(a.dataset.page, 10);
-        if (!Number.isNaN(p)) this.changePage(p);
-      }));
+        const link = e.target.closest('.page-link');
+        if (link) {
+          const p = parseInt(link.dataset.page, 10);
+          if (!Number.isNaN(p)) this.changePage(p);
+        }
+      };
     }
   }
 }
