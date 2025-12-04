@@ -15,17 +15,8 @@ import {
   getDoc
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Configuração do Firebase (inline temporário)
-// TODO: Mover para ../config/firebaseConfig.js com export correto
-const firebaseConfig = {
-  apiKey: "AIzaSyBO_jqBqWHHnq1QQlROi2lajKu1K6RbBnE", // Chave correta recuperada do legado
-  authDomain: "crm-energia-solar.firebaseapp.com",
-  projectId: "crm-energia-solar",
-  storageBucket: "crm-energia-solar.firebasestorage.app",
-  messagingSenderId: "83187644189",
-  appId: "1:83187644189:web:d3cf98a894e87c2c8093f4",
-  measurementId: "G-QC5dRD90W"
-};
+// Configuração do Firebase (AGORA IMPORTADA CORRETAMENTE)
+import { firebaseConfig } from "../config/firebaseConfig.js";
 
 import { CRMApp } from "./crmApp.js";
 import { showToast } from "../ui/toast.js";
