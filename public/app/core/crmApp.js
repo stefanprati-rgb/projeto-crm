@@ -62,10 +62,12 @@ export class CRMApp {
     // Inicializa novos módulos de UI
     this.activeSection = 'dashboard';
     this.timelineUI = new TimelineUI(this.timelineService);
-    this.tasksUI = new TasksUI(this.taskService);
+    // Nota: tasksUI foi substituído por ticketsUI (linha 58)
+
     this.drawerManager = new DrawerManager(
       this.timelineUI,
-      this.tasksUI,
+      null, // tasksUI removido - funcionalidade migrada para ticketsUI
+
       () => this.tableData,
       () => this.dashboardData,
       this.service,
@@ -118,7 +120,7 @@ export class CRMApp {
     if (this.ticketsDashboardUnsubscribe) this.ticketsDashboardUnsubscribe();
     if (this.ticketsUI) this.ticketsUI.destroy();
     this.timelineUI.destroy();
-    this.tasksUI.destroy();
+
     console.log("CRMApp destruído.");
   }
 
