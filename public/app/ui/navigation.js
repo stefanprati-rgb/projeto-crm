@@ -8,12 +8,17 @@ export class NavigationManager {
     /**
      * @param {string} initialSection - A seção inicial ('dashboard')
      * @param {function} refreshUICallback - Callback para atualizar a UI da seção ativa no CRMApp
+     * @param {boolean} skipInitialShow - Se true, não chama showSection no construtor
      */
-    constructor(initialSection, refreshUICallback) {
+    constructor(initialSection, refreshUICallback, skipInitialShow = false) {
         this.activeSection = initialSection;
         this.refreshUICallback = refreshUICallback;
         this.bindNav();
-        this.showSection(this.activeSection);
+
+        // Only show initial section if not skipped (allows parent to control timing)
+        if (!skipInitialShow) {
+            this.showSection(this.activeSection);
+        }
     }
 
     bindNav() {
@@ -66,7 +71,9 @@ export class NavigationManager {
         this.updateNavHighlight(sectionId);
 
         // Dispara a atualização do conteúdo da seção no CRMApp principal
-        this.refreshUICallback();
+        if (this.refreshUICallback) {
+            this.refreshUICallback();
+        }
     }
 
     /**

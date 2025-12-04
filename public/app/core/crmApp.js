@@ -71,7 +71,8 @@ export class CRMApp {
       () => this.currentBase,
       () => this.userRole
     );
-    this.navigationManager = new NavigationManager(this.activeSection, this.refreshUI.bind(this));
+    // Initialize NavigationManager without triggering initial showSection
+    this.navigationManager = new NavigationManager(this.activeSection, this.refreshUI.bind(this), true);
 
     // Refs Gráficos
     this.clientsChartRef = { value: null };
@@ -88,6 +89,11 @@ export class CRMApp {
     window.crmApp.showClientModal = this.drawerManager.showClientModal.bind(this.drawerManager);
 
     this.init();
+
+    // Trigger initial navigation after all components are initialized
+    if (this.navigationManager) {
+      this.navigationManager.showSection(this.activeSection);
+    }
   }
 
   init() {
@@ -234,6 +240,12 @@ export class CRMApp {
   }
 
   refreshUI() {
+    // Defensive check: ensure navigationManager is initialized
+    if (!this.navigationManager) {
+      console.warn('refreshUI called before navigationManager initialization');
+      return;
+    }
+
     // Obtém a seção ativa através do NavigationManager
     this.activeSection = this.navigationManager.activeSection;
 
