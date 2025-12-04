@@ -1,14 +1,13 @@
-// crmApp.js
-
 import { ClientService } from "../services/clientService.js";
 import { ClientsTable } from "../features/clientsTable.js";
-import { renderKPIs, renderClientsChart, renderStatusChart, renderChurnChart } from "../features/dashboard.js";
+import { renderKPIs, renderClientsChart, renderStatusChart, renderChurnChart, renderTicketKPIs, renderTicketsChart } from "../features/dashboard.js";
 import { readExcelFile, exportJSON, exportExcel, exportPDF } from "../features/importExport.js";
 import { showToast } from "../ui/toast.js";
-import { showButtonLoading, showSkeleton, showEmptyState } from "../ui/loadingStates.js";
+import { showButtonLoading, showSkeleton } from "../ui/loadingStates.js";
 import { InvoiceService } from "../services/invoiceService.js";
 import { TimelineService } from "../services/timelineService.js";
 import { TaskService } from "../services/taskService.js";
+import { TicketService } from "../services/ticketService.js";
 import { TicketsUI } from "../features/ticketsUI.js";
 import { readInvoicesExcel } from "../features/importers/invoicesImporter.js";
 import { validateCPF, validateCNPJ, debounce } from "../utils/helpers.js";
@@ -18,6 +17,7 @@ import { PROJECTS } from "../config/projects.js";
 import { NavigationManager } from "../ui/navigation.js";
 import { DrawerManager } from "../ui/drawer.js";
 import { TimelineUI } from "../ui/timelineUI.js";
+import { TasksUI } from "../ui/tasksUI.js";
 
 export class CRMApp {
 
@@ -40,6 +40,7 @@ export class CRMApp {
     this.dashboardData = [];
     this.tableData = [];
     this.invoices = [];
+    this.ticketsData = []; // Armazena dados de tickets para o dashboard
 
     // Paginação
     this.pagination = {
@@ -54,16 +55,17 @@ export class CRMApp {
     this.invoiceService = new InvoiceService(db);
     this.timelineService = new TimelineService();
     this.taskService = new TaskService();
+    this.ticketService = new TicketService(); // Instância de Serviço de Tickets
     this.ticketsUI = new TicketsUI(db, auth);
     this.table = new ClientsTable(this.userRole);
 
     // Inicializa novos módulos de UI
     this.activeSection = 'dashboard';
     this.timelineUI = new TimelineUI(this.timelineService);
-    // Nota: tasksUI foi substituído por ticketsUI (linha 58)
+    this.tasksUI = new TasksUI(this.taskService);
     this.drawerManager = new DrawerManager(
       this.timelineUI,
-      null, // tasksUI removido - funcionalidade migrada para ticketsUI
+      this.tasksUI,
       () => this.tableData,
       () => this.dashboardData,
       this.service,
@@ -81,15 +83,14 @@ export class CRMApp {
     // Listeners
     this.unsubscribe = null;
     this.financeUnsubscribe = null;
+    this.ticketsDashboardUnsubscribe = null; // Listener específico para o Dashboard
 
-    // Expor instância para o HTML (AGORA FEITO ANTES DO INIT)
+    // Expor instância para o HTML
     window.crmApp = this;
-    // Expõe showClientModal para ser usado no bindActions da tabela
     window.crmApp.showClientModal = this.drawerManager.showClientModal.bind(this.drawerManager);
 
     this.init();
 
-    // Trigger initial navigation after all components are initialized
     if (this.navigationManager) {
       this.navigationManager.showSection(this.activeSection);
     }
@@ -101,27 +102,27 @@ export class CRMApp {
     this.initLoadMoreButton();
 
     this.bindActions();
-    this.exposeWindowMethods(); // <--- ADICIONADO AQUI PARA EXPOR MÉTODOS GLOBAIS
+    this.exposeWindowMethods();
 
     this.loadDataForBase(this.currentBase);
   }
 
-  // NOVO MÉTODO PARA EXPOR FUNÇÕES PARA O HTML
   exposeWindowMethods() {
-    // Funções necessárias para o HTML foram migradas para ticketsUI
-    // O window.crmApp já está definido no construtor.
+    window.crmApp.toggleTask = this.tasksUI.toggleTask.bind(this.tasksUI);
+    window.crmApp.deleteTask = this.tasksUI.deleteTask.bind(this.tasksUI);
   }
 
   destroy() {
     if (this.unsubscribe) this.unsubscribe();
     if (this.financeUnsubscribe) this.financeUnsubscribe();
+    if (this.ticketsDashboardUnsubscribe) this.ticketsDashboardUnsubscribe();
     if (this.ticketsUI) this.ticketsUI.destroy();
-    if (this.timelineUI) this.timelineUI.destroy();
+    this.timelineUI.destroy();
+    this.tasksUI.destroy();
     console.log("CRMApp destruído.");
   }
 
   initRoleBasedUI() {
-    // Corrige a lógica para ocultar botões de importação/criação para visualizador
     if (this.userRole === 'visualizador') {
       ['importExcelButton', 'addClientButton', 'clientModalSaveButton', 'importInvoicesBtn'].forEach(id => {
         document.getElementById(id)?.classList.add('hidden');
@@ -129,7 +130,6 @@ export class CRMApp {
     }
   }
 
-  // --- SELETOR ---
   initBaseSelector() {
     const selector = document.getElementById('databaseSelector');
     if (!selector) return;
@@ -163,13 +163,11 @@ export class CRMApp {
     });
   }
 
-  // --- CARREGAMENTO ---
   async loadDataForBase(baseName) {
     this.dashboardData = [];
     this.tableData = [];
     this.pagination = { lastDoc: null, hasMore: true, isLoading: false, pageSize: 50 };
 
-    // Limpa a tabela e mostra Skeleton
     this.table.applyFilters([]);
     const tbody = document.getElementById('clientsTableBody');
     if (tbody) showSkeleton(tbody, 5, 'table');
@@ -236,13 +234,7 @@ export class CRMApp {
   }
 
   refreshUI() {
-    // Defensive check: ensure navigationManager is initialized
-    if (!this.navigationManager) {
-      console.warn('refreshUI called before navigationManager initialization');
-      return;
-    }
-
-    // Obtém a seção ativa através do NavigationManager
+    if (!this.navigationManager) return;
     this.activeSection = this.navigationManager.activeSection;
 
     if (this.activeSection === 'dashboard') this.updateDashboard();
@@ -252,6 +244,7 @@ export class CRMApp {
   }
 
   updateDashboard() {
+    // 1. Renderiza Clientes
     renderKPIs({ total: 'kpi-total-clients', active: 'kpi-active-clients', overdue: 'kpi-overdue-clients', revenue: 'kpi-monthly-revenue' }, this.dashboardData, this.currentBase);
 
     const ctxLine = document.getElementById('clientsChart')?.getContext('2d');
@@ -261,6 +254,28 @@ export class CRMApp {
     if (ctxLine) renderClientsChart(ctxLine, this.dashboardData, this.clientsChartRef);
     if (ctxPie) renderStatusChart(ctxPie, this.dashboardData, this.statusChartRef);
     if (ctxChurn) renderChurnChart(ctxChurn, this.dashboardData, this.churnChartRef);
+
+    // 2. Renderiza Tickets (Se não tiver listener, cria)
+    if (!this.ticketsDashboardUnsubscribe) {
+      this.ticketsDashboardUnsubscribe = this.ticketService.listen((tickets) => {
+        this.ticketsData = tickets;
+        const metrics = this.ticketService.getMetrics(tickets);
+        renderTicketKPIs(metrics);
+
+        const ctxTickets = document.getElementById('ticketsChart')?.getContext('2d');
+        if (ctxTickets) {
+          renderTicketsChart(ctxTickets, tickets);
+        }
+      });
+    } else if (this.ticketsData.length > 0) {
+      // Se já tem dados cacheados, re-renderiza
+      const metrics = this.ticketService.getMetrics(this.ticketsData);
+      renderTicketKPIs(metrics);
+      const ctxTickets = document.getElementById('ticketsChart')?.getContext('2d');
+      if (ctxTickets) {
+        renderTicketsChart(ctxTickets, this.ticketsData);
+      }
+    }
   }
 
   updateFinance() {
@@ -302,7 +317,6 @@ export class CRMApp {
     });
     document.getElementById('excelFileInput')?.addEventListener('change', (e) => this.handleExcelImport(e));
 
-    // Vincula o botão Importar Faturas ao input file
     document.getElementById('importInvoicesBtn')?.addEventListener('click', () => {
       if (this.userRole !== 'editor') return;
       document.getElementById('invoicesFileInput').click();
@@ -313,24 +327,16 @@ export class CRMApp {
     document.getElementById('exportExcelButton')?.addEventListener('click', () => exportExcel(this.dashboardData));
     document.getElementById('exportPdfButton')?.addEventListener('click', () => exportPDF(this.dashboardData));
 
-    // Delega a chamada do modal para o DrawerManager
     document.getElementById('addClientButton')?.addEventListener('click', () => this.drawerManager.showClientModal());
     document.getElementById('clientForm')?.addEventListener('submit', (e) => this.handleSaveClient(e));
-
-    // DRAWER
-    // closeDrawerBtn e overlay REMOVIDOS e DELEGADOS ao DrawerManager
 
     document.getElementById('clientsTableBody')?.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-action]');
       if (!btn) return;
       if (btn.dataset.action === 'edit') this.drawerManager.showClientModal(btn.dataset.id);
     });
-
-    // FORMS SECUNDÁRIOS
-    // activityForm e taskForm REMOVIDOS e DELEGADOS aos respectivos UIs
   }
 
-  // --- HANDLERS ---
   async handleExcelImport(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -343,7 +349,6 @@ export class CRMApp {
     try { showToast('Lendo faturamento...', 'info'); const rows = await readInvoicesExcel(file); await this.invoiceService.batchImport(rows, 400); showToast('Importado com sucesso!', 'success'); } catch (err) { console.error(err); showToast('Erro na importação.', "danger"); } e.target.value = null;
   }
 
-  // --- SAVE CLIENT ---
   async handleSaveClient(e) {
     e.preventDefault();
     if (this.userRole !== 'editor') { showToast("Permissão negada.", "danger"); return; }
@@ -353,7 +358,7 @@ export class CRMApp {
     const data = {
       name: document.getElementById('clientName').value,
       externalId: document.getElementById('clientExternalId').value,
-      instalacao: document.getElementById('clientInstalacao').value, // Campo UC/Conta Contrato
+      instalacao: document.getElementById('clientInstalacao').value,
       address: document.getElementById('clientAddress').value,
       joinDate: document.getElementById('clientJoinDate').value,
       consumption: document.getElementById('clientConsumption').value,
