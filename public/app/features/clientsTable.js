@@ -57,65 +57,6 @@ export class ClientsTable {
       if (el) el.value = '';
     });
   }
-import { statusBadge } from "../utils/helpers.js";
-
-export class ClientsTable {
-  constructor(userRole) {
-    this.filtered = [];
-    this.currentPage = 1;
-    this.perPage = 10; // Mostra menos por página para um visual mais leve
-    this.userRole = userRole;
-  }
-
-  applyFilters(clients) {
-    const searchInput = document.getElementById('searchInput');
-    const search = searchInput ? searchInput.value.toLowerCase() : '';
-
-    const statusFilter = document.getElementById('statusFilter');
-    const status = statusFilter ? statusFilter.value : '';
-
-    // O filtro de tipo (PF/PJ) foi removido do HTML novo para simplificar, mas mantemos a lógica caso volte
-    const typeEl = document.getElementById('typeFilter');
-    const type = typeEl ? typeEl.value : '';
-
-    const cityEl = document.getElementById('cityFilter');
-    const city = cityEl ? cityEl.value.toLowerCase() : '';
-
-    this.filtered = clients.filter(c => {
-      const name = c.name || '';
-      const cpf = c.cpf || '';
-      const cnpj = c.cnpj || '';
-      const instalacao = c.instalacao ? c.instalacao.toString() : '';
-      const contaContrato = c.contaContrato ? c.contaContrato.toString() : '';
-      const projeto = c.projeto || '';
-      const statusRateio = c.statusRateio || '';
-
-      const matchesSearch = !search ||
-        name.toLowerCase().includes(search) ||
-        cpf.replace(/[.\-/]/g, '').includes(search) ||
-        cnpj.replace(/[.\-/]/g, '').includes(search) ||
-        instalacao.includes(search) ||
-        contaContrato.includes(search) ||
-        projeto.toLowerCase().includes(search) ||
-        statusRateio.toLowerCase().includes(search);
-
-      const matchesStatus = !status || c.status === status;
-      const matchesType = !type || c.contractType === type;
-      const matchesCity = !city || (c.city && c.city.toLowerCase().includes(city));
-
-      return matchesSearch && matchesStatus && matchesType && matchesCity;
-    });
-
-    this.currentPage = 1;
-    this.render();
-  }
-
-  clearFilters() {
-    ['searchInput', 'statusFilter', 'typeFilter', 'cityFilter'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.value = '';
-    });
-  }
 
   changePage(p) {
     this.currentPage = p;
@@ -189,9 +130,7 @@ export class ClientsTable {
           </div>`;
       }
 
-      const projetoInfo = c.projeto
-        ? `<div class="text-[11px] font-medium text-slate-400 mt-0.5 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>${c.projeto}</div>`
-        : '';
+      const projetoInfo = c.projeto ? `<div class="text-[11px] font-medium text-slate-400 mt-0.5 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>${c.projeto}</div>` : '';
 
       let idsInfo = `<div class="text-xs font-mono text-slate-500 mt-1 flex items-center gap-1">UC ${c.instalacao}</div>`;
       if (c.contaContrato) {
@@ -199,10 +138,15 @@ export class ClientsTable {
       }
 
       const docDisplay = c.cpf || c.cnpj || 'N/A';
+      const cityDisplay = c.city || '-';
+      const stateDisplay = c.state || '-';
+      const distribuidoraDisplay = c.distribuidora || '';
+      const consumptionDisplay = c.consumption || 0;
+      const nameDisplay = c.name || 'Sem Nome';
 
       tr.innerHTML = `
         <td class="p-5 pl-8 align-top">
-          <div class="font-bold text-slate-700 text-sm tracking-tight group-hover:text-primary-700 transition-colors">${c.name || 'Sem Nome'}</div>
+          <div class="font-bold text-slate-700 text-sm tracking-tight group-hover:text-primary-700 transition-colors">${nameDisplay}</div>
           ${projetoInfo}
         </td>
         <td class="p-5 align-top">
@@ -214,11 +158,11 @@ export class ClientsTable {
           ${statusRateioHtml}
         </td>
         <td class="p-5 align-top">
-          <div class="text-sm font-medium text-slate-600">${c.city || '-'}<span class="text-slate-300 mx-1">/</span>${c.state || '-'}</div>
-          <div class="text-[11px] font-semibold text-slate-400 uppercase mt-0.5 tracking-wider">${c.distribuidora || ''}</div>
+          <div class="text-sm font-medium text-slate-600">${cityDisplay}<span class="text-slate-300 mx-1">/</span>${stateDisplay}</div>
+          <div class="text-[11px] font-semibold text-slate-400 uppercase mt-0.5 tracking-wider">${distribuidoraDisplay}</div>
         </td>
         <td class="p-5 align-top">
-            <div class="font-bold text-slate-700 text-sm">${c.consumption || 0} <span class="text-xs text-slate-400 font-normal">kWh</span></div>
+            <div class="font-bold text-slate-700 text-sm">${consumptionDisplay} <span class="text-xs text-slate-400 font-normal">kWh</span></div>
         </td>
         <td class="p-5 pr-8 text-right align-middle">
           <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -264,9 +208,7 @@ export class ClientsTable {
         pageLink.dataset.page = i;
         pageLink.textContent = i;
 
-        const activeClass = this.currentPage === i
-          ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20 font-bold'
-          : 'bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50';
+        const activeClass = this.currentPage === i ? 'bg-primary-600 text-white shadow-md shadow-primary-600/20 font-bold' : 'bg-white text-slate-500 hover:text-slate-700 hover:bg-slate-50';
 
         pageLink.className = `page-link w-8 h-8 flex items-center justify-center rounded-full text-xs transition-all ${activeClass}`;
         navFragment.appendChild(pageLink);
@@ -284,7 +226,7 @@ export class ClientsTable {
       nav.innerHTML = '';
       nav.appendChild(navFragment);
 
-      // OTIMIZAÇÃO: Event delegation ao invés de múltiplos listeners
+      // OTIMIZAÇÃO: Event delegation
       nav.onclick = (e) => {
         e.preventDefault();
         const link = e.target.closest('.page-link');
@@ -293,6 +235,8 @@ export class ClientsTable {
           if (!Number.isNaN(p)) this.changePage(p);
         }
       };
+    } else {
+      nav.innerHTML = '';
     }
   }
 }
