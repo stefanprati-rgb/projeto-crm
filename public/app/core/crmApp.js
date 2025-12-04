@@ -18,7 +18,6 @@ import { PROJECTS } from "../config/projects.js";
 import { NavigationManager } from "../ui/navigation.js";
 import { DrawerManager } from "../ui/drawer.js";
 import { TimelineUI } from "../ui/timelineUI.js";
-import { TasksUI } from "../ui/tasksUI.js";
 
 export class CRMApp {
 
@@ -61,10 +60,10 @@ export class CRMApp {
     // Inicializa novos módulos de UI
     this.activeSection = 'dashboard';
     this.timelineUI = new TimelineUI(this.timelineService);
-    this.tasksUI = new TasksUI(this.taskService);
+    // Nota: tasksUI foi substituído por ticketsUI (linha 58)
     this.drawerManager = new DrawerManager(
       this.timelineUI,
-      this.tasksUI,
+      null, // tasksUI removido - funcionalidade migrada para ticketsUI
       () => this.tableData,
       () => this.dashboardData,
       this.service,
@@ -109,18 +108,15 @@ export class CRMApp {
 
   // NOVO MÉTODO PARA EXPOR FUNÇÕES PARA O HTML
   exposeWindowMethods() {
-    // Funções necessárias para o HTML (ex: botões de concluir/deletar tarefa no Drawer)
+    // Funções necessárias para o HTML foram migradas para ticketsUI
     // O window.crmApp já está definido no construtor.
-    window.crmApp.toggleTask = this.tasksUI.toggleTask.bind(this.tasksUI);
-    window.crmApp.deleteTask = this.tasksUI.deleteTask.bind(this.tasksUI);
   }
 
   destroy() {
     if (this.unsubscribe) this.unsubscribe();
     if (this.financeUnsubscribe) this.financeUnsubscribe();
     if (this.ticketsUI) this.ticketsUI.destroy();
-    this.timelineUI.destroy();
-    this.tasksUI.destroy();
+    if (this.timelineUI) this.timelineUI.destroy();
     console.log("CRMApp destruído.");
   }
 
