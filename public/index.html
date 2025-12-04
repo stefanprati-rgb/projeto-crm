@@ -7,13 +7,10 @@
   <meta name="description" content="Sistema CRM para Gestão de Clientes e Vendas" />
   <title>Hube CRM</title>
 
-  <!-- Tailwind CSS -->
   <link rel="stylesheet" href="./css/tailwind.css">
 
-  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-  <!-- Custom Styles -->
   <style>
     /* Loading Spinner Animation */
     @keyframes spin {
@@ -82,7 +79,6 @@
 
 <body class="min-h-screen bg-slate-50 antialiased">
 
-  <!-- ========== LOADING GLOBAL ========== -->
   <div id="loading-spinner" class="fixed inset-0 z-50 flex items-center justify-center bg-white">
     <div class="text-center">
       <div class="inline-block w-16 h-16 border-4 border-slate-200 border-t-primary-600 rounded-full animate-spin">
@@ -91,17 +87,13 @@
     </div>
   </div>
 
-  <!-- ========== TOAST CONTAINER ========== -->
   <div class="toast-container fixed top-4 right-4 z-50 flex flex-col gap-3 pointer-events-none">
-    <!-- Toasts serão inseridos aqui via JS -->
   </div>
 
-  <!-- ========== LOGIN SECTION ========== -->
   <section id="login-section"
     class="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100">
     <div class="w-full max-w-md">
       <div class="bg-white shadow-2xl shadow-slate-200/50 rounded-2xl p-8 border border-slate-100">
-        <!-- Logo/Header -->
         <div class="text-center mb-8">
           <div class="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
             <i class="fas fa-chart-line text-2xl text-white"></i>
@@ -110,10 +102,8 @@
 
         </div>
 
-        <!-- Login Form -->
         <form id="loginForm" class="space-y-5">
           <div id="login-auth-alert" class="hidden p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
-            <!-- Mensagem de erro -->
           </div>
 
           <div>
@@ -141,7 +131,6 @@
           </button>
         </form>
 
-        <!-- Create Account Link -->
         <div class="mt-6 text-center">
           <a href="#" id="showCreateAccountLink" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
             Criar nova conta
@@ -149,7 +138,6 @@
         </div>
       </div>
 
-      <!-- Create Account Form (Hidden by default) -->
       <div id="createAccountForm"
         class="hidden bg-white shadow-2xl shadow-slate-200/50 rounded-2xl p-8 border border-slate-100 mt-4">
         <h2 class="text-xl font-bold text-slate-900 mb-6">Criar Nova Conta</h2>
@@ -184,13 +172,10 @@
     </div>
   </section>
 
-  <!-- ========== MAIN APP (Hidden until logged in) ========== -->
   <div id="mainNavApp" class="hidden">
-    <!-- Header/Navbar -->
     <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
-          <!-- Logo -->
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
               <i class="fas fa-solar-panel text-white"></i>
@@ -201,7 +186,6 @@
             </div>
           </div>
 
-          <!-- User Info & Actions -->
           <div class="flex items-center gap-4">
             <div class="hidden sm:block text-right">
               <p id="navbarUserEmail" class="text-sm font-medium text-slate-700">user@email.com</p>
@@ -217,16 +201,13 @@
     </header>
   </div>
 
-  <!-- Main Content Area -->
   <main id="mainContentApp" class="hidden">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Page Header -->
       <div class="mb-8">
         <h2 id="sectionTitle" class="text-3xl font-bold text-slate-900">Dashboard</h2>
         <p id="sectionSubtitle" class="text-slate-600 mt-1">Visão geral do sistema</p>
       </div>
 
-      <!-- Navigation Tabs -->
       <div class="mb-6 border-b border-slate-200">
         <nav class="flex gap-6">
           <button class="nav-link px-4 py-3 text-sm font-medium border-b-2 transition-colors" data-section="dashboard">
@@ -244,10 +225,8 @@
         </nav>
       </div>
 
-      <!-- Dashboard Section -->
       <div id="dashboard-section" class="section-content">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <!-- KPI Cards -->
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div class="flex items-center justify-between mb-2">
               <span class="text-sm font-medium text-slate-600">Total Clientes</span>
@@ -281,23 +260,24 @@
           </div>
         </div>
 
-        <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h3 class="text-lg font-semibold text-slate-900 mb-4">Evolução de Clientes</h3>
-            <canvas id="clientsChart"></canvas>
+            <div class="relative h-[300px]">
+              <canvas id="clientsChart"></canvas>
+            </div>
           </div>
 
           <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h3 class="text-lg font-semibold text-slate-900 mb-4">Status dos Clientes</h3>
-            <canvas id="statusChart"></canvas>
+            <div class="relative h-[300px]">
+              <canvas id="statusChart"></canvas>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Clients Section -->
       <div id="clients-section" class="section-content d-none">
-        <!-- Filters & Actions -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
           <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <div class="flex-1 w-full md:w-auto">
@@ -326,7 +306,6 @@
           </div>
         </div>
 
-        <!-- Table -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-200">
@@ -343,14 +322,12 @@
                 </tr>
               </thead>
               <tbody id="clientsTableBody" class="bg-white divide-y divide-slate-200">
-                <!-- Rows will be inserted here -->
               </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      <!-- Finance Section -->
       <div id="finance-section" class="section-content d-none">
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
           <h3 class="text-lg font-semibold text-slate-900 mb-4">Gestão Financeira</h3>
@@ -358,7 +335,6 @@
         </div>
       </div>
 
-      <!-- Tickets Section (NEW) -->
       <div id="tickets-section" class="section-content d-none">
         <div class="mb-6 flex items-center justify-between">
           <div>
@@ -371,7 +347,6 @@
           </button>
         </div>
 
-        <!-- Ticket Filters -->
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
           <div class="flex gap-3 flex-wrap">
             <button class="ticket-filter-btn px-4 py-2 rounded-lg font-medium transition-all bg-primary-600 text-white"
@@ -396,9 +371,7 @@
           </div>
         </div>
 
-        <!-- Tickets List -->
         <div id="ticketsList" class="space-y-4">
-          <!-- Tickets will be inserted here -->
           <div class="text-center py-12 text-slate-400">
             <i class="fas fa-ticket-alt text-4xl mb-4"></i>
             <p>Nenhum ticket encontrado</p>
@@ -408,7 +381,6 @@
     </div>
   </main>
 
-  <!-- ========== CLIENT DRAWER ========== -->
   <div id="client-drawer-overlay"
     class="hidden fixed inset-0 bg-black/50 z-40 opacity-0 transition-opacity duration-300"></div>
 
@@ -425,7 +397,6 @@
     </div>
 
     <div class="p-6">
-      <!-- Tabs -->
       <div class="border-b border-slate-200 mb-6">
         <nav class="flex gap-4">
           <button class="drawer-tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors"
@@ -443,7 +414,6 @@
         </nav>
       </div>
 
-      <!-- Tab Content -->
       <div id="tab-overview" class="drawer-content">
         <form id="clientForm" class="space-y-4">
           <input type="hidden" id="clientId" />
@@ -527,7 +497,6 @@
 
       <div id="tab-timeline" class="drawer-content hidden">
         <div id="activityTimeline" class="space-y-3">
-          <!-- Timeline items will be inserted here -->
         </div>
 
         <form id="activityForm" class="mt-6 p-4 bg-slate-50 rounded-lg">
@@ -550,7 +519,6 @@
 
       <div id="tab-tasks" class="drawer-content hidden">
         <div id="tasksList" class="space-y-3 mb-6">
-          <!-- Tasks will be inserted here -->
         </div>
 
         <form id="taskForm" class="p-4 bg-slate-50 rounded-lg">
@@ -579,7 +547,6 @@
     </div>
   </div>
 
-  <!-- ========== SCRIPTS ========== -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script type="module" src="./app/core/firebase.js"></script>
 
