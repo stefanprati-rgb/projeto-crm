@@ -1,48 +1,9 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Função interna para verificar o "cargo" (role) do utilizador
-    function getUserRole() {
-      // Lê o documento do utilizador na coleção /users/
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
-    // Coleção: CLIENTS
-    // Só pode ser acedida por quem tem um "cargo" (role)
-    match /clients/{clientId} {
-      allow read: if request.auth != null && request.auth.token.email != null
-                  && (getUserRole() == 'visualizador' || getUserRole() == 'editor');
-      
-      allow write, create, delete: if request.auth != null && request.auth.token.email != null
-                  && getUserRole() == 'editor';
-    }
-
-    // Coleção: INVOICES 
-    // Regras similares aos clients - visualizadores podem ler, editores podem modificar
-    match /invoices/{invoiceId} {
-      allow read: if request.auth != null && request.auth.token.email != null
-                  && (getUserRole() == 'visualizador' || getUserRole() == 'editor');
-      
-      allow write, create, delete: if request.auth != null && request.auth.token.email != null
-                  && getUserRole() == 'editor';
-    }
-
-    // Coleção: USERS
-    // Guarda os "cargos" (roles) de cada utilizador
-    match /users/{userId} {
-      // CORREÇÃO: Qualquer utilizador logado pode ler os cargos (necessário para a função getUserRole() funcionar)
-      allow read: if request.auth != null && request.auth.token.email != null;
-      
-      // Um utilizador só pode criar o SEU PRÓPRIO documento de cargo (ao se registar)
-      // E DEVE definir o role como 'visualizador' por padrão
-      allow create: if request.auth != null 
-                    && request.auth.uid == userId
-                    && request.resource.data.role == 'visualizador';
-      
-      // Ninguém (nem o próprio utilizador) pode atualizar o seu cargo pela app.
-      // Isto é uma segurança! O cargo só pode ser mudado manualmente no Console do Firebase.
-      allow update, delete: if false;
+    // Permissão total para usuários autenticados (MVP)
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }

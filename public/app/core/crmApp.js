@@ -167,7 +167,11 @@ export class CRMApp {
     this.tableData = [];
     this.pagination = { lastDoc: null, hasMore: true, isLoading: false, pageSize: 50 };
 
+    // Limpa a tabela e mostra Skeleton
     this.table.applyFilters([]);
+    const tbody = document.getElementById('clientsTableBody');
+    if (tbody) showSkeleton(tbody, 5, 'table');
+
     this.updateLoadMoreUI();
     console.log(`Iniciando carregamento para: ${baseName}`);
 
@@ -182,8 +186,9 @@ export class CRMApp {
   async loadNextPage() {
     if (this.pagination.isLoading || !this.pagination.hasMore) return;
     this.pagination.isLoading = true;
+
     const btn = document.getElementById('btnLoadMore');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Carregando...'; }
+    if (btn) showButtonLoading(btn, true, 'Carregar mais clientes');
 
     try {
       const result = await this.service.getPage(this.currentBase, this.pagination.pageSize, this.pagination.lastDoc);
@@ -193,8 +198,14 @@ export class CRMApp {
         this.table.applyFilters(this.tableData);
       }
       this.pagination.hasMore = result.hasMore;
-    } catch (err) { console.error(err); showToast("Erro ao carregar.", "danger"); }
-    finally { this.pagination.isLoading = false; this.updateLoadMoreUI(); }
+    } catch (err) {
+      console.error(err);
+      showToast("Erro ao carregar.", "danger");
+    } finally {
+      this.pagination.isLoading = false;
+      if (btn) showButtonLoading(btn, false, 'Carregar mais clientes');
+      this.updateLoadMoreUI();
+    }
   }
 
   initLoadMoreButton() {
