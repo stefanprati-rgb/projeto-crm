@@ -17,7 +17,7 @@ import { PROJECTS } from "../config/projects.js";
 import { NavigationManager } from "../ui/navigation.js";
 import { DrawerManager } from "../ui/drawer.js";
 import { TimelineUI } from "../ui/timelineUI.js";
-import { TicketsUI } from "../ui/tasksUI.js";
+
 
 export class CRMApp {
 
