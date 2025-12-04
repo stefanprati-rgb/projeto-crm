@@ -83,7 +83,6 @@ export class ClientService {
   // --- DADOS PARA DASHBOARD ---
   async getAllForDashboard(baseFilter) {
     // Para o dashboard, usamos uma query simplificada para garantir velocidade
-    // Não ordenamos aqui para evitar necessidade de índices compostos complexos no load inicial
     let q;
     if (baseFilter && baseFilter !== 'TODOS') {
       q = query(collection(this.db, this.collectionName), where('database', '==', baseFilter));
@@ -135,4 +134,75 @@ export class ClientService {
     }
 
     console.log(`Iniciando limpeza do projeto: ${baseFilter}...`);
-    await auditLogger.
+    await auditLogger.log('BULK_DELETE_START', 'clients', 'ALL', { targetBase: baseFilter });
+
+    const q = query(collection(this.db, this.collectionName), where('database', '==', baseFilter));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) return 0;
+
+    const batchSize = 400;
+    const chunks = [];
+    let currentChunk = [];
+
+    snapshot.docs.forEach((doc) => {
+      currentChunk.push(doc.ref);
+      if (currentChunk.length === batchSize) {
+        chunks.push(currentChunk);
+        currentChunk = [];
+      }
+    });
+    if (currentChunk.length > 0) chunks.push(currentChunk);
+
+    let count = 0;
+    for (const chunk of chunks) {
+      const batch = writeBatch(this.db);
+      chunk.forEach(ref => batch.delete(ref));
+      await batch.commit();
+      count += chunk.length;
+      console.log(`Apagados ${count} registos...`);
+    }
+
+    await auditLogger.log('BULK_DELETE_COMPLETE', 'clients', 'ALL', { targetBase: baseFilter, count });
+    return count;
+  }
+
+  async batchImport(rows, mapFunction, existingClients, batchSize = 400) {
+    const items = rows.map(r => mapFunction ? mapFunction(r) : r);
+    const chunks = [];
+
+    for (let i = 0; i < items.length; i += batchSize) {
+      chunks.push(items.slice(i, i + batchSize));
+    }
+
+    let count = 0;
+    for (const chunk of chunks) {
+      const batch = writeBatch(this.db);
+
+      chunk.forEach(item => {
+        if (item.id) {
+          const ref = doc(this.db, this.collectionName, item.id);
+          batch.set(ref, item, { merge: true });
+        } else {
+          const ref = doc(collection(this.db, this.collectionName));
+          batch.set(ref, item);
+        }
+      });
+
+      await batch.commit();
+      count++;
+      console.log(`Lote ${count}/${chunks.length} processado.`);
+    }
+
+    await auditLogger.log('IMPORT', 'clients', 'BATCH', {
+      totalRecords: items.length,
+      batches: count
+    });
+  }
+
+  removeUndefined(obj) {
+    return Object.fromEntries(
+      Object.entries(obj).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    );
+  }
+}
