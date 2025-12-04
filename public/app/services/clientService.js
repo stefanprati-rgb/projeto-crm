@@ -12,7 +12,7 @@ import {
   getDocs,
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { auditLogger } from "./logService.js"; // Importamos o Logger
+import { auditLogger } from "./logService.js";
 
 export class ClientService {
   constructor(db) {
@@ -20,37 +20,58 @@ export class ClientService {
     this.collectionName = 'clients';
   }
 
-  // --- PAGINAÇÃO REAL ---
+  // --- PAGINAÇÃO REAL COM FALLBACK ---
   async getPage(baseFilter, pageSize, lastDoc = null) {
-    let q;
+    console.log(`[ClientService] Buscando página. Base: ${baseFilter}, LastDoc: ${!!lastDoc}`);
+
+    // TENTATIVA 1: Busca Padrão (Ordenada por Nome)
+    try {
+      const result = await this._runQuery(baseFilter, pageSize, lastDoc, 'name');
+
+      // Se encontrou dados ou se é paginação contínua (lastDoc existe), retorna.
+      if (result.data.length > 0 || lastDoc) {
+        return result;
+      }
+
+      // Se retornou 0 na primeira página, pode ser que os documentos não tenham o campo 'name'
+      console.warn("[ClientService] Busca por nome retornou vazio. Tentando fallback por Data...");
+    } catch (e) {
+      console.warn("[ClientService] Erro na busca por nome:", e);
+    }
+
+    // TENTATIVA 2: Fallback (Ordenada por Data de Criação) - Mais segura para dados importados
+    // Isso garante que você veja os dados mesmo se o campo 'name' estiver faltando ou index falhando
+    try {
+      console.log("[ClientService] Executando busca fallback por createdAt...");
+      return await this._runQuery(baseFilter, pageSize, lastDoc, 'createdAt', 'desc');
+    } catch (e) {
+      console.error("[ClientService] Erro fatal na busca de clientes:", e);
+      throw e;
+    }
+  }
+
+  // Helper interno para montar e executar a query
+  async _runQuery(baseFilter, pageSize, lastDoc, orderField, orderDir = 'asc') {
     const constraints = [];
 
+    // Filtro de Base (Projeto)
     if (baseFilter && baseFilter !== 'TODOS') {
       constraints.push(where('database', '==', baseFilter));
     }
 
-    constraints.push(orderBy('name'));
-    constraints.push(limit(pageSize));
+    // Ordenação
+    constraints.push(orderBy(orderField, orderDir));
 
+    // Paginação
+    constraints.push(limit(pageSize));
     if (lastDoc) {
       constraints.push(startAfter(lastDoc));
     }
 
-    try {
-      q = query(collection(this.db, this.collectionName), ...constraints);
-    } catch (e) {
-      console.warn("Erro de índice ou ordenação. Tentando fallback simples.");
-      const simpleConstraints = [];
-      if (baseFilter && baseFilter !== 'TODOS') {
-        simpleConstraints.push(where('database', '==', baseFilter));
-      }
-      simpleConstraints.push(limit(pageSize));
-      if (lastDoc) simpleConstraints.push(startAfter(lastDoc));
-
-      q = query(collection(this.db, this.collectionName), ...simpleConstraints);
-    }
-
+    const q = query(collection(this.db, this.collectionName), ...constraints);
     const snapshot = await getDocs(q);
+
+    console.log(`[ClientService] Query (${orderField}) retornou ${snapshot.docs.length} docs.`);
 
     return {
       data: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
@@ -61,6 +82,8 @@ export class ClientService {
 
   // --- DADOS PARA DASHBOARD ---
   async getAllForDashboard(baseFilter) {
+    // Para o dashboard, usamos uma query simplificada para garantir velocidade
+    // Não ordenamos aqui para evitar necessidade de índices compostos complexos no load inicial
     let q;
     if (baseFilter && baseFilter !== 'TODOS') {
       q = query(collection(this.db, this.collectionName), where('database', '==', baseFilter));
@@ -82,7 +105,6 @@ export class ClientService {
       const ref = doc(this.db, this.collectionName, id);
       await updateDoc(ref, cleanData);
 
-      // Log: Regista a alteração
       await auditLogger.log('UPDATE', 'clients', id, {
         updatedFields: Object.keys(cleanData),
         clientName: cleanData.name
@@ -93,7 +115,6 @@ export class ClientService {
       cleanData.createdAt = new Date().toISOString();
       const docRef = await addDoc(collection(this.db, this.collectionName), cleanData);
 
-      // Log: Regista a criação
       await auditLogger.log('CREATE', 'clients', docRef.id, {
         clientName: cleanData.name,
         database: cleanData.database
@@ -104,8 +125,6 @@ export class ClientService {
   async delete(id) {
     const ref = doc(this.db, this.collectionName, id);
     await deleteDoc(ref);
-
-    // Log: Regista a exclusão
     await auditLogger.log('DELETE', 'clients', id);
   }
 
@@ -116,80 +135,4 @@ export class ClientService {
     }
 
     console.log(`Iniciando limpeza do projeto: ${baseFilter}...`);
-
-    // Log Prévio de Segurança
-    await auditLogger.log('BULK_DELETE_START', 'clients', 'ALL', { targetBase: baseFilter });
-
-    const q = query(collection(this.db, this.collectionName), where('database', '==', baseFilter));
-    const snapshot = await getDocs(q);
-
-    if (snapshot.empty) return 0;
-
-    const batchSize = 400;
-    const chunks = [];
-    let currentChunk = [];
-
-    snapshot.docs.forEach((doc) => {
-      currentChunk.push(doc.ref);
-      if (currentChunk.length === batchSize) {
-        chunks.push(currentChunk);
-        currentChunk = [];
-      }
-    });
-    if (currentChunk.length > 0) chunks.push(currentChunk);
-
-    let count = 0;
-    for (const chunk of chunks) {
-      const batch = writeBatch(this.db);
-      chunk.forEach(ref => batch.delete(ref));
-      await batch.commit();
-      count += chunk.length;
-      console.log(`Apagados ${count} registos...`);
-    }
-
-    // Log Final
-    await auditLogger.log('BULK_DELETE_COMPLETE', 'clients', 'ALL', { targetBase: baseFilter, count });
-
-    return count;
-  }
-
-  async batchImport(rows, mapFunction, existingClients, batchSize = 400) {
-    const items = rows.map(r => mapFunction ? mapFunction(r) : r);
-    const chunks = [];
-
-    for (let i = 0; i < items.length; i += batchSize) {
-      chunks.push(items.slice(i, i + batchSize));
-    }
-
-    let count = 0;
-    for (const chunk of chunks) {
-      const batch = writeBatch(this.db);
-
-      chunk.forEach(item => {
-        if (item.id) {
-          const ref = doc(this.db, this.collectionName, item.id);
-          batch.set(ref, item, { merge: true });
-        } else {
-          const ref = doc(collection(this.db, this.collectionName));
-          batch.set(ref, item);
-        }
-      });
-
-      await batch.commit();
-      count++;
-      console.log(`Lote ${count}/${chunks.length} processado.`);
-    }
-
-    // Log de Importação
-    await auditLogger.log('IMPORT', 'clients', 'BATCH', {
-      totalRecords: items.length,
-      batches: count
-    });
-  }
-
-  removeUndefined(obj) {
-    return Object.fromEntries(
-      Object.entries(obj).filter(([_, v]) => v !== undefined && v !== null && v !== '')
-    );
-  }
-}
+    await auditLogger.
