@@ -2,13 +2,9 @@ import {
     collection,
     query,
     where,
-    getDocs,
     orderBy,
     limit,
-    doc,
-    getDoc,
-    updateDoc,
-    increment,
+    getDocs,
     addDoc,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -16,160 +12,99 @@ import { db } from "../core/firebase.js";
 
 export class KBService {
     constructor() {
-        this.collectionName = 'kb_articles';
+        this.collectionName = 'knowledge_base';
     }
 
     /**
-     * Busca artigos baseados em um termo ou retorna populares se não houver termo.
-     * Implementa uma busca "inteligente" simples no client-side para contornar limitações do Firestore.
-     * @param {string} searchTerm - Termo de busca
-     * @returns {Promise<Array>} Lista de artigos
+     * Busca artigos baseados em um termo ou retorna os mais populares
+     * @param {string} term - Termo de busca (opcional)
      */
-    async searchArticles(searchTerm = '') {
-        try {
-            // Se não houver termo, retorna os populares
-            if (!searchTerm || searchTerm.trim().length === 0) {
-                return await this.getPopularArticles();
-            }
+    async searchArticles(term = '') {
+        const coll = collection(db, this.collectionName);
+        let q;
 
-            const term = searchTerm.toLowerCase().trim();
+        // Normaliza o termo para busca simples (lowercase)
+        const searchTerm = term.toLowerCase().trim();
 
-            // Busca todos os artigos (ou um subconjunto razoável) para filtrar no cliente
-            // Nota: Em produção com muitos dados, ideal usar Algolia/ElasticSearch
-            const q = query(
-                collection(db, this.collectionName),
-                orderBy('views', 'desc'),
-                limit(50)
+        if (!searchTerm) {
+            // Se não tem termo, retorna os "Populares" ou Recentes
+            q = query(coll, orderBy('views', 'desc'), limit(5));
+        } else {
+            // Busca simples: Artigos que contêm a tag ou categoria exata
+            // Para MVP, faremos filtragem no client-side após buscar um lote
+            q = query(coll, limit(20));
+        }
+
+        const snapshot = await getDocs(q);
+        let articles = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+        // Filtragem Client-Side (Ideal para MVPs e bases pequenas)
+        if (searchTerm) {
+            articles = articles.filter(a =>
+                (a.title && a.title.toLowerCase().includes(searchTerm)) ||
+                (a.content && a.content.toLowerCase().includes(searchTerm)) ||
+                (a.category && a.category.toLowerCase().includes(searchTerm))
             );
+        }
 
-            const snapshot = await getDocs(q);
-            const allArticles = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
+        return articles.slice(0, 5); // Retorna top 5 resultados
+    }
 
-            // Filtro Client-side (Título, Tags ou Conteúdo)
-            const results = allArticles.filter(article => {
-                const titleMatch = article.title?.toLowerCase().includes(term);
-                const tagsMatch = article.tags?.some(tag => tag.toLowerCase().includes(term));
-                const categoryMatch = article.category?.toLowerCase().includes(term);
-                return titleMatch || tagsMatch || categoryMatch;
-            });
-
-            // Fallback: Se a busca não retornar nada, retorna populares com uma flag
-            if (results.length === 0) {
-                console.log(`Nenhum artigo encontrado para "${term}". Retornando populares.`);
-                const popular = await this.getPopularArticles();
-                return popular.map(p => ({ ...p, isFallback: true }));
+    /**
+     * Seed inicial para popular a base
+     * Este é o método que estava faltando ou em cache antigo
+     */
+    async seedInitialData() {
+        const samples = [
+            {
+                title: "Como corrigir valor da fatura de energia?",
+                content: "Passo a passo para contestar valores: 1. Verifique a leitura do medidor. 2. Compare com o histórico. 3. Abra um chamado anexando a foto do medidor.",
+                category: "Faturamento",
+                keywords: ["fatura", "valor", "erro", "cobrança"],
+                views: 150,
+                readTime: "3 min",
+                createdAt: serverTimestamp()
+            },
+            {
+                title: "Procedimento de cancelamento de contrato",
+                content: "O cancelamento deve ser solicitado com 30 dias de antecedência. Multas podem ser aplicadas conforme cláusula 5 do contrato.",
+                category: "Cadastro",
+                keywords: ["cancelamento", "sair", "rescisão", "contrato"],
+                views: 89,
+                readTime: "5 min",
+                createdAt: serverTimestamp()
+            },
+            {
+                title: "Entendendo a injeção de créditos na rede",
+                content: "Os créditos de energia são injetados pela usina e aparecem na fatura como 'Energia Injetada'. O saldo pode ser usado em até 60 meses.",
+                category: "Técnico",
+                keywords: ["créditos", "injeção", "gd", "solar"],
+                views: 210,
+                readTime: "4 min",
+                createdAt: serverTimestamp()
+            },
+            {
+                title: "Atualização de dados cadastrais",
+                content: "Para mudar o titular ou endereço, envie o comprovante de residência atualizado e documento com foto.",
+                category: "Cadastro",
+                keywords: ["mudança", "titularidade", "endereço", "dados"],
+                views: 45,
+                readTime: "2 min",
+                createdAt: serverTimestamp()
             }
+        ];
 
-            return results;
-
-        } catch (error) {
-            console.error("Erro ao buscar artigos da KB:", error);
-            throw error;
-        }
-    }
-
-    /**
-     * Retorna os artigos mais visualizados.
-     * @param {number} limitCount - Quantidade de artigos
-     */
-    async getPopularArticles(limitCount = 5) {
         try {
-            const q = query(
-                collection(db, this.collectionName),
-                orderBy('views', 'desc'),
-                limit(limitCount)
-            );
-
-            const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-        } catch (error) {
-            console.error("Erro ao buscar artigos populares:", error);
-            return [];
-        }
-    }
-
-    /**
-     * Busca artigos por categoria específica.
-     * @param {string} category 
-     */
-    async getArticlesByCategory(category) {
-        try {
-            const q = query(
-                collection(db, this.collectionName),
-                where('category', '==', category),
-                orderBy('views', 'desc'),
-                limit(10)
-            );
-
-            const snapshot = await getDocs(q);
-            return snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-        } catch (error) {
-            console.error(`Erro ao buscar categoria ${category}:`, error);
-            return [];
-        }
-    }
-
-    /**
-     * Obtém detalhes de um artigo e incrementa visualizações.
-     * @param {string} articleId 
-     */
-    async getArticle(articleId) {
-        try {
-            const docRef = doc(db, this.collectionName, articleId);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                // Incrementa view count em background
-                this.incrementViewCount(articleId);
-                return { id: docSnap.id, ...docSnap.data() };
-            } else {
-                throw new Error("Artigo não encontrado");
+            for (const art of samples) {
+                await addDoc(collection(db, this.collectionName), art);
             }
+            console.log("Base de Conhecimento populada com sucesso!");
+            return true;
         } catch (error) {
-            console.error("Erro ao obter artigo:", error);
-            throw error;
-        }
-    }
-
-    /**
-     * Incrementa o contador de visualizações atomicamente.
-     * @param {string} articleId 
-     */
-    async incrementViewCount(articleId) {
-        try {
-            const docRef = doc(db, this.collectionName, articleId);
-            await updateDoc(docRef, {
-                views: increment(1)
-            });
-        } catch (error) {
-            console.error("Erro ao incrementar views:", error);
-        }
-    }
-
-    /**
-     * Cria um novo artigo (útil para seeds ou admin).
-     */
-    async createArticle(data) {
-        try {
-            const docData = {
-                ...data,
-                views: 0,
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp()
-            };
-            const docRef = await addDoc(collection(db, this.collectionName), docData);
-            return docRef.id;
-        } catch (error) {
-            console.error("Erro ao criar artigo:", error);
+            console.error("Erro ao popular KB:", error);
             throw error;
         }
     }
