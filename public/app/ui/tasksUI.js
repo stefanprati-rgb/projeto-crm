@@ -9,9 +9,8 @@ export class TasksUI {
         this.containerId = 'tasksList';
         this.formId = 'taskForm';
 
-        // Expõe métodos para serem chamados via onclick do HTML (DrawerManager fará o bind)
-        window.crmApp.toggleTask = this.toggleTask.bind(this);
-        window.crmApp.deleteTask = this.deleteTask.bind(this);
+        // Métodos toggleTask e deleteTask são expostos via crmApp.exposeWindowMethods()
+        // após window.crmApp ser inicializado, evitando TypeError
     }
 
     /**
@@ -45,7 +44,7 @@ export class TasksUI {
         if (task.priority === 'high') priorityColor = 'bg-rose-50 text-rose-600';
         if (task.priority === 'medium') priorityColor = 'bg-amber-50 text-amber-600';
 
-        // Chamadas usando window.crmApp (precisa do clientId para o service)
+        // Chamadas usando window.crmApp (exposto via crmApp.exposeWindowMethods)
         return `
             <div class="flex items-center gap-3 p-3 bg-white border border-slate-100 rounded-xl shadow-sm fade-in group ${opacityClass}">
                 <button class="shrink-0 text-lg hover:text-emerald-500 transition-colors" onclick="window.crmApp.toggleTask('${clientId}', '${task.id}', '${task.status}')">
@@ -97,7 +96,7 @@ export class TasksUI {
         }
     }
 
-    // --- MÉTODOS EXPOSTOS (BINDADOS VIA WINDOW.CRMAP) ---
+    // --- MÉTODOS EXPOSTOS (BINDADOS VIA CRMAPP.EXPOSEWINDOWMETHODS) ---
     async toggleTask(clientId, taskId, currentStatus) {
         try {
             await this.service.toggleStatus(clientId, taskId, currentStatus);
