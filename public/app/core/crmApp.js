@@ -153,16 +153,23 @@ export class CRMApp {
       }
     });
 
-    selector.addEventListener('change', (e) => {
-      const newBase = e.target.value;
-      if (newBase !== this.currentBase) {
-        this.currentBase = newBase;
-        localStorage.setItem('crm_last_project', newBase);
-        this.loadDataForBase(this.currentBase);
-        const msg = newBase === 'TODOS' ? 'Visão Geral Consolidada' : `Projeto: ${PROJECTS[newBase]?.name}`;
-        showToast(msg, 'info');
-      }
-    });
+this.databaseSelector.addEventListener('change', async (e) => {
+    // 1. Atualizar referência atual
+    this.currentBase = e.target.value;
+
+    // 2. Salvar persistência
+    localStorage.setItem('currentBase', this.currentBase);
+
+    // 3. Recarregar dados para a nova base
+    await this.loadDataForBase(this.currentBase);
+
+    // 4. Atualizar UI com o nome visível da base
+    const selectedText = e.target.options[e.target.selectedIndex].text;
+    const baseNameDisplay = document.querySelector('.base-name');
+    if (baseNameDisplay) {
+        baseNameDisplay.textContent = selectedText;
+    }
+});
   }
 
   async loadDataForBase(baseName) {
