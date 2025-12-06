@@ -13,6 +13,9 @@ export class ClientsTable {
     const search = searchInput ? searchInput.value.toLowerCase() : '';
 
     const statusFilter = document.getElementById('statusFilter');
+
+		const distributorEl = document.getElementById('distributorFilter');
+    		const distributor = distributorEl ? distributorEl.value : '';
     const status = statusFilter ? statusFilter.value : '';
 
     // Filtros opcionais (verificamos se existem antes de ler)
@@ -43,8 +46,9 @@ export class ClientsTable {
       const matchesStatus = !status || c.status === status;
       const matchesType = !type || c.contractType === type;
       const matchesCity = !city || (c.city && c.city.toLowerCase().includes(city));
+      		const matchesDistributor = !distributor || c.distribuidora?.includes(distributor);
 
-      return matchesSearch && matchesStatus && matchesType && matchesCity;
+      return matchesSearch && matchesStatus && matchesType && matchesCity && matchesDistributor;
     });
 
     this.currentPage = 1;

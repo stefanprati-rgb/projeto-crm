@@ -309,7 +309,7 @@ export class CRMApp {
     const searchInput = document.getElementById('searchInput');
     if (searchInput) { searchInput.addEventListener('input', debounce(() => { this.table.applyFilters(this.tableData); }, 500)); }
 
-    ['statusFilter', 'cityFilter'].forEach(id => document.getElementById(id)?.addEventListener('input', () => this.table.applyFilters(this.tableData)));
+    ['statusFilter', 'cityFilter', 'distributorFilter'].forEach(id => document.getElementById(id)?.addEventListener('input', () => this.table.applyFilters(this.tableData)));
     document.getElementById('clearFiltersButton')?.addEventListener('click', () => { this.table.clearFilters(); this.table.applyFilters(this.tableData); });
 
     document.getElementById('importExcelButton')?.addEventListener('click', () => {
