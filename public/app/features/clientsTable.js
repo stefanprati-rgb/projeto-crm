@@ -142,6 +142,17 @@ export class ClientsTable {
       }
 
       // Badge Status Rateio
+      let etapaClass = 'bg-gray-100 text-gray-800';
+            switch (c.etapaUc) {
+                case 'NOVO': etapaClass = 'bg-blue-100 text-blue-800'; break;
+                case 'ENVIADO': etapaClass = 'bg-amber-100 text-amber-800'; break;
+                case 'CADASTRADO': etapaClass = 'bg-indigo-100 text-indigo-800'; break;
+                case 'FATURADO': etapaClass = 'bg-emerald-100 text-emerald-800'; break;
+            }
+
+            let etapaBadge = c.etapaUc 
+                ? `<span class="inline-flex px-2 py-0.5 rounded-md text-10px font-semibold ${etapaClass} ml-2">${c.etapaUc}</span>` 
+                : '';
       let statusRateioHtml = '';
       if (c.statusRateio) {
         let colorClass = 'bg-slate-100 text-slate-500';
@@ -182,7 +193,7 @@ export class ClientsTable {
           ${idsInfo}
         </td>
         <td class="p-5 align-top">
-          ${statusBadge(c.status)}
+          ${statusBadge(c.status)}${etapaBadge}
           ${statusRateioHtml}
         </td>
         <td class="p-5 align-top">
