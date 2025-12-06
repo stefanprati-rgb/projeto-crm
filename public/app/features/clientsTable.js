@@ -131,7 +131,6 @@ export class ClientsTable {
       let actionsHtml = '';
       if (this.userRole === 'editor') {
         actionsHtml = `
-          <button class="w-8 h-8 rounded-full bg-slate-50 text-slate-400 hover:bg-white hover:text-primary-600 hover:shadow-md border border-transparent hover:border-slate-100 flex items-center justify-center transition-all duration-200 transform hover:-translate-y-0.5" data-id="${c.id}" data-action="edit" title="Editar">
             <i class="fas fa-pen text-[10px]"></i>
           </button>`;
       } else {
