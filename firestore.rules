@@ -1,9 +1,104 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permissão total para usuários autenticados (MVP)
+    
+    // ========== HELPER FUNCTIONS ==========
+    
+    // Verifica se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Obtém o role do usuário atual
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    // Verifica se o usuário tem permissão de editor
+    function isEditor() {
+      return isAuthenticated() && getUserRole() == 'editor';
+    }
+    
+    // Verifica se o usuário tem acesso a uma base específica
+    function hasBaseAccess(baseName) {
+      let allowedBases = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.allowedBases;
+      return isAuthenticated() && (
+        allowedBases.hasAll(['TODOS']) || 
+        baseName in allowedBases
+      );
+    }
+    
+    // Valida campos obrigatórios para clientes
+    function isValidClientData() {
+      let required = ['name', 'status', 'createdAt', 'updatedAt'];
+      return request.resource.data.keys().hasAll(required);
+    }
+    
+    // Previne modificação de campos críticos
+    function isNotModifyingCriticalFields() {
+      let critical = ['createdAt', 'createdBy'];
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(critical);
+    }
+    
+    // ========== REGRAS DE ACESSO ==========
+    
+    // CLIENTES: Leitura para todos autenticados, escrita apenas para editores
+    match /clients/{clientId} {
+      // Leitura: qualquer usuário autenticado
+      allow read: if isAuthenticated();
+      
+      // Criação: apenas editores, com dados válidos
+      allow create: if isEditor() 
+                    && isValidClientData()
+                    && request.resource.data.createdBy == request.auth.uid;
+      
+      // Atualização: apenas editores, sem modificar campos críticos
+      allow update: if isEditor() 
+                    && isValidClientData()
+                    && isNotModifyingCriticalFields()
+                    && request.resource.data.updatedBy == request.auth.uid;
+      
+      // Exclusão: NUNCA permitir delete direto (usar soft delete: status='DELETED')
+      allow delete: if false;
+      
+      // SUBCOLEÇÕES (timeline, tasks, tickets)
+      match /{subcollection}/{docId} {
+        allow read: if isAuthenticated();
+        allow create: if isEditor();
+        allow update: if isEditor() && isNotModifyingCriticalFields();
+        allow delete: if false; // Soft delete apenas
+      }
+    }
+    
+    // FATURAS: Apenas leitura (importação via Admin SDK)
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated();
+      allow create, update: if false; // Admin SDK apenas
+      allow delete: if false;
+    }
+    
+    // USUÁRIOS: Cada usuário acessa apenas seus próprios dados
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false; // Gerenciado via Admin SDK ou Cloud Functions
+    }
+    
+    // AUDIT LOGS: Append-only (criar apenas, nunca modificar/deletar)
+    match /audit_logs/{logId} {
+      allow read: if isEditor(); // Apenas editores podem ver logs
+      allow create: if isAuthenticated(); // Qualquer autenticado pode criar log
+      allow update, delete: if false; // Nunca modificar histórico
+    }
+    
+    // CONFIGURAÇÕES DO SISTEMA: Apenas leitura
+    match /system_config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Admin SDK apenas
+    }
+    
+    // BLOQUEIO GLOBAL: Qualquer outra coleção não listada é bloqueada
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }
