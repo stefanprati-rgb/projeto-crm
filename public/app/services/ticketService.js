@@ -11,6 +11,8 @@ import {
     writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db, auth } from "../core/firebase.js";
+import { store } from "../core/store.js";
+import { bus } from "../core/eventBus.js";
 
 export class TicketService {
     constructor() {
@@ -71,7 +73,30 @@ export class TicketService {
             timestamp: serverTimestamp()
         };
 
-        return await addDoc(collection(db, path), ticket);
+        // Optimistic update
+        const tempId = 'temp-' + Date.now();
+        const optimisticTicket = { ...ticket, id: tempId, clientId, pending: true };
+        const tickets = store.get('tickets') || [];
+
+        store.set('tickets', [optimisticTicket, ...tickets]);
+        bus.emit('tickets:created', optimisticTicket);
+
+        try {
+            const docRef = await addDoc(collection(db, path), ticket);
+
+            // Success: replace temp ID with real ID
+            store.set('tickets', store.get('tickets').map(t =>
+                t.id === tempId ? { ...t, id: docRef.id, pending: false } : t
+            ));
+
+            bus.emit('ui:success', 'Ticket criado com sucesso');
+            return docRef;
+        } catch (error) {
+            // Rollback: remove optimistic entry
+            store.set('tickets', store.get('tickets').filter(t => t.id !== tempId));
+            bus.emit('ui:error', 'Falha ao criar ticket');
+            throw error;
+        }
     }
 
     /**
@@ -101,7 +126,33 @@ export class TicketService {
             updateData.resolvedAt = new Date().toISOString();
         }
 
-        await updateDoc(ref, updateData);
+        // Optimistic update
+        const tickets = store.get('tickets') || [];
+        const oldTicket = tickets.find(t => t.id === ticketId);
+
+        if (oldTicket) {
+            const optimisticTicket = { ...oldTicket, ...updateData, pending: true };
+            store.set('tickets', tickets.map(t => t.id === ticketId ? optimisticTicket : t));
+            bus.emit('tickets:updated', optimisticTicket);
+        }
+
+        try {
+            await updateDoc(ref, updateData);
+
+            // Success: remove pending flag
+            store.set('tickets', store.get('tickets').map(t =>
+                t.id === ticketId ? { ...t, pending: false } : t
+            ));
+
+            bus.emit('ui:success', 'Status atualizado com sucesso');
+        } catch (error) {
+            // Rollback: restore old ticket
+            if (oldTicket) {
+                store.set('tickets', tickets.map(t => t.id === ticketId ? oldTicket : t));
+            }
+            bus.emit('ui:error', 'Falha ao atualizar status');
+            throw error;
+        }
     }
 
     /**
@@ -120,6 +171,10 @@ export class TicketService {
 
             // Executa verificação de SLA em background (Client-Side Enforcer)
             this._checkSLAEnforcement(tickets);
+
+            // Update store
+            store.set('tickets', tickets);
+            bus.emit('tickets:loaded', tickets);
 
             onData(tickets);
         });
