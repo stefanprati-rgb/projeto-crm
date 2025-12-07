@@ -13,7 +13,7 @@ import {
     Legend,
     ResponsiveContainer,
 } from 'recharts';
-import { useDarkMode } from '../stores/useStore';
+import { useDarkMode } from '../../stores/useStore';
 
 const COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
