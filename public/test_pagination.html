@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Test Pagination</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+        <h1 class="text-2xl font-bold mb-4">Teste de Paginação Persistente (Firestore + IndexedDB)</h1>
+
+        <div class="mb-4 space-x-2">
+            <button id="btnGen" class="bg-blue-600 text-white px-4 py-2 rounded">1. Gerar 150 Docs</button>
+            <button id="btnFirst" class="bg-green-600 text-white px-4 py-2 rounded">2. Load First Page</button>
+            <button id="btnNext" class="bg-purple-600 text-white px-4 py-2 rounded">3. Load Next Page</button>
+            <button id="btnReload" class="bg-orange-600 text-white px-4 py-2 rounded">4. Reload (Restore)</button>
+            <button id="btnClear" class="bg-red-600 text-white px-4 py-2 rounded">Limpar Teste</button>
+        </div>
+
+        <div id="status" class="mb-4 font-mono bg-gray-900 text-green-400 p-4 rounded h-48 overflow-y-auto">
+            Ready...
+        </div>
+
+        <h2 class="text-xl font-bold mb-2">Resultados (<span id="count">0</span>)</h2>
+        <ul id="list" class="space-y-1 text-sm bg-gray-50 p-2 rounded border h-96 overflow-y-auto">
+        </ul>
+    </div>
+
+    <script type="module">
+        import { db, auth } from "./app/core/firebase.js";
+        import { ClientService } from "./app/services/clientService.js";
+        import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        const service = new ClientService(db);
+        const TEST_DB = 'PAGINATION_TEST_DB';
+        let currentNextCursor = null;
+        let allIds = new Set();
+
+        const log = (msg) => {
+            const el = document.getElementById('status');
+            el.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
+            console.log(msg); // Keep console log for debugging
+        };
+
+        const render = (data) => {
+            const list = document.getElementById('list');
+            list.innerHTML = '';
+            data.forEach(d => {
+                const li = document.createElement('li');
+                li.textContent = `${d.id} - ${d.name} (${d.createdAt})`;
+                li.className = 'border-b py-1 px-2 flex justify-between';
+                if (allIds.has(d.id)) {
+                    li.classList.add('bg-red-100'); // Duplicata visual
+                    li.innerHTML += ' <span class="text-red-600 font-bold">DUPLICATE!</span>';
+                }
+                list.appendChild(li);
+                allIds.add(d.id);
+            });
+            document.getElementById('count').innerText = data.length;
+        };
+
+        // Auth
+        async function checkAuth() {
+            if (!auth.currentUser) {
+                try {
+                    log("Tentando login anônimo...");
+                    await signInAnonymously(auth);
+                    log("Login anônimo sucesso.");
+                } catch (e) {
+                    console.error("Auth Error:", e);
+                    if (e.code === 'auth/admin-restricted-operation') {
+                        log(`<span class="text-red-500 font-bold">ERRO: Autenticação Anônima desativada no Firebase Console.</span>`);
+                        log(`<span class="text-yellow-600">Ação Necessária: Habilite 'Anonymous' em Authentincation > Sign-in method.</span>`);
+                        alert("ERRO: Habilite Autenticação Anônima no Firebase Console!");
+                    } else {
+                        log(`<span class="text-red-500">Erro de Auth: ${e.message}</span>`);
+                    }
+                }
+            }
+        }
+
+        document.getElementById('btnGen').onclick = async () => {
+            await checkAuth();
+            log("Gerando dados...");
+            // Limpa antes
+            await service.deleteAll(TEST_DB);
+
+            const docs = [];
+            for (let i = 1; i <= 150; i++) {
+                docs.push({
+                    name: `Cliente Teste ${String(i).padStart(3, '0')}`,
+                    database: TEST_DB,
+                    createdAt: new Date(Date.now() - i * 10000).toISOString(), // Diferentes tempos
+                    email: `test${i}@example.com`
+                });
+            }
+
+            await service.batchImport(docs, null, null, 50);
+            log("150 Documentos criados.");
+        };
+
+        document.getElementById('btnFirst').onclick = async () => {
+            await checkAuth();
+            allIds.clear();
+            const start = performance.now();
+            const res = await service.loadPage('first', TEST_DB);
+            const time = performance.now() - start;
+
+            currentNextCursor = res.nextCursor;
+            render(res.data);
+            log(`Página 1 carregada em ${time.toFixed(2)}ms. Docs: ${res.data.length}. HasMore: ${res.hasMore}`);
+        };
+
+        document.getElementById('btnNext').onclick = async () => {
+            if (!currentNextCursor) return log("Sem cursor para Next.");
+
+            const start = performance.now();
+            // Passa o cursor que recebemos da anterior
+            const res = await service.loadPage('next', TEST_DB, currentNextCursor);
+            const time = performance.now() - start;
+
+            currentNextCursor = res.nextCursor;
+
+            // Verificação de duplicatas com o que já foi visto na sessão
+            let dups = 0;
+            res.data.forEach(d => {
+                if (allIds.has(d.id)) dups++;
+            });
+
+            render(res.data); // Substitui lista visual
+
+            if (dups > 0) log(`ALERTA: ${dups} duplicatas detectadas!`);
+            log(`Próxima página carregada em ${time.toFixed(2)}ms. Docs: ${res.data.length}.`);
+        };
+
+        document.getElementById('btnReload').onclick = async () => {
+            log("Simulando Reload/Retorno à página...");
+
+            const start = performance.now();
+            // Sem direction explícita ou 'reload'
+            const res = await service.loadPage('reload', TEST_DB);
+            const time = performance.now() - start;
+
+            currentNextCursor = res.nextCursor;
+
+            render(res.data);
+            log(`Página restaurada em ${time.toFixed(2)}ms. Docs: ${res.data.length}.`);
+        };
+
+        document.getElementById('btnClear').onclick = async () => {
+            await service.deleteAll(TEST_DB);
+            log("Dados limpos.");
+        };
+
+    </script>
+</body>
+
+</html>

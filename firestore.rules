@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helpers de Segurança ---
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isEditor() {
+      return isAuth() && getRole() == 'editor';
+    }
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    // --- Regras por Coleção ---
+
+    // CLIENTES: Validação estrita de schema na escrita
+    match /clients/{clientId} {
+      allow read: if isAuth();
+      
+      allow create: if isEditor() &&
+        request.resource.data.keys().hasAll(['name', 'email', 'status', 'createdAt']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.email.matches('.*@.*\\..*');
+
+      allow update: if isEditor() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'status', 'updatedAt']);
+      
+      allow delete: if false; // Soft delete apenas via aplicação
+
+      // Subcoleções
+      match /{subcollection}/{docId} {
+        allow read: if isAuth();
+        allow write: if isEditor();
+      }
+    }
+
+    // FATURAS: Imutável pelo cliente
+    match /invoices/{invoiceId} {
+      allow read: if isAuth();
+      allow write: if false; // Apenas via Backend/Admin SDK
+    }
+
+    // USUÁRIOS: Isolamento total
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // Gerenciado via Admin SDK
+    }
+
+    // AUDIT LOGS: Append-only (ninguém edita ou deleta)
+    match /audit_logs/{logId} {
+      allow read: if isEditor();
+      allow create: if isAuth() &&
+        request.resource.data.keys().hasAll(['userId', 'action', 'timestamp']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.timestamp == request.time;
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Sistema CRM para Gestão de Clientes e Vendas" />
+  <title>Hube CRM</title>
+
+  <link rel="stylesheet" href="./css/tailwind.css">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <style>
+    /* Loading Spinner Animation */
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+
+    /* Fade In Animation */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    /* Drawer Transitions */
+    .drawer-transition {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Mobile Full Screen Drawer */
+    @media (max-width: 768px) {
+      #client-drawer {
+        width: 100vw !important;
+        max-width: 100vw !important;
+      }
+    }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      backdrop-filter: blur(2px);
+    }
+
+    /* Skeleton Loading */
+    @keyframes shimmer {
+      0% {
+        background-position: -1000px 0;
+      }
+
+      100% {
+        background-position: 1000px 0;
+      }
+    }
+
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 1000px 100%;
+      animation: shimmer 2s infinite;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-50 antialiased">
+
+  <div id="loading-spinner" class="fixed inset-0 z-50 flex items-center justify-center bg-white">
+    <div class="text-center">
+      <div class="inline-block w-16 h-16 border-4 border-slate-200 border-t-primary-600 rounded-full animate-spin">
+      </div>
+      <p class="mt-4 text-sm text-slate-600 font-medium">Carregando CRM...</p>
+    </div>
+  </div>
+
+  <div class="toast-container fixed top-4 right-4 z-50 flex flex-col gap-3 pointer-events-none">
+  </div>
+
+  <section id="login-section"
+    class="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-slate-50 to-slate-100">
+    <div class="w-full max-w-md">
+      <div class="bg-white shadow-2xl shadow-slate-200/50 rounded-2xl p-8 border border-slate-100">
+        <div class="text-center mb-8">
+          <div class="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl mb-4">
+            <i class="fas fa-chart-line text-2xl text-white"></i>
+          </div>
+          <h1 class="text-2xl font-bold text-slate-900">Hube CRM</h1>
+
+        </div>
+
+        <form id="loginForm" class="space-y-5">
+          <div id="login-auth-alert" class="hidden p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+          </div>
+
+          <div>
+            <label for="loginEmail" class="block text-sm font-semibold text-slate-700 mb-2">
+              <i class="fas fa-envelope text-slate-400 mr-2"></i>E-mail
+            </label>
+            <input id="loginEmail" type="email" required autocomplete="email"
+              class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              placeholder="seu@email.com" />
+          </div>
+
+          <div>
+            <label for="loginPassword" class="block text-sm font-semibold text-slate-700 mb-2">
+              <i class="fas fa-lock text-slate-400 mr-2"></i>Senha
+            </label>
+            <input id="loginPassword" type="password" required autocomplete="current-password"
+              class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              placeholder="••••••••" />
+          </div>
+
+          <button type="submit" id="loginButton"
+            class="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg shadow-lg shadow-primary-600/30 transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+            <span id="loginButtonText">Entrar no Sistema</span>
+            <i id="loginButtonIcon" class="fas fa-arrow-right"></i>
+          </button>
+        </form>
+
+        <div class="mt-6 text-center">
+          <a href="#" id="showCreateAccountLink" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+            Criar nova conta
+          </a>
+        </div>
+      </div>
+
+      <div id="createAccountForm"
+        class="hidden bg-white shadow-2xl shadow-slate-200/50 rounded-2xl p-8 border border-slate-100 mt-4">
+        <h2 class="text-xl font-bold text-slate-900 mb-6">Criar Nova Conta</h2>
+
+        <form id="createAccountFormElement" class="space-y-4">
+          <div>
+            <label for="createEmail" class="block text-sm font-semibold text-slate-700 mb-2">E-mail</label>
+            <input id="createEmail" type="email" required autocomplete="username"
+              class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="seu@email.com" />
+          </div>
+
+          <div>
+            <label for="createPassword" class="block text-sm font-semibold text-slate-700 mb-2">Senha</label>
+            <input id="createPassword" type="password" required minlength="6" autocomplete="new-password"
+              class="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="Mínimo 6 caracteres" />
+          </div>
+
+          <button type="submit"
+            class="w-full px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-all">
+            Criar Conta
+          </button>
+        </form>
+
+        <div class="mt-4 text-center">
+          <a href="#" id="showLoginLink" class="text-sm text-slate-600 hover:text-slate-900">
+            Já tem conta? Fazer login
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="mainNavApp" class="hidden">
+    <header class="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
+              <i class="fas fa-solar-panel text-white"></i>
+            </div>
+            <div>
+              <h1 class="text-lg font-bold text-slate-900">Hube CRM</h1>
+              <p id="navbarUserBases" class="text-xs text-slate-500">Acesso: CGB</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <div class="hidden sm:block text-right">
+              <p id="navbarUserEmail" class="text-sm font-medium text-slate-700">user@email.com</p>
+              <p class="text-xs text-slate-500">Administrador</p>
+            </div>
+            <button id="logoutButton"
+              class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-all text-sm">
+              <i class="fas fa-sign-out-alt mr-2"></i>Sair
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+  </div>
+
+  <main id="mainContentApp" class="hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div class="mb-8">
+        <h2 id="sectionTitle" class="text-3xl font-bold text-slate-900">Dashboard</h2>
+        <p id="sectionSubtitle" class="text-slate-600 mt-1">Visão geral do sistema</p>
+      </div>
+
+      <div class="mb-6 border-b border-slate-200">
+        <nav class="flex gap-6">
+          <button class="nav-link px-4 py-3 text-sm font-medium border-b-2 transition-colors" data-section="dashboard">
+            <i class="fas fa-chart-pie mr-2"></i>Dashboard
+          </button>
+          <button class="nav-link px-4 py-3 text-sm font-medium border-b-2 transition-colors" data-section="clients">
+            <i class="fas fa-users mr-2"></i>Clientes
+          </button>
+          <button class="nav-link px-4 py-3 text-sm font-medium border-b-2 transition-colors" data-section="finance">
+            <i class="fas fa-dollar-sign mr-2"></i>Financeiro
+          </button>
+          <button class="nav-link px-4 py-3 text-sm font-medium border-b-2 transition-colors" data-section="tickets">
+            <i class="fas fa-ticket-alt mr-2"></i>Tickets
+          </button>
+        </nav>
+      </div>
+
+      <div id="dashboard-section" class="section-content">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-slate-600">Total Clientes</span>
+              <i class="fas fa-users text-primary-600"></i>
+            </div>
+            <p id="kpi-total-clients" class="text-3xl font-bold text-slate-900">0</p>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-slate-600">Clientes Ativos</span>
+              <i class="fas fa-check-circle text-emerald-600"></i>
+            </div>
+            <p id="kpi-active-clients" class="text-3xl font-bold text-slate-900">0</p>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-slate-600">Em Atraso</span>
+              <i class="fas fa-exclamation-triangle text-amber-600"></i>
+            </div>
+            <p id="kpi-overdue-clients" class="text-3xl font-bold text-slate-900">0</p>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-slate-600">Receita Mensal</span>
+              <i class="fas fa-dollar-sign text-emerald-600"></i>
+            </div>
+            <p id="kpi-monthly-revenue" class="text-3xl font-bold text-slate-900">R$ 0</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Evolução de Clientes</h3>
+            <div class="relative h-[300px]">
+              <canvas id="clientsChart"></canvas>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Status dos Clientes</h3>
+            <div class="relative h-[300px]">
+              <canvas id="statusChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="clients-section" class="section-content d-none">
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+          <div class="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+            <div class="flex-1 w-full md:w-auto">
+              <input id="searchInput" type="text" placeholder="Buscar cliente..."
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+            <div class="flex gap-3 flex-wrap">
+              <select id="statusFilter"
+                class="px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="">Todos os Status</option>
+                <option value="Ativo">Ativo</option>
+                <option value="Inativo">Inativo</option>
+                <option value="Pendente">Pendente</option>
+              </select>
+              <input id="cityFilter" type="text" placeholder="Cidade"
+                class="px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500 w-32">
+              <select id="databaseSelector"
+                class="px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="TODOS">Todos os Projetos</option>
+              </select>
+              <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" class="hidden">
+              <button id="importExcelButton"
+                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-all text-sm">
+                <i class="fas fa-file-upload mr-2"></i>Importar Clientes
+              </button>
+              <button id="addClientButton"
+                class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all">
+                <i class="fas fa-plus mr-2"></i>Novo Cliente
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Cliente
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    Documento/IDs
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Status
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Cidade
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Consumo
+                  </th>
+                  <th class="px-6 py-3 text-right text-xs font-semibold text-slate-700 uppercase tracking-wider">Ações
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="clientsTableBody" class="bg-white divide-y divide-slate-200">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="finance-section" class="section-content d-none">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-slate-600">Valor Emitido (Mês)</span>
+              <i class="fas fa-file-invoice-dollar text-primary-600"></i>
+            </div>
+            <p id="kpi-emitido" class="text-3xl font-bold text-slate-900">R$ 0,00</p>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-slate-600">Valor Pago (Mês)</span>
+              <i class="fas fa-money-check-alt text-emerald-600"></i>
+            </div>
+            <p id="kpi-pago" class="text-3xl font-bold text-slate-900">R$ 0,00</p>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-slate-600">Inadimplência (Mês)</span>
+              <i class="fas fa-percent text-rose-600"></i>
+            </div>
+            <p id="kpi-inadimplencia" class="text-3xl font-bold text-slate-900">0%</p>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-sm font-medium text-slate-600">DSO (Dias)</span>
+              <i class="fas fa-hourglass-half text-amber-600"></i>
+            </div>
+            <p id="kpi-dso" class="text-3xl font-bold text-slate-900">0 d</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Tendência de Receita (Emitido vs. Pago)</h3>
+            <div class="relative h-[300px]">
+              <canvas id="revenueTrend"></canvas>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Aging List (Contas a Receber)</h3>
+            <div class="relative h-[300px]">
+              <canvas id="agingChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 p-6 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+          <h4 class="text-lg font-semibold text-slate-900">Ações de Faturamento</h4>
+          <input type="file" id="invoicesFileInput" accept=".xlsx,.xls,.csv" class="hidden">
+          <button id="importInvoicesBtn"
+            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all">
+            <i class="fas fa-file-upload mr-2"></i>Importar Arquivo de Faturas
+          </button>
+        </div>
+      </div>
+      <div id="tickets-section" class="section-content d-none">
+        <div class="mb-6 flex items-center justify-between">
+          <div>
+            <h3 class="text-2xl font-bold text-slate-900">Central de Tickets</h3>
+            <p class="text-slate-600 mt-1">Gerencie solicitações e suporte</p>
+          </div>
+          <button id="newTicketButton"
+            class="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all">
+            <i class="fas fa-plus mr-2"></i>Novo Ticket
+          </button>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+          <div class="flex gap-3 flex-wrap">
+            <button class="ticket-filter-btn px-4 py-2 rounded-lg font-medium transition-all bg-primary-600 text-white"
+              data-filter="all">
+              Todos
+            </button>
+            <button
+              class="ticket-filter-btn px-4 py-2 rounded-lg font-medium transition-all bg-slate-100 text-slate-700 hover:bg-slate-200"
+              data-filter="open">
+              Abertos
+            </button>
+            <button
+              class="ticket-filter-btn px-4 py-2 rounded-lg font-medium transition-all bg-slate-100 text-slate-700 hover:bg-slate-200"
+              data-filter="in-progress">
+              Em Andamento
+            </button>
+            <button
+              class="ticket-filter-btn px-4 py-2 rounded-lg font-medium transition-all bg-slate-100 text-slate-700 hover:bg-slate-200"
+              data-filter="closed">
+              Fechados
+            </button>
+          </div>
+        </div>
+
+        <div id="ticketsList" class="space-y-4">
+          <div class="text-center py-12 text-slate-400">
+            <i class="fas fa-ticket-alt text-4xl mb-4"></i>
+            <p>Nenhum ticket encontrado</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="client-drawer-overlay"
+    class="hidden fixed inset-0 bg-black/50 z-40 opacity-0 transition-opacity duration-300"></div>
+
+  <div id="client-drawer"
+    class="fixed top-0 right-0 h-full w-full md:w-2/3 lg:w-1/2 xl:w-2/5 bg-white shadow-2xl z-50 transform translate-x-full drawer-transition overflow-y-auto">
+    <div class="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+      <div>
+        <h3 id="drawerClientName" class="text-xl font-bold text-slate-900">Cliente</h3>
+        <p id="drawerClientId" class="text-sm text-slate-500">ID: -</p>
+        <p id="drawerClientUC" class="text-xs text-slate-400">UC: -</p>
+      </div>
+      <button id="closeDrawerBtn" class="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+        <i class="fas fa-times text-xl text-slate-600"></i>
+      </button>
+    </div>
+
+    <div class="p-6">
+      <div class="border-b border-slate-200 mb-6">
+        <nav class="flex gap-4">
+          <button class="drawer-tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+            data-tab="tab-overview">
+            Visão Geral
+          </button>
+          <button class="drawer-tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+            data-tab="tab-timeline">
+            Histórico
+          </button>
+          <button class="drawer-tab-btn px-4 py-2 text-sm font-medium border-b-2 transition-colors"
+            data-tab="tab-tasks">
+            Tarefas
+          </button>
+        </nav>
+      </div>
+
+      <div id="tab-overview" class="drawer-content">
+        <form id="clientForm" class="space-y-4">
+          <input type="hidden" id="clientId" />
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="md:col-span-2">
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Nome</label>
+              <input id="clientName" type="text" required
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">ID Externo</label>
+              <input id="clientExternalId" type="text"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Conta Contrato / UC</label>
+              <input id="clientInstalacao" type="text"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">CPF</label>
+              <input id="clientCpf" type="text"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">CNPJ</label>
+              <input id="clientCnpj" type="text"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Email</label>
+              <input id="clientEmail" type="email"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Telefone</label>
+              <input id="clientPhone" type="tel"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Endereço Completo</label>
+              <input id="clientAddress" type="text"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Cidade</label>
+              <input id="clientCity" type="text"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Estado</label>
+              <input id="clientState" type="text" maxlength="2"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Data Adesão</label>
+              <input id="clientJoinDate" type="date"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Consumo (kWh)</label>
+              <input id="clientConsumption" type="number" step="0.01"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Status</label>
+              <select id="clientStatus"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="Ativo">Ativo</option>
+                <option value="Inativo">Inativo</option>
+                <option value="Pendente">Pendente</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Tipo de Contrato</label>
+              <select id="clientContractType"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500">
+                <option value="Mensal">Mensal</option>
+                <option value="Anual">Anual</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-2">
+              <label class="block text-sm font-semibold text-slate-700 mb-2">Desconto Contratado (%)</label>
+              <input id="clientDiscount" type="number" step="0.01" min="0" max="100"
+                class="w-full px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+            </div>
+
+          </div>
+
+          <div class="flex gap-3 pt-4">
+            <button type="submit" id="clientModalSaveButton"
+              class="flex-1 px-6 py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg transition-all">
+              <span id="saveButtonText">Salvar</span>
+              <i id="saveButtonSpinner" class="fas fa-circle-notch fa-spin ml-2 hidden"></i>
+            </button>
+            <button type="button" onclick="document.getElementById('closeDrawerBtn').click()"
+              class="px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg transition-all">
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div id="tab-timeline" class="drawer-content hidden">
+        <div id="activityTimeline" class="space-y-3">
+        </div>
+
+        <form id="activityForm" class="mt-6 p-4 bg-slate-50 rounded-lg">
+          <h4 class="text-sm font-semibold text-slate-700 mb-3">Nova Atividade</h4>
+          <select id="activityType" class="w-full px-4 py-2 rounded-lg border border-slate-300 mb-3">
+            <option value="note">Nota</option>
+            <option value="call">Ligação</option>
+            <option value="email">E-mail</option>
+            <option value="whatsapp">WhatsApp</option>
+          </select>
+          <textarea id="activityContent" rows="3" required
+            class="w-full px-4 py-2 rounded-lg border border-slate-300 mb-3"
+            placeholder="Descrição da atividade..."></textarea>
+          <button type="submit"
+            class="w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all">
+            Adicionar
+          </button>
+        </form>
+      </div>
+
+      <div id="tab-tasks" class="drawer-content hidden">
+        <div id="tasksList" class="space-y-3 mb-6">
+        </div>
+
+        <form id="taskForm" class="p-4 bg-slate-50 rounded-lg">
+          <h4 class="text-sm font-semibold text-slate-700 mb-3">Nova Tarefa</h4>
+          <input id="taskTitle" type="text" required placeholder="Título da tarefa"
+            class="w-full px-4 py-2 rounded-lg border border-slate-300 mb-3" />
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <select id="taskType" class="px-4 py-2 rounded-lg border border-slate-300">
+              <option value="follow-up">Follow-up</option>
+              <option value="meeting">Reunião</option>
+              <option value="document">Documento</option>
+            </select>
+            <input id="taskDueDate" type="date" required class="px-4 py-2 rounded-lg border border-slate-300" />
+          </div>
+          <select id="taskPriority" class="w-full px-4 py-2 rounded-lg border border-slate-300 mb-3">
+            <option value="low">Baixa</option>
+            <option value="medium">Média</option>
+            <option value="high">Alta</option>
+          </select>
+          <button type="submit"
+            class="w-full px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white font-medium rounded-lg transition-all">
+            Criar Tarefa
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script type="module" src="./app/core/firebase.js"></script>
+
+</body>
+
+</html>
