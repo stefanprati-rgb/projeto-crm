@@ -110,8 +110,11 @@ export class CRMApp {
   }
 
   exposeWindowMethods() {
-    window.crmApp.toggleTask = this.tasksUI.toggleTask.bind(this.tasksUI);
-    window.crmApp.deleteTask = this.tasksUI.deleteTask.bind(this.tasksUI);
+    // Check if tasksUI exists before binding (Legacy support)
+    if (this.tasksUI) {
+      window.crmApp.toggleTask = this.tasksUI.toggleTask.bind(this.tasksUI);
+      window.crmApp.deleteTask = this.tasksUI.deleteTask.bind(this.tasksUI);
+    }
   }
 
   destroy() {
