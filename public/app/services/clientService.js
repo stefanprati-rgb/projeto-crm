@@ -13,6 +13,9 @@ import {
   writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { auditLogger } from "./logService.js";
+import { setCursor, getCursor, clearCursor } from "../utils/indexedDB.js";
+import { store } from "../core/store.js";
+import { bus } from "../core/eventBus.js";
 
 export class ClientService {
   constructor(db) {
@@ -20,27 +23,101 @@ export class ClientService {
     this.collectionName = 'clients';
   }
 
-  // --- PAGINAÇÃO REAL COM FALLBACK ---
+  // --- PAGINAÇÃO REAL (PERSISTENTE) ---
+  /**
+   * Carrega páginas de clientes.
+   * @param {string} direction 'next' | 'first' | 'reload'
+   * @param {object} cursorObj Objeto cursor opcional ({ id, createdAt }) para 'next'.
+   */
+  async loadPage(direction, baseFilter, cursorObj = null) {
+    const cursorKey = `clients_${baseFilter}_cursor`;
+    let effectiveCursor = null;
+
+    // Set loading state
+    store.set('ui.loading', true);
+    bus.emit('ui:loading', true);
+
+    try {
+      if (direction === 'next' && cursorObj) {
+        // Navegação: Usa cursor fornecido e SALVA
+        effectiveCursor = cursorObj;
+        await setCursor(cursorKey, effectiveCursor);
+      } else if (direction === 'first') {
+        // Reset: Limpa cursor
+        await clearCursor(cursorKey);
+        effectiveCursor = null;
+      } else {
+        // Reload/Resume: Tenta recuperar do banco
+        effectiveCursor = await getCursor(cursorKey);
+      }
+    } catch (e) {
+      console.warn("[ClientService] Erro ao manipular cursor:", e);
+      // Fallback: sem cursor
+    }
+
+    // Monta Query
+    const filters = [];
+    if (baseFilter && baseFilter !== 'TODOS') filters.push(where('database', '==', baseFilter));
+
+    // Ordenação por Data de Criação (Estável)
+    filters.push(orderBy('createdAt', 'desc'));
+    filters.push(orderBy('__name__', 'desc'));
+
+    filters.push(limit(25));
+
+    if (effectiveCursor) {
+      filters.push(startAfter(effectiveCursor.createdAt, effectiveCursor.id));
+    }
+
+    const q = query(collection(this.db, this.collectionName), ...filters);
+
+    const snapshot = await getDocs(q);
+    const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // Prepara próximo cursor
+    const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    let nextCursor = null;
+    if (lastDoc) {
+      const d = lastDoc.data();
+      nextCursor = { createdAt: d.createdAt, id: lastDoc.id };
+    }
+
+    const hasMore = snapshot.docs.length === 25;
+
+    // Update store with batch
+    store.batch({
+      clients: direction === 'first' ? data : [...store.get('clients'), ...data],
+      'pagination.hasMore': hasMore,
+      'ui.loading': false
+    });
+
+    // Emit events
+    bus.emit('clients:loaded', data);
+    bus.emit('ui:loading', false);
+
+    return {
+      data,
+      nextCursor,
+      hasMore
+    };
+  }
+
+  // --- PAGINAÇÃO REAL COM FALLBACK (LEGACY) ---
   async getPage(baseFilter, pageSize, lastDoc = null) {
     console.log(`[ClientService] Buscando página. Base: ${baseFilter}, LastDoc: ${!!lastDoc}`);
 
     // TENTATIVA 1: Busca Padrão (Ordenada por Nome)
     try {
       const result = await this._runQuery(baseFilter, pageSize, lastDoc, 'name');
-
-      // Se encontrou dados ou se é paginação contínua (lastDoc existe), retorna.
       if (result.data.length > 0 || lastDoc) {
         return result;
       }
-
-      // Se retornou 0 na primeira página, pode ser que os documentos não tenham o campo 'name'
       console.warn("[ClientService] Busca por nome retornou vazio. Tentando fallback por Data...");
     } catch (e) {
       console.warn("[ClientService] Erro na busca por nome:", e);
     }
 
-    // TENTATIVA 2: Fallback (Ordenada por Data de Criação) - Mais segura para dados importados
-    // Isso garante que você veja os dados mesmo se o campo 'name' estiver faltando ou index falhando
+    // TENTATIVA 2: Fallback (Ordenada por Data de Criação)
     try {
       console.log("[ClientService] Executando busca fallback por createdAt...");
       return await this._runQuery(baseFilter, pageSize, lastDoc, 'createdAt', 'desc');
@@ -82,7 +159,6 @@ export class ClientService {
 
   // --- DADOS PARA DASHBOARD ---
   async getAllForDashboard(baseFilter) {
-    // Para o dashboard, usamos uma query simplificada para garantir velocidade
     let q;
     if (baseFilter && baseFilter !== 'TODOS') {
       q = query(collection(this.db, this.collectionName), where('database', '==', baseFilter));
@@ -98,33 +174,92 @@ export class ClientService {
 
   async save(id, data) {
     const cleanData = this.removeUndefined(data);
+    const clients = store.get('clients');
 
     if (id) {
-      // UPDATE
-      const ref = doc(this.db, this.collectionName, id);
-      await updateDoc(ref, cleanData);
+      // UPDATE - Optimistic
+      const oldClient = clients.find(c => c.id === id);
+      const optimisticClient = { ...oldClient, ...cleanData, pending: true };
 
-      await auditLogger.log('UPDATE', 'clients', id, {
-        updatedFields: Object.keys(cleanData),
-        clientName: cleanData.name
-      });
+      // Update UI immediately
+      store.set('clients', clients.map(c => c.id === id ? optimisticClient : c));
+      bus.emit('clients:updated', optimisticClient);
+
+      try {
+        const ref = doc(this.db, this.collectionName, id);
+        await updateDoc(ref, cleanData);
+
+        // Success: remove pending flag
+        store.set('clients', store.get('clients').map(c =>
+          c.id === id ? { ...c, pending: false } : c
+        ));
+
+        await auditLogger.log('UPDATE', 'clients', id, {
+          updatedFields: Object.keys(cleanData),
+          clientName: cleanData.name
+        });
+
+        bus.emit('ui:success', 'Cliente atualizado com sucesso');
+      } catch (error) {
+        // Rollback on error
+        store.set('clients', clients.map(c => c.id === id ? oldClient : c));
+        bus.emit('ui:error', 'Falha ao atualizar cliente');
+        throw error;
+      }
 
     } else {
-      // CREATE
+      // CREATE - Optimistic
       cleanData.createdAt = new Date().toISOString();
-      const docRef = await addDoc(collection(this.db, this.collectionName), cleanData);
+      const tempId = 'temp-' + Date.now();
+      const optimisticClient = { ...cleanData, id: tempId, pending: true };
 
-      await auditLogger.log('CREATE', 'clients', docRef.id, {
-        clientName: cleanData.name,
-        database: cleanData.database
-      });
+      // Add to UI immediately
+      store.set('clients', [optimisticClient, ...clients]);
+      bus.emit('clients:created', optimisticClient);
+
+      try {
+        const docRef = await addDoc(collection(this.db, this.collectionName), cleanData);
+
+        // Success: replace temp ID with real ID
+        store.set('clients', store.get('clients').map(c =>
+          c.id === tempId ? { ...c, id: docRef.id, pending: false } : c
+        ));
+
+        await auditLogger.log('CREATE', 'clients', docRef.id, {
+          clientName: cleanData.name,
+          database: cleanData.database
+        });
+
+        bus.emit('ui:success', 'Cliente criado com sucesso');
+        return docRef.id;
+      } catch (error) {
+        // Rollback: remove optimistic entry
+        store.set('clients', store.get('clients').filter(c => c.id !== tempId));
+        bus.emit('ui:error', 'Falha ao criar cliente');
+        throw error;
+      }
     }
   }
 
   async delete(id) {
-    const ref = doc(this.db, this.collectionName, id);
-    await deleteDoc(ref);
-    await auditLogger.log('DELETE', 'clients', id);
+    const clients = store.get('clients');
+    const deletedClient = clients.find(c => c.id === id);
+
+    // Optimistic: remove from UI immediately
+    store.set('clients', clients.filter(c => c.id !== id));
+    bus.emit('clients:deleted', id);
+
+    try {
+      const ref = doc(this.db, this.collectionName, id);
+      await deleteDoc(ref);
+      await auditLogger.log('DELETE', 'clients', id);
+      bus.emit('ui:success', 'Cliente removido com sucesso');
+    } catch (error) {
+      // Rollback: restore deleted client
+      store.set('clients', [...store.get('clients'), deletedClient]);
+      bus.emit('ui:error', 'Falha ao remover cliente');
+      throw error;
+    }
   }
 
   // Limpeza de Base
