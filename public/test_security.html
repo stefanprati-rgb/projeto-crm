@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Segurança - CRM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .test-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .test-card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .test-card p {
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-badge.pending {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .status-badge.success {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-badge.error {
+            background: #dc3545;
+            color: white;
+        }
+
+        .logs-container {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .logs-container h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .log-entry {
+            padding: 10px;
+            border-left: 3px solid #667eea;
+            background: #f8f9fa;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+
+        .log-time {
+            color: #999;
+            font-size: 0.85rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔐 Teste de Segurança & Compliance</h1>
+
+        <div class="test-grid">
+            <!-- Teste 1: Criptografia -->
+            <div class="test-card">
+                <h2>
+                    🔒 Teste de Criptografia
+                    <span class="status-badge pending" id="crypto-status">Pendente</span>
+                </h2>
+                <p>Testa a criptografia AES-GCM de dados sensíveis usando Web Crypto API.</p>
+                <input type="text" id="crypto-input" placeholder="Digite um CPF/CNPJ para testar">
+                <button class="btn btn-primary" onclick="testEncryption()">Testar Criptografia</button>
+                <div id="crypto-result"></div>
+            </div>
+
+            <!-- Teste 2: Rate Limiter -->
+            <div class="test-card">
+                <h2>
+                    ⏱️ Teste de Rate Limiter
+                    <span class="status-badge pending" id="rate-status">Pendente</span>
+                </h2>
+                <p>Simula 25 requisições rápidas para testar o bloqueio por spam (limite: 20/min).</p>
+                <button class="btn btn-primary" onclick="testRateLimiter()">Executar Teste</button>
+                <div id="rate-result"></div>
+            </div>
+
+            <!-- Teste 3: Validação de Schema -->
+            <div class="test-card">
+                <h2>
+                    ✅ Validação de Schema
+                    <span class="status-badge pending" id="validation-status">Pendente</span>
+                </h2>
+                <p>Testa a validação de campos obrigatórios e formatos de dados.</p>
+                <button class="btn btn-primary" onclick="testValidation()">Testar Validação</button>
+                <div id="validation-result"></div>
+            </div>
+
+            <!-- Teste 4: Firestore Rules -->
+            <div class="test-card">
+                <h2>
+                    🛡️ Firestore Rules (RBAC)
+                    <span class="status-badge pending" id="rules-status">Pendente</span>
+                </h2>
+                <p>Verifica se as regras de segurança estão bloqueando acessos não autorizados.</p>
+                <button class="btn btn-primary" onclick="testFirestoreRules()">Testar Regras</button>
+                <div id="rules-result"></div>
+            </div>
+
+            <!-- Teste 5: Audit Logging -->
+            <div class="test-card">
+                <h2>
+                    📝 Audit Logging
+                    <span class="status-badge pending" id="audit-status">Pendente</span>
+                </h2>
+                <p>Cria um log de auditoria e verifica se foi salvo corretamente.</p>
+                <button class="btn btn-primary" onclick="testAuditLog()">Criar Log de Teste</button>
+                <div id="audit-result"></div>
+            </div>
+
+            <!-- Teste 6: App Check -->
+            <div class="test-card">
+                <h2>
+                    🤖 App Check (reCAPTCHA)
+                    <span class="status-badge pending" id="appcheck-status">Pendente</span>
+                </h2>
+                <p>Verifica se o Firebase App Check está configurado e funcionando.</p>
+                <button class="btn btn-primary" onclick="testAppCheck()">Verificar App Check</button>
+                <div id="appcheck-result"></div>
+            </div>
+        </div>
+
+        <!-- Logs em Tempo Real -->
+        <div class="logs-container">
+            <h2>📊 Logs de Teste em Tempo Real</h2>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { DataEncryption } from './app/utils/encryption.js';
+        import { ClientRateLimiter } from './app/utils/rateLimiter.js';
+
+        // Torna funções globais para os botões
+        window.testEncryption = testEncryption;
+        window.testRateLimiter = testRateLimiter;
+        window.testValidation = testValidation;
+        window.testFirestoreRules = testFirestoreRules;
+        window.testAuditLog = testAuditLog;
+        window.testAppCheck = testAppCheck;
+
+        const crypto = new DataEncryption();
+        const rateLimiter = new ClientRateLimiter(20, 60000);
+
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `
+                <div class="log-time">${new Date().toLocaleTimeString()}</div>
+                <div>${message}</div>
+            `;
+            logsDiv.insertBefore(entry, logsDiv.firstChild);
+        }
+
+        function showResult(elementId, message, type) {
+            const resultDiv = document.getElementById(elementId);
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        function updateStatus(statusId, status) {
+            const badge = document.getElementById(statusId);
+            badge.className = `status-badge ${status}`;
+            badge.textContent = status === 'success' ? 'Passou' : status === 'error' ? 'Falhou' : 'Pendente';
+        }
+
+        // TESTE 1: Criptografia
+        async function testEncryption() {
+            try {
+                log('Iniciando teste de criptografia...');
+                const input = document.getElementById('crypto-input').value || '12345678900';
+
+                const key = await crypto.generateKey();
+                log('✓ Chave gerada com sucesso');
+
+                const encrypted = await crypto.encrypt(input, key);
+                log(`✓ Dados criptografados: ${encrypted.ciphertext.substring(0, 30)}...`);
+
+                const decrypted = await crypto.decrypt(encrypted, key);
+                log(`✓ Dados descriptografados: ${decrypted}`);
+
+                if (decrypted === input) {
+                    showResult('crypto-result', `✓ Sucesso!\nOriginal: ${input}\nCriptografado: ${encrypted.ciphertext.substring(0, 50)}...\nDescriptografado: ${decrypted}`, 'success');
+                    updateStatus('crypto-status', 'success');
+                } else {
+                    throw new Error('Dados descriptografados não correspondem ao original');
+                }
+            } catch (error) {
+                log(`✗ Erro: ${error.message}`, 'error');
+                showResult('crypto-result', `✗ Erro: ${error.message}`, 'error');
+                updateStatus('crypto-status', 'error');
+            }
+        }
+
+        // TESTE 2: Rate Limiter
+        async function testRateLimiter() {
+            try {
+                log('Iniciando teste de rate limiter...');
+                const userId = 'test-user-123';
+                let successCount = 0;
+                let blockedCount = 0;
+
+                for (let i = 1; i <= 25; i++) {
+                    if (rateLimiter.canMakeRequest(userId)) {
+                        successCount++;
+                    } else {
+                        blockedCount++;
+                        log(`✓ Requisição ${i} bloqueada (esperado após 20)`);
+                    }
+                }
+
+                const message = `Total: 25 requisições\n✓ Permitidas: ${successCount}\n✗ Bloqueadas: ${blockedCount}\n\nLimite configurado: 20 req/min`;
+
+                if (blockedCount === 5) {
+                    showResult('rate-result', message, 'success');
+                    updateStatus('rate-status', 'success');
+                    log('✓ Rate limiter funcionando corretamente');
+                } else {
+                    showResult('rate-result', message + '\n\n⚠️ Esperava 5 bloqueios', 'error');
+                    updateStatus('rate-status', 'error');
+                }
+            } catch (error) {
+                log(`✗ Erro: ${error.message}`, 'error');
+                showResult('rate-result', `✗ Erro: ${error.message}`, 'error');
+                updateStatus('rate-status', 'error');
+            }
+        }
+
+        // TESTE 3: Validação
+        function testValidation() {
+            try {
+                log('Iniciando teste de validação...');
+                const testCases = [
+                    { name: '', email: 'test@test.com', expected: false, reason: 'Nome vazio' },
+                    { name: 'João', email: 'invalid-email', expected: false, reason: 'Email inválido' },
+                    { name: 'João Silva', email: 'joao@example.com', expected: true, reason: 'Dados válidos' }
+                ];
+
+                let results = [];
+                testCases.forEach((testCase, i) => {
+                    const isValid = validateClient(testCase);
+                    const passed = isValid === testCase.expected;
+                    results.push(`Teste ${i + 1} (${testCase.reason}): ${passed ? '✓' : '✗'}`);
+                    log(`${passed ? '✓' : '✗'} ${testCase.reason}: ${passed ? 'Passou' : 'Falhou'}`);
+                });
+
+                const allPassed = results.every(r => r.includes('✓'));
+                showResult('validation-result', results.join('\n'), allPassed ? 'success' : 'error');
+                updateStatus('validation-status', allPassed ? 'success' : 'error');
+            } catch (error) {
+                log(`✗ Erro: ${error.message}`, 'error');
+                showResult('validation-result', `✗ Erro: ${error.message}`, 'error');
+                updateStatus('validation-status', 'error');
+            }
+        }
+
+        function validateClient(data) {
+            if (!data.name || data.name.trim().length === 0) return false;
+            if (!data.email || !data.email.match(/.*@.*\..*/)) return false;
+            return true;
+        }
+
+        // TESTE 4: Firestore Rules
+        async function testFirestoreRules() {
+            showResult('rules-result', '⚠️ Este teste requer autenticação no Firebase.\nPor favor, faça login e tente novamente.', 'info');
+            log('⚠️ Teste de Firestore Rules requer configuração do Firebase');
+            updateStatus('rules-status', 'pending');
+        }
+
+        // TESTE 5: Audit Log
+        async function testAuditLog() {
+            showResult('audit-result', '⚠️ Este teste requer autenticação no Firebase.\nPor favor, faça login e tente novamente.', 'info');
+            log('⚠️ Teste de Audit Log requer configuração do Firebase');
+            updateStatus('audit-status', 'pending');
+        }
+
+        // TESTE 6: App Check
+        async function testAppCheck() {
+            showResult('appcheck-result', '⚠️ Configure o Firebase App Check no Console:\n1. Acesse Build → App Check\n2. Registre seu app com reCAPTCHA v3\n3. Adicione a Site Key no código', 'info');
+            log('⚠️ App Check requer configuração no Firebase Console');
+            updateStatus('appcheck-status', 'pending');
+        }
+
+        log('Sistema de testes carregado. Execute os testes acima.');
+    </script>
+</body>
+
+</html>

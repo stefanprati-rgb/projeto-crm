@@ -1,104 +1,68 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // ========== HELPER FUNCTIONS ==========
-    
-    // Verifica se o usuário está autenticado
-    function isAuthenticated() {
+
+    // --- Helpers de Segurança ---
+    function isAuth() {
       return request.auth != null;
     }
-    
-    // Obtém o role do usuário atual
-    function getUserRole() {
+
+    function getRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
-    
-    // Verifica se o usuário tem permissão de editor
+
     function isEditor() {
-      return isAuthenticated() && getUserRole() == 'editor';
+      return isAuth() && getRole() == 'editor';
     }
-    
-    // Verifica se o usuário tem acesso a uma base específica
-    function hasBaseAccess(baseName) {
-      let allowedBases = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.allowedBases;
-      return isAuthenticated() && (
-        allowedBases.hasAll(['TODOS']) || 
-        baseName in allowedBases
-      );
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
     }
-    
-    // Valida campos obrigatórios para clientes
-    function isValidClientData() {
-      let required = ['name', 'status', 'createdAt', 'updatedAt'];
-      return request.resource.data.keys().hasAll(required);
-    }
-    
-    // Previne modificação de campos críticos
-    function isNotModifyingCriticalFields() {
-      let critical = ['createdAt', 'createdBy'];
-      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(critical);
-    }
-    
-    // ========== REGRAS DE ACESSO ==========
-    
-    // CLIENTES: Leitura para todos autenticados, escrita apenas para editores
+
+    // --- Regras por Coleção ---
+
+    // CLIENTES: Validação estrita de schema na escrita
     match /clients/{clientId} {
-      // Leitura: qualquer usuário autenticado
-      allow read: if isAuthenticated();
+      allow read: if isAuth();
       
-      // Criação: apenas editores, com dados válidos
-      allow create: if isEditor() 
-                    && isValidClientData()
-                    && request.resource.data.createdBy == request.auth.uid;
+      allow create: if isEditor() &&
+        request.resource.data.keys().hasAll(['name', 'email', 'status', 'createdAt']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.email.matches('.*@.*\\..*');
+
+      allow update: if isEditor() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'status', 'updatedAt']);
       
-      // Atualização: apenas editores, sem modificar campos críticos
-      allow update: if isEditor() 
-                    && isValidClientData()
-                    && isNotModifyingCriticalFields()
-                    && request.resource.data.updatedBy == request.auth.uid;
-      
-      // Exclusão: NUNCA permitir delete direto (usar soft delete: status='DELETED')
-      allow delete: if false;
-      
-      // SUBCOLEÇÕES (timeline, tasks, tickets)
+      allow delete: if false; // Soft delete apenas via aplicação
+
+      // Subcoleções
       match /{subcollection}/{docId} {
-        allow read: if isAuthenticated();
-        allow create: if isEditor();
-        allow update: if isEditor() && isNotModifyingCriticalFields();
-        allow delete: if false; // Soft delete apenas
+        allow read: if isAuth();
+        allow write: if isEditor();
       }
     }
-    
-    // FATURAS: Apenas leitura (importação via Admin SDK)
+
+    // FATURAS: Imutável pelo cliente
     match /invoices/{invoiceId} {
-      allow read: if isAuthenticated();
-      allow create, update: if false; // Admin SDK apenas
-      allow delete: if false;
+      allow read: if isAuth();
+      allow write: if false; // Apenas via Backend/Admin SDK
     }
-    
-    // USUÁRIOS: Cada usuário acessa apenas seus próprios dados
+
+    // USUÁRIOS: Isolamento total
     match /users/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-      allow write: if false; // Gerenciado via Admin SDK ou Cloud Functions
+      allow read: if isOwner(userId);
+      allow write: if false; // Gerenciado via Admin SDK
     }
-    
-    // AUDIT LOGS: Append-only (criar apenas, nunca modificar/deletar)
+
+    // AUDIT LOGS: Append-only (ninguém edita ou deleta)
     match /audit_logs/{logId} {
-      allow read: if isEditor(); // Apenas editores podem ver logs
-      allow create: if isAuthenticated(); // Qualquer autenticado pode criar log
-      allow update, delete: if false; // Nunca modificar histórico
-    }
-    
-    // CONFIGURAÇÕES DO SISTEMA: Apenas leitura
-    match /system_config/{configId} {
-      allow read: if isAuthenticated();
-      allow write: if false; // Admin SDK apenas
-    }
-    
-    // BLOQUEIO GLOBAL: Qualquer outra coleção não listada é bloqueada
-    match /{document=**} {
-      allow read, write: if false;
+      allow read: if isEditor();
+      allow create: if isAuth() &&
+        request.resource.data.keys().hasAll(['userId', 'action', 'timestamp']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.timestamp == request.time;
+      allow update, delete: if false;
     }
   }
 }

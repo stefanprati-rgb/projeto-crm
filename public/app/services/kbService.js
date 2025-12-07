@@ -16,6 +16,25 @@ export class KBService {
     }
 
     /**
+     * Garante que a KB está inicializada com dados
+     * Chama automaticamente o seed se a coleção estiver vazia
+     */
+    static async ensureInitialized() {
+        const ref = collection(db, 'knowledge_base');
+        const snap = await getDocs(query(ref, limit(1)));
+
+        if (snap.empty) {
+            console.log('📚 Knowledge Base vazia. Iniciando seed automático...');
+            const kbService = new KBService();
+            await kbService.seedInitialData();
+            return true;
+        }
+
+        return false;
+    }
+
+
+    /**
      * Busca artigos baseados em um termo ou retorna os mais populares
      * @param {string} term - Termo de busca (opcional)
      */

@@ -136,8 +136,12 @@ export class CRMApp {
   }
 
   initBaseSelector() {
+    // Hotfix: Defensive programming para evitar crash em páginas sem o seletor
     const selector = document.getElementById('databaseSelector');
-    if (!selector) return;
+    if (!selector) {
+      console.info('🔍 Seletor de base de dados não presente nesta view.');
+      return;
+    }
 
     selector.innerHTML = '';
     const optAll = document.createElement('option');
@@ -156,23 +160,24 @@ export class CRMApp {
       }
     });
 
-this.databaseSelector.addEventListener('change', async (e) => {
-    // 1. Atualizar referência atual
-    this.currentBase = e.target.value;
+    // Event listener com referência correta
+    selector.addEventListener('change', async (e) => {
+      // 1. Atualizar referência atual
+      this.currentBase = e.target.value;
 
-    // 2. Salvar persistência
-    localStorage.setItem('currentBase', this.currentBase);
+      // 2. Salvar persistência
+      localStorage.setItem('currentBase', this.currentBase);
 
-    // 3. Recarregar dados para a nova base
-    await this.loadDataForBase(this.currentBase);
+      // 3. Recarregar dados para a nova base
+      await this.loadDataForBase(this.currentBase);
 
-    // 4. Atualizar UI com o nome visível da base
-    const selectedText = e.target.options[e.target.selectedIndex].text;
-    const baseNameDisplay = document.querySelector('.base-name');
-    if (baseNameDisplay) {
+      // 4. Atualizar UI com o nome visível da base
+      const selectedText = e.target.options[e.target.selectedIndex].text;
+      const baseNameDisplay = document.querySelector('.base-name');
+      if (baseNameDisplay) {
         baseNameDisplay.textContent = selectedText;
-    }
-});
+      }
+    });
   }
 
   async loadDataForBase(baseName) {
