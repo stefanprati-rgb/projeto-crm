@@ -13,6 +13,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ de
 const TicketsPage = lazy(() => import('./pages/TicketsPage').then(m => ({ default: m.TicketsPage })));
 const ClientsPage = lazy(() => import('./pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
+const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -114,6 +115,18 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <ReportsPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ✅ SOLUÇÃO P1-1: Rota Configurações */}
+            <Route
+              path="/configuracoes"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <SettingsPage />
                   </MainLayout>
                 </ProtectedRoute>
               }
