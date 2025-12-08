@@ -4,7 +4,7 @@ import { useClients } from '../hooks/useClients';
 import { ClientsList } from '../components/clients/ClientsList';
 import { ClientModal } from '../components/clients/ClientModal';
 import { ClientDetailsPanel } from '../components/clients/ClientDetailsPanel';
-import { Button, Spinner } from '../components';
+import { Button, Spinner, ConfirmDialog } from '../components';
 import { cn } from '../utils/cn';
 
 export const ClientsPage = () => {
@@ -25,6 +25,7 @@ export const ClientsPage = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState(null);
     const [localSearchTerm, setLocalSearchTerm] = useState('');
+    const [confirmDelete, setConfirmDelete] = useState(null);
 
     // Listener em tempo real
     useEffect(() => {
@@ -59,8 +60,16 @@ export const ClientsPage = () => {
         }
     };
 
-    const handleDeleteClient = async (clientId) => {
-        return await deleteClient(clientId);
+    const handleDeleteClick = (client) => {
+        setConfirmDelete(client);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (confirmDelete) {
+            await deleteClient(confirmDelete.id);
+            setConfirmDelete(null);
+            setSelectedClient(null);
+        }
     };
 
     if (loading && clients.length === 0) {
@@ -148,7 +157,7 @@ export const ClientsPage = () => {
                         <ClientDetailsPanel
                             client={selectedClient}
                             onUpdate={updateClient}
-                            onDelete={handleDeleteClient}
+                            onDelete={() => handleDeleteClick(selectedClient)}
                             onEdit={() => handleEditClient(selectedClient)}
                             onClose={() => setSelectedClient(null)}
                             className="sticky top-0"
@@ -168,13 +177,25 @@ export const ClientsPage = () => {
                 client={editingClient}
             />
 
+            {/* ✅ SOLUÇÃO P2-1: Modal de Confirmação de Deleção */}
+            <ConfirmDialog
+                isOpen={!!confirmDelete}
+                onClose={() => setConfirmDelete(null)}
+                onConfirm={handleConfirmDelete}
+                title="Excluir Cliente"
+                message={`Tem certeza que deseja excluir ${confirmDelete?.name || confirmDelete?.nome}? Todos os dados associados a este cliente serão permanentemente removidos.`}
+                confirmText="Excluir Cliente"
+                cancelText="Cancelar"
+                variant="danger"
+            />
+
             {/* Modal de Detalhes (Mobile) */}
             {selectedClient && (
                 <div className="lg:hidden fixed inset-0 z-50 bg-white dark:bg-gray-900">
                     <ClientDetailsPanel
                         client={selectedClient}
                         onUpdate={updateClient}
-                        onDelete={handleDeleteClient}
+                        onDelete={() => handleDeleteClick(selectedClient)}
                         onEdit={() => {
                             handleEditClient(selectedClient);
                             setSelectedClient(null);
