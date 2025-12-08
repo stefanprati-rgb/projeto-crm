@@ -2,67 +2,154 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helpers de Segurança ---
+    // ✅ P3-4: HELPERS DE SEGURANÇA OTIMIZADOS
+    
     function isAuth() {
       return request.auth != null;
     }
 
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
     function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      return getUserData().role;
+    }
+
+    function isAdmin() {
+      return isAuth() && getRole() == 'admin';
     }
 
     function isEditor() {
-      return isAuth() && getRole() == 'editor';
+      return isAuth() && (getRole() == 'editor' || getRole() == 'admin');
     }
 
     function isOwner(userId) {
       return isAuth() && request.auth.uid == userId;
     }
 
-    // --- Regras por Coleção ---
-
-    // CLIENTES: Validação estrita de schema na escrita
-    match /clients/{clientId} {
-      allow read: if isAuth();
-      
-      allow create: if isEditor() &&
-        request.resource.data.keys().hasAll(['name', 'email', 'status', 'createdAt']) &&
-        request.resource.data.name is string &&
-        request.resource.data.name.size() > 0 &&
-        request.resource.data.email.matches('.*@.*\\..*');
-
-      allow update: if isEditor() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'status', 'updatedAt']);
-      
-      allow delete: if false; // Soft delete apenas via aplicação
-
-      // Subcoleções
-      match /{subcollection}/{docId} {
-        allow read: if isAuth();
-        allow write: if isEditor();
-      }
+    function isCreator(createdBy) {
+      return isAuth() && request.auth.uid == createdBy;
     }
 
-    // FATURAS: Imutável pelo cliente
-    match /invoices/{invoiceId} {
+    // Validação de tamanho de string
+    function validString(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+             request.resource.data[field].size() >= minLen &&
+             request.resource.data[field].size() <= maxLen;
+    }
+
+    // Validação de email
+    function validEmail(field) {
+      return request.resource.data[field] is string &&
+             request.resource.data[field].matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    // ✅ P3-4: REGRAS POR COLEÇÃO
+
+    // CLIENTES: Validação estrita de schema
+    match /clients/{clientId} {
+      // Leitura: apenas usuários autenticados
       allow read: if isAuth();
-      allow write: if false; // Apenas via Backend/Admin SDK
+      
+      // Criação: apenas editores, com validação de schema
+      allow create: if isEditor() &&
+        // Campos obrigatórios
+        request.resource.data.keys().hasAll(['name', 'createdAt', 'createdBy', 'status']) &&
+        // Validações de tipo e tamanho
+        validString('name', 1, 200) &&
+        request.resource.data.status in ['active', 'inactive'] &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.createdAt == request.time &&
+        // Email opcional mas válido se presente
+        (!request.resource.data.keys().hasAny(['email']) || validEmail('email')) &&
+        // CPF/CNPJ opcional mas com tamanho válido se presente
+        (!request.resource.data.keys().hasAny(['cpfCnpj']) || validString('cpfCnpj', 11, 18));
+
+      // Atualização: apenas editores, campos limitados
+      allow update: if isEditor() &&
+        // Não pode mudar campos de auditoria
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy', 'id']) &&
+        // Validações dos campos que podem mudar
+        (request.resource.data.name == resource.data.name || validString('name', 1, 200)) &&
+        (request.resource.data.status == resource.data.status || request.resource.data.status in ['active', 'inactive']) &&
+        (!request.resource.data.keys().hasAny(['email']) || validEmail('email'));
+      
+      // Deleção: apenas admins (soft delete preferível)
+      allow delete: if isAdmin();
+    }
+
+    // TICKETS: Validação e isolamento
+    match /tickets/{ticketId} {
+      // Leitura: apenas usuários autenticados
+      allow read: if isAuth();
+      
+      // Criação: apenas editores, com validação
+      allow create: if isEditor() &&
+        request.resource.data.keys().hasAll(['title', 'clientId', 'status', 'createdAt', 'createdBy']) &&
+        validString('title', 1, 200) &&
+        request.resource.data.status in ['open', 'in_progress', 'resolved', 'closed'] &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.createdAt == request.time &&
+        // Verifica se o cliente existe
+        exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId));
+
+      // Atualização: apenas editores
+      allow update: if isEditor() &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy', 'clientId', 'id']) &&
+        (request.resource.data.status == resource.data.status || request.resource.data.status in ['open', 'in_progress', 'resolved', 'closed']);
+      
+      // Deleção: apenas admins
+      allow delete: if isAdmin();
     }
 
     // USUÁRIOS: Isolamento total
     match /users/{userId} {
-      allow read: if isOwner(userId);
-      allow write: if false; // Gerenciado via Admin SDK
+      // Leitura: apenas o próprio usuário ou admin
+      allow read: if isOwner(userId) || isAdmin();
+      
+      // Escrita: apenas via Admin SDK
+      allow write: if false;
+    }
+
+    // BASES/PROJETOS: Leitura para todos autenticados
+    match /bases/{baseId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
     }
 
     // AUDIT LOGS: Append-only (ninguém edita ou deleta)
     match /audit_logs/{logId} {
-      allow read: if isEditor();
+      // Leitura: apenas admins
+      allow read: if isAdmin();
+      
+      // Criação: qualquer usuário autenticado pode criar seu próprio log
       allow create: if isAuth() &&
-        request.resource.data.keys().hasAll(['userId', 'action', 'timestamp']) &&
+        request.resource.data.keys().hasAll(['userId', 'action', 'timestamp', 'resource']) &&
         request.resource.data.userId == request.auth.uid &&
-        request.resource.data.timestamp == request.time;
+        request.resource.data.timestamp == request.time &&
+        validString('action', 1, 100) &&
+        validString('resource', 1, 200);
+      
+      // Nunca pode atualizar ou deletar logs
       allow update, delete: if false;
+    }
+
+    // CONFIGURAÇÕES: Apenas admins
+    match /settings/{settingId} {
+      allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // FATURAS: Imutável (apenas via Backend/Admin SDK)
+    match /invoices/{invoiceId} {
+      allow read: if isAuth();
+      allow write: if false;
+    }
+
+    // FALLBACK: Bloqueia tudo que não foi explicitamente permitido
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
