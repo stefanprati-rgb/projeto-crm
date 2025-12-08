@@ -6,4 +6,5 @@ export { Spinner, LoadingScreen } from './Spinner';
 export { ErrorBoundary } from './ErrorBoundary';
 export { ClientSelector } from './clients/ClientSelector';
 export { ConfirmDialog } from './ConfirmDialog';
+export { Pagination } from './Pagination';
 export * from './Skeleton';
