@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form';
 import { Modal, Button } from '../';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { validateCpfCnpj, validateEmail, validatePhone, maskCpfCnpj, maskPhone } from '../utils/validators';
 
 export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
     const [loading, setLoading] = useState(false);
@@ -147,10 +148,7 @@ export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
                             className="input"
                             placeholder="email@exemplo.com"
                             {...register('email', {
-                                pattern: {
-                                    value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                                    message: 'E-mail inválido',
-                                },
+                                validate: validateEmail
                             })}
                         />
                         {errors.email && (
@@ -168,9 +166,19 @@ export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
                         <input
                             type="tel"
                             className="input"
-                            placeholder="(00) 00000-0000"
-                            {...register('phone')}
+                            placeholder="(11) 98765-4321"
+                            {...register('phone', {
+                                validate: validatePhone,
+                                onChange: (e) => {
+                                    e.target.value = maskPhone(e.target.value);
+                                }
+                            })}
                         />
+                        {errors.phone && (
+                            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                {errors.phone.message}
+                            </p>
+                        )}
                     </div>
                 </div>
 
@@ -183,8 +191,18 @@ export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
                         type="text"
                         className="input"
                         placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                        {...register('cpfCnpj')}
+                        {...register('cpfCnpj', {
+                            validate: validateCpfCnpj,
+                            onChange: (e) => {
+                                e.target.value = maskCpfCnpj(e.target.value);
+                            }
+                        })}
                     />
+                    {errors.cpfCnpj && (
+                        <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                            {errors.cpfCnpj.message}
+                        </p>
+                    )}
                 </div>
 
                 {/* Endereço */}

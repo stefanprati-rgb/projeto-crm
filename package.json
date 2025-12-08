@@ -12,6 +12,7 @@
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.12",
     "clsx": "^2.1.1",
+    "cpf-cnpj-validator": "^1.0.3",
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
     "firebase": "^12.6.0",
