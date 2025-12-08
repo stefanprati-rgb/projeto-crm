@@ -155,27 +155,69 @@ function App() {
           </Routes>
         </Suspense>
 
-        {/* Toast Notifications */}
+        {/* ✅ SOLUÇÃO P2-3: Toast Notifications com Duração Adequada */}
         <Toaster
           position="top-right"
+          reverseOrder={false}
+          gutter={8}
+          containerClassName=""
+          containerStyle={{}}
           toastOptions={{
+            // Duração padrão: 4 segundos
             duration: 4000,
+
+            // Estilo base
             style: {
               background: darkMode ? '#1f2937' : '#ffffff',
               color: darkMode ? '#f9fafb' : '#111827',
               border: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`,
+              padding: '16px',
+              borderRadius: '8px',
+              boxShadow: darkMode
+                ? '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+                : '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+              fontSize: '14px',
+              maxWidth: '500px',
             },
+
+            // Success: 3 segundos (ação rápida, não precisa ficar muito tempo)
             success: {
+              duration: 3000,
               iconTheme: {
-                primary: '#14b8a6',
+                primary: '#10b981',
                 secondary: '#ffffff',
               },
+              style: {
+                background: darkMode ? '#1f2937' : '#ffffff',
+                border: `1px solid ${darkMode ? '#10b981' : '#d1fae5'}`,
+              },
             },
+
+            // Error: 6 segundos (usuário precisa ler o erro)
             error: {
+              duration: 6000,
               iconTheme: {
                 primary: '#ef4444',
                 secondary: '#ffffff',
               },
+              style: {
+                background: darkMode ? '#1f2937' : '#ffffff',
+                border: `1px solid ${darkMode ? '#ef4444' : '#fee2e2'}`,
+              },
+            },
+
+            // Loading: infinito (até ser dismissado manualmente)
+            loading: {
+              duration: Infinity,
+              iconTheme: {
+                primary: '#3b82f6',
+                secondary: '#ffffff',
+              },
+            },
+
+            // Warning: 5 segundos
+            custom: {
+              duration: 5000,
             },
           }}
         />

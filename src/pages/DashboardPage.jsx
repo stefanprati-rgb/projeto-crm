@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Users, Ticket, TrendingUp, DollarSign } from 'lucide-react';
 import useStore from '../stores/useStore';
-import { Spinner } from '../components';
+import { DashboardSkeleton } from '../components';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import { TrendChart, PieChartComponent, MultiLineChart, BarChartComponent } from '../components/charts/Charts';
 import { useClients } from '../hooks/useClients';
@@ -70,12 +70,9 @@ export const DashboardPage = () => {
         setDashboardLoading(loading);
     }, [loading, setDashboardLoading]);
 
+    // ✅ SOLUÇÃO P2-2: Loading State com Skeleton
     if (loading) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <Spinner size="lg" />
-            </div>
-        );
+        return <DashboardSkeleton />;
     }
 
     // Formatar valores para exibição

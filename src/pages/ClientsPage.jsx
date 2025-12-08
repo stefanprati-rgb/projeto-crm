@@ -4,7 +4,7 @@ import { useClients } from '../hooks/useClients';
 import { ClientsList } from '../components/clients/ClientsList';
 import { ClientModal } from '../components/clients/ClientModal';
 import { ClientDetailsPanel } from '../components/clients/ClientDetailsPanel';
-import { Button, Spinner, ConfirmDialog } from '../components';
+import { Button, ListPageSkeleton, ConfirmDialog } from '../components';
 import { cn } from '../utils/cn';
 
 export const ClientsPage = () => {
@@ -72,12 +72,9 @@ export const ClientsPage = () => {
         }
     };
 
+    // ✅ SOLUÇÃO P2-2: Loading State com Skeleton
     if (loading && clients.length === 0) {
-        return (
-            <div className="flex items-center justify-center h-full">
-                <Spinner size="lg" />
-            </div>
-        );
+        return <ListPageSkeleton />;
     }
 
     return (
