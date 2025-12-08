@@ -65,17 +65,22 @@ export const clientService = {
     },
 
     /**
-     * Busca todos os clientes (para dashboard/métricas)
+     * ✅ P3-1: Busca clientes otimizada para dashboard (com limit)
      */
-    async getAllForDashboard(baseFilter = null) {
-        let q;
+    async getAllForDashboard(baseFilter = null, maxLimit = 1000) {
+        const constraints = [];
+
         if (baseFilter && baseFilter !== 'TODOS') {
-            q = query(collection(db, 'clients'), where('database', '==', baseFilter));
-        } else {
-            q = query(collection(db, 'clients'));
+            constraints.push(where('database', '==', baseFilter));
         }
 
+        // Ordenação e limit para evitar leitura excessiva
+        constraints.push(orderBy('createdAt', 'desc'));
+        constraints.push(limit(maxLimit));
+
+        const q = query(collection(db, 'clients'), ...constraints);
         const snapshot = await getDocs(q);
+
         return snapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
@@ -143,19 +148,19 @@ export const clientService = {
     },
 
     /**
-     * Listener em tempo real para clientes
+     * ✅ P3-1: Listener otimizado com limit
      */
-    listen(onData, onError, baseFilter = null) {
-        let q;
+    listen(onData, onError, baseFilter = null, maxLimit = 500) {
+        const constraints = [];
+
         if (baseFilter && baseFilter !== 'TODOS') {
-            q = query(
-                collection(db, 'clients'),
-                where('database', '==', baseFilter),
-                orderBy('createdAt', 'desc')
-            );
-        } else {
-            q = query(collection(db, 'clients'), orderBy('createdAt', 'desc'));
+            constraints.push(where('database', '==', baseFilter));
         }
+
+        constraints.push(orderBy('createdAt', 'desc'));
+        constraints.push(limit(maxLimit));
+
+        const q = query(collection(db, 'clients'), ...constraints);
 
         return onSnapshot(
             q,
@@ -171,10 +176,17 @@ export const clientService = {
     },
 
     /**
-     * Busca clientes por termo (nome, email, telefone, etc)
+     * ✅ P3-1: Busca otimizada (ainda client-side mas com limit)
+     * TODO: Implementar busca server-side com Algolia ou similar para produção
      */
     async search(searchTerm, baseFilter = null) {
-        const allClients = await this.getAllForDashboard(baseFilter);
+        // Se busca vazia, retorna vazio
+        if (!searchTerm || searchTerm.trim() === '') {
+            return [];
+        }
+
+        // Busca com limit para evitar leitura excessiva
+        const allClients = await this.getAllForDashboard(baseFilter, 500);
 
         const term = searchTerm.toLowerCase();
         return allClients.filter((client) => {
