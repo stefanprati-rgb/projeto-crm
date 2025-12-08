@@ -1,6 +1,20 @@
 import { create } from 'zustand';
 import { persist, devtools } from 'zustand/middleware';
 
+// Função auxiliar para validar cliente
+const validateClient = (client) => {
+    if (!client) {
+        throw new Error('Cliente não pode ser nulo ou indefinido');
+    }
+    if (!client.id) {
+        throw new Error('Cliente deve ter um ID válido');
+    }
+    if (!client.nome || client.nome.trim() === '') {
+        throw new Error('Cliente deve ter um Nome válido');
+    }
+    return true;
+};
+
 // Store principal da aplicação
 const useStore = create(
     devtools(
@@ -60,9 +74,18 @@ const useStore = create(
 
                 // Actions - Clients
                 setClients: (clients) => set({ clients }),
-                addClient: (client) => set((state) => ({
-                    clients: [client, ...state.clients]
-                })),
+                addClient: (client) => {
+                    try {
+                        validateClient(client);
+                        set((state) => ({
+                            clients: [client, ...state.clients]
+                        }));
+                        return { success: true };
+                    } catch (error) {
+                        console.error('Erro ao adicionar cliente:', error.message);
+                        return { success: false, error: error.message };
+                    }
+                },
                 updateClient: (id, updates) => set((state) => ({
                     clients: state.clients.map((c) =>
                         c.id === id ? { ...c, ...updates } : c
@@ -104,6 +127,7 @@ const useStore = create(
             }),
             {
                 name: 'hube-crm-storage',
+                lastSync: Date.now(),
                 partialize: (state) => ({
                     // Apenas persistir dados essenciais
                     currentBase: state.currentBase,

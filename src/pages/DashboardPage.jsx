@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import { Users, Ticket, TrendingUp, DollarSign } from 'lucide-react';
-import { useDashboard } from '../stores/useStore';
+import useStore from '../stores/useStore';
 import { Spinner } from '../components';
+import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
+import { TrendChart, PieChartComponent, MultiLineChart, BarChartComponent } from '../components/charts/Charts';
 
 const StatCard = ({ title, value, icon: Icon, trend, color = 'primary' }) => {
     const colorClasses = {
@@ -37,20 +39,40 @@ const StatCard = ({ title, value, icon: Icon, trend, color = 'primary' }) => {
 };
 
 export const DashboardPage = () => {
-    const dashboard = useDashboard();
+    const { stats, chartData, loading } = useDashboardMetrics();
+    const { setDashboardStats, setDashboardLoading } = useStore();
 
+    // Sincronizar métricas com a store
     useEffect(() => {
-        // TODO: Buscar dados do dashboard
-        // Exemplo: fetchDashboardStats();
-    }, []);
+        if (stats) {
+            setDashboardStats(stats);
+        }
+    }, [stats, setDashboardStats]);
 
-    if (dashboard.loading) {
+    // Sincronizar loading state
+    useEffect(() => {
+        setDashboardLoading(loading);
+    }, [loading, setDashboardLoading]);
+
+    if (loading) {
         return (
             <div className="flex items-center justify-center h-full">
                 <Spinner size="lg" />
             </div>
         );
     }
+
+    // Formatar valores para exibição
+    const formatCurrency = (value) => {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+        }).format(value);
+    };
+
+    const formatNumber = (value) => {
+        return new Intl.NumberFormat('pt-BR').format(value);
+    };
 
     return (
         <div className="space-y-6">
@@ -68,79 +90,90 @@ export const DashboardPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     title="Total de Clientes"
-                    value="1,234"
+                    value={formatNumber(stats.totalClients)}
                     icon={Users}
-                    trend="+12% este mês"
                     color="primary"
                 />
                 <StatCard
+                    title="Clientes Ativos"
+                    value={formatNumber(stats.activeClients)}
+                    icon={Users}
+                    color="success"
+                />
+                <StatCard
                     title="Tickets Abertos"
-                    value="56"
+                    value={formatNumber(stats.openTickets)}
                     icon={Ticket}
-                    trend="+8% esta semana"
                     color="warning"
                 />
                 <StatCard
-                    title="Taxa de Conversão"
-                    value="68%"
-                    icon={TrendingUp}
-                    trend="+5% este mês"
-                    color="success"
-                />
-                <StatCard
                     title="Receita Mensal"
-                    value="R$ 45.2K"
+                    value={formatCurrency(stats.monthlyRevenue)}
                     icon={DollarSign}
-                    trend="+18% este mês"
                     color="success"
                 />
             </div>
 
-            {/* Charts Section */}
+            {/* Charts Section - Row 1 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="card">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        Vendas por Mês
-                    </h2>
-                    <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                        Gráfico em desenvolvimento
-                    </div>
-                </div>
-
-                <div className="card">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                        Tickets por Status
-                    </h2>
-                    <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                        Gráfico em desenvolvimento
-                    </div>
-                </div>
+                <TrendChart
+                    data={chartData.clients}
+                    dataKey="clientes"
+                    xKey="name"
+                    title="Clientes por Mês"
+                />
+                <PieChartComponent
+                    data={chartData.ticketsStatus}
+                    dataKey="value"
+                    nameKey="name"
+                    title="Tickets por Status"
+                />
             </div>
 
-            {/* Recent Activity */}
-            <div className="card">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                    Atividades Recentes
-                </h2>
-                <div className="space-y-4">
-                    {[1, 2, 3, 4, 5].map((item) => (
-                        <div
-                            key={item}
-                            className="flex items-center gap-4 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                        >
-                            <div className="h-10 w-10 rounded-full bg-primary-100 dark:bg-primary-900/30 flex items-center justify-center">
-                                <Users className="h-5 w-5 text-primary-600" />
-                            </div>
-                            <div className="flex-1">
-                                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    Novo cliente cadastrado
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Há 2 horas
-                                </p>
-                            </div>
-                        </div>
-                    ))}
+            {/* Charts Section - Row 2 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <BarChartComponent
+                    data={chartData.revenue}
+                    dataKey="receita"
+                    xKey="name"
+                    title="Receita por Mês"
+                />
+                <MultiLineChart
+                    data={chartData.tickets}
+                    lines={[
+                        { dataKey: 'abertos', name: 'Abertos' },
+                        { dataKey: 'fechados', name: 'Fechados' },
+                    ]}
+                    xKey="name"
+                    title="Tickets por Mês"
+                />
+            </div>
+
+            {/* Additional Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="card">
+                    <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Total de Tickets
+                    </h3>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        {formatNumber(stats.totalTickets)}
+                    </p>
+                </div>
+                <div className="card">
+                    <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Tickets Fechados
+                    </h3>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        {formatNumber(stats.closedTickets)}
+                    </p>
+                </div>
+                <div className="card">
+                    <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+                        Taxa de Conversão
+                    </h3>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        {stats.conversionRate}%
+                    </p>
                 </div>
             </div>
         </div>

@@ -32,28 +32,34 @@ export const TrendChart = ({ data, dataKey, xKey = 'name', title }) => {
                     {title}
                 </h3>
             )}
-            <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                    <XAxis dataKey={xKey} stroke={textColor} />
-                    <YAxis stroke={textColor} />
-                    <Tooltip
-                        contentStyle={{
-                            backgroundColor: darkMode ? '#1f2937' : '#ffffff',
-                            border: `1px solid ${gridColor}`,
-                            borderRadius: '0.5rem',
-                        }}
-                    />
-                    <Legend />
-                    <Line
-                        type="monotone"
-                        dataKey={dataKey}
-                        stroke="#14b8a6"
-                        strokeWidth={2}
-                        dot={{ fill: '#14b8a6' }}
-                    />
-                </LineChart>
-            </ResponsiveContainer>
+            {!data || data.length === 0 ? (
+                <div className="empty-state h-[300px] flex items-center justify-center">
+                    <p className="text-gray-500 dark:text-gray-400">Nenhum dado disponível</p>
+                </div>
+            ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                        <XAxis dataKey={xKey} stroke={textColor} />
+                        <YAxis stroke={textColor} />
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                                border: `1px solid ${gridColor}`,
+                                borderRadius: '0.5rem',
+                            }}
+                        />
+                        <Legend />
+                        <Line
+                            type="monotone"
+                            dataKey={dataKey}
+                            stroke="#14b8a6"
+                            strokeWidth={2}
+                            dot={{ fill: '#14b8a6' }}
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            )}
         </div>
     );
 };
@@ -73,22 +79,28 @@ export const BarChartComponent = ({ data, dataKey, xKey = 'name', title }) => {
                     {title}
                 </h3>
             )}
-            <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                    <XAxis dataKey={xKey} stroke={textColor} />
-                    <YAxis stroke={textColor} />
-                    <Tooltip
-                        contentStyle={{
-                            backgroundColor: darkMode ? '#1f2937' : '#ffffff',
-                            border: `1px solid ${gridColor}`,
-                            borderRadius: '0.5rem',
-                        }}
-                    />
-                    <Legend />
-                    <Bar dataKey={dataKey} fill="#14b8a6" />
-                </BarChart>
-            </ResponsiveContainer>
+            {!data || data.length === 0 ? (
+                <div className="empty-state h-[300px] flex items-center justify-center">
+                    <p className="text-gray-500 dark:text-gray-400">Nenhum dado disponível</p>
+                </div>
+            ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                        <XAxis dataKey={xKey} stroke={textColor} />
+                        <YAxis stroke={textColor} />
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                                border: `1px solid ${gridColor}`,
+                                borderRadius: '0.5rem',
+                            }}
+                        />
+                        <Legend />
+                        <Bar dataKey={dataKey} fill="#14b8a6" />
+                    </BarChart>
+                </ResponsiveContainer>
+            )}
         </div>
     );
 };
@@ -106,32 +118,38 @@ export const PieChartComponent = ({ data, dataKey, nameKey = 'name', title }) =>
                     {title}
                 </h3>
             )}
-            <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                    <Pie
-                        data={data}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey={dataKey}
-                    >
-                        {data.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                    </Pie>
-                    <Tooltip
-                        contentStyle={{
-                            backgroundColor: darkMode ? '#1f2937' : '#ffffff',
-                            border: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`,
-                            borderRadius: '0.5rem',
-                        }}
-                    />
-                    <Legend />
-                </PieChart>
-            </ResponsiveContainer>
+            {!data || data.length === 0 ? (
+                <div className="empty-state h-[300px] flex items-center justify-center">
+                    <p className="text-gray-500 dark:text-gray-400">Nenhum dado disponível</p>
+                </div>
+            ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                        <Pie
+                            data={data}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey={dataKey}
+                        >
+                            {data.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                        </Pie>
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                                border: `1px solid ${darkMode ? '#374151' : '#e5e7eb'}`,
+                                borderRadius: '0.5rem',
+                            }}
+                        />
+                        <Legend />
+                    </PieChart>
+                </ResponsiveContainer>
+            )}
         </div>
     );
 };
@@ -151,31 +169,37 @@ export const MultiLineChart = ({ data, lines, xKey = 'name', title }) => {
                     {title}
                 </h3>
             )}
-            <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={data}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                    <XAxis dataKey={xKey} stroke={textColor} />
-                    <YAxis stroke={textColor} />
-                    <Tooltip
-                        contentStyle={{
-                            backgroundColor: darkMode ? '#1f2937' : '#ffffff',
-                            border: `1px solid ${gridColor}`,
-                            borderRadius: '0.5rem',
-                        }}
-                    />
-                    <Legend />
-                    {lines.map((line, index) => (
-                        <Line
-                            key={line.dataKey}
-                            type="monotone"
-                            dataKey={line.dataKey}
-                            stroke={COLORS[index % COLORS.length]}
-                            strokeWidth={2}
-                            name={line.name}
+            {!data || data.length === 0 ? (
+                <div className="empty-state h-[300px] flex items-center justify-center">
+                    <p className="text-gray-500 dark:text-gray-400">Nenhum dado disponível</p>
+                </div>
+            ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={data}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                        <XAxis dataKey={xKey} stroke={textColor} />
+                        <YAxis stroke={textColor} />
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                                border: `1px solid ${gridColor}`,
+                                borderRadius: '0.5rem',
+                            }}
                         />
-                    ))}
-                </LineChart>
-            </ResponsiveContainer>
+                        <Legend />
+                        {lines.map((line, index) => (
+                            <Line
+                                key={line.dataKey}
+                                type="monotone"
+                                dataKey={line.dataKey}
+                                stroke={COLORS[index % COLORS.length]}
+                                strokeWidth={2}
+                                name={line.name}
+                            />
+                        ))}
+                    </LineChart>
+                </ResponsiveContainer>
+            )}
         </div>
     );
 };
