@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form';
-import { Modal, Button, Input } from '../';
+import { Modal, Button, Input, ClientSelector } from '../';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -20,6 +20,8 @@ const PRIORITIES = [
 
 export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId = null }) => {
     const [loading, setLoading] = useState(false);
+    const [selectedClientId, setSelectedClientId] = useState(clientId || ticket?.clientId || null);
+    const [clientError, setClientError] = useState(null);
     const isEdit = !!ticket;
 
     const {
@@ -37,16 +39,24 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
     });
 
     const handleFormSubmit = async (data) => {
+        // ✅ SOLUÇÃO P0-1: Validar cliente
+        if (!selectedClientId) {
+            setClientError('Selecione um cliente');
+            return;
+        }
+
         setLoading(true);
+        setClientError(null);
 
         try {
             const result = await onSubmit({
                 ...data,
-                clientId: ticket?.clientId || clientId,
+                clientId: selectedClientId,
             });
 
             if (result?.success) {
                 reset();
+                setSelectedClientId(null);
                 onClose();
             }
         } catch (error) {
@@ -58,6 +68,8 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
 
     const handleClose = () => {
         reset();
+        setSelectedClientId(null);
+        setClientError(null);
         onClose();
     };
 
@@ -90,6 +102,16 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
             }
         >
             <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+                {/* Cliente - Só mostra se não for edição e não vier clientId */}
+                {!clientId && !ticket && (
+                    <ClientSelector
+                        value={selectedClientId}
+                        onChange={setSelectedClientId}
+                        required
+                        error={clientError}
+                    />
+                )}
+
                 {/* Assunto */}
                 <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">

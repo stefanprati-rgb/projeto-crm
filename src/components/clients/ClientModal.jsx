@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { Modal, Button } from '../';
 import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
     const [loading, setLoading] = useState(false);
@@ -13,7 +13,7 @@ export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
         formState: { errors },
         reset,
     } = useForm({
-        defaultValues: client || {
+        defaultValues: {
             name: '',
             email: '',
             phone: '',
@@ -26,6 +26,39 @@ export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
             notes: '',
         },
     });
+
+    // ✅ SOLUÇÃO P0-2: Reset form quando client mudar
+    useEffect(() => {
+        if (client) {
+            // Edição: preencher com dados do cliente
+            reset({
+                name: client.name || client.nome || '',
+                email: client.email || '',
+                phone: client.phone || client.telefone || '',
+                cpfCnpj: client.cpfCnpj || client.cpf || client.cnpj || '',
+                address: client.address || client.endereco || '',
+                city: client.city || client.cidade || '',
+                state: client.state || client.estado || '',
+                zipCode: client.zipCode || client.cep || '',
+                status: client.status || 'active',
+                notes: client.notes || client.observacoes || '',
+            });
+        } else {
+            // Novo: limpar campos
+            reset({
+                name: '',
+                email: '',
+                phone: '',
+                cpfCnpj: '',
+                address: '',
+                city: '',
+                state: '',
+                zipCode: '',
+                status: 'active',
+                notes: '',
+            });
+        }
+    }, [client, reset, isOpen]);
 
     const handleFormSubmit = async (data) => {
         setLoading(true);

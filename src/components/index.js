@@ -4,3 +4,4 @@ export { Badge } from './Badge';
 export { Input } from './Input';
 export { Spinner, LoadingScreen } from './Spinner';
 export { ErrorBoundary } from './ErrorBoundary';
+export { ClientSelector } from './clients/ClientSelector';
