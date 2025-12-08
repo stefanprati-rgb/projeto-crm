@@ -2,7 +2,7 @@ import { useForm } from 'react-hook-form';
 import { Modal, Button } from '../';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { validateCpfCnpj, validateEmail, validatePhone, maskCpfCnpj, maskPhone } from '../utils/validators';
+import { validateCpfCnpj, validateEmail, validatePhone, maskCpfCnpj, maskPhone } from '../../utils/validators';
 
 export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
     const [loading, setLoading] = useState(false);
