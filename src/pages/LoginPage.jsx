@@ -118,13 +118,39 @@ export const LoginPage = () => {
                         </Button>
                     </form>
 
+                    {/* Quick Test Login */}
+                    <div className="mt-4">
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-300 dark:border-gray-700"></div>
+                            </div>
+                            <div className="relative flex justify-center text-sm">
+                                <span className="px-2 bg-white dark:bg-gray-900 text-gray-500">
+                                    ou
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <p className="text-xs text-blue-800 dark:text-blue-200 mb-2">
+                                💡 <strong>Para testes:</strong> Crie um usuário no Firebase Console ou use:
+                            </p>
+                            <p className="text-xs text-blue-700 dark:text-blue-300 font-mono">
+                                Email: teste@hubegd.com<br />
+                                Senha: teste123456
+                            </p>
+                        </div>
+                    </div>
+
                     {/* Footer */}
                     <div className="mt-6 text-center">
                         <a
-                            href="#"
+                            href="https://console.firebase.google.com/project/crm-energia-solar/authentication/users"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="text-sm text-primary-600 hover:text-primary-700"
                         >
-                            Esqueceu sua senha?
+                            Criar usuário no Firebase →
                         </a>
                     </div>
                 </div>

@@ -16,6 +16,9 @@ const TicketsPage = lazy(() => import('./pages/TicketsPage').then(m => ({ defaul
 const ClientsPage = lazy(() => import('./pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
+const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
+const OperationsDashboard = lazy(() => import('./pages/OperationsDashboard').then(m => ({ default: m.OperationsDashboard })));
+
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -158,6 +161,31 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Rota Admin - Importadores */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <AdminPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Rota Dashboard Operacional */}
+            <Route
+              path="/operacoes"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <OperationsDashboard />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
 
             {/* 404 */}
             <Route

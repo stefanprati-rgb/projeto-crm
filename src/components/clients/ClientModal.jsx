@@ -238,13 +238,36 @@ export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
                         <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                             Estado
                         </label>
-                        <input
-                            type="text"
-                            className="input"
-                            placeholder="SP"
-                            maxLength={2}
-                            {...register('state')}
-                        />
+                        <select className="input" {...register('state')}>
+                            <option value="">Selecione</option>
+                            <option value="AC">AC</option>
+                            <option value="AL">AL</option>
+                            <option value="AP">AP</option>
+                            <option value="AM">AM</option>
+                            <option value="BA">BA</option>
+                            <option value="CE">CE</option>
+                            <option value="DF">DF</option>
+                            <option value="ES">ES</option>
+                            <option value="GO">GO</option>
+                            <option value="MA">MA</option>
+                            <option value="MT">MT</option>
+                            <option value="MS">MS</option>
+                            <option value="MG">MG</option>
+                            <option value="PA">PA</option>
+                            <option value="PB">PB</option>
+                            <option value="PR">PR</option>
+                            <option value="PE">PE</option>
+                            <option value="PI">PI</option>
+                            <option value="RJ">RJ</option>
+                            <option value="RN">RN</option>
+                            <option value="RS">RS</option>
+                            <option value="RO">RO</option>
+                            <option value="RR">RR</option>
+                            <option value="SC">SC</option>
+                            <option value="SP">SP</option>
+                            <option value="SE">SE</option>
+                            <option value="TO">TO</option>
+                        </select>
                     </div>
 
                     {/* CEP */}
@@ -256,7 +279,12 @@ export const ClientModal = ({ isOpen, onClose, onSubmit, client = null }) => {
                             type="text"
                             className="input"
                             placeholder="00000-000"
-                            {...register('zipCode')}
+                            {...register('zipCode', {
+                                onChange: (e) => {
+                                    const value = e.target.value.replace(/\D/g, '');
+                                    e.target.value = value.replace(/(\d{5})(\d{1,3})$/, '$1-$2');
+                                }
+                            })}
                         />
                     </div>
                 </div>

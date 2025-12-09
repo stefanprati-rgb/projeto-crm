@@ -12,9 +12,12 @@ import {
     Moon,
     Sun,
     ChevronDown,
+    Database,
+    Factory,
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import { Button } from '../components';
+import { ProjectSelector } from '../components/ProjectSelector';
 import useStore, { useDarkMode, useSidebarOpen, useCurrentBase, useAllowedBases, useUser } from '../stores/useStore';
 import { useAuth } from '../hooks/useAuth';
 
@@ -22,7 +25,9 @@ const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Clientes', href: '/clientes', icon: Users },
     { name: 'Tickets', href: '/tickets', icon: Ticket },
+    { name: 'Operações', href: '/operacoes', icon: Factory },
     { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
+    { name: 'Admin', href: '/admin', icon: Database },
     { name: 'Configurações', href: '/configuracoes', icon: Settings },
 ];
 
@@ -208,7 +213,7 @@ export const MainLayout = ({ children }) => {
                         </Button>
 
                         <div className="flex items-center gap-4">
-                            {/* Additional header content */}
+                            <ProjectSelector />
                         </div>
                     </header>
 

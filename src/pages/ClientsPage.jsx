@@ -1,113 +1,92 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Users, UserCheck, UserX } from 'lucide-react';
 import { useClients } from '../hooks/useClients';
+import { useAdvancedSearch } from '../hooks/useAdvancedSearch';
 import { ClientsList } from '../components/clients/ClientsList';
 import { ClientModal } from '../components/clients/ClientModal';
-import { ClientDetailsPanel } from '../components/clients/ClientDetailsPanel';
+import { ClientDetailsModal } from '../components/clients/ClientDetailsModal';
+import { ClientFilters } from '../components/clients/ClientFilters';
+import { LocalErrorBoundary } from '../components/LocalErrorBoundary';
 import { Button, ListPageSkeleton, ConfirmDialog, Pagination } from '../components';
 import { cn } from '../utils/cn';
 
 export const ClientsPage = () => {
+    // Hooks e Estados
     const {
         clients,
         loading,
         error,
         metrics,
-        searchTerm,
+        fetchClients,
         createClient,
         updateClient,
         deleteClient,
-        searchClients,
-        fetchClients,
     } = useClients();
 
     const [selectedClient, setSelectedClient] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState(null);
-    const [localSearchTerm, setLocalSearchTerm] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(null);
 
-    // ✅ P2-4: States de paginação
+    // -- FILTROS E BUSCA AVANÇADA --
+    const [filters, setFilters] = useState({});
+    const {
+        searchTerm,
+        setSearchTerm,
+        filteredClients,
+        metrics: searchMetrics,
+        isSearching,
+        hasFilters
+    } = useAdvancedSearch(clients, filters);
+
+    // -- LÓGICA DE PAGINAÇÃO --
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
-    const [totalPages, setTotalPages] = useState(1);
-
-    // Cursores para paginação
-    const [nextPageCursor, setNextPageCursor] = useState(null);
     const [cursorStack, setCursorStack] = useState([]);
+    const [lastDoc, setLastDoc] = useState(null);
 
-    // Carregar dados iniciais (Página 1)
+    // Carregar dados iniciais
     useEffect(() => {
-        const loadInitialData = async () => {
-            const result = await fetchClients({ pageSize });
+        const loadData = async () => {
+            const currentCursor = currentPage === 1 ? null : cursorStack[currentPage - 2];
+            const result = await fetchClients({
+                pageSize,
+                lastDoc: currentCursor,
+            });
+
             if (result && result.lastDoc) {
-                setNextPageCursor(result.lastDoc);
-            } else {
-                setNextPageCursor(null);
+                setLastDoc(result.lastDoc);
             }
-            setCursorStack([]);
-            setCurrentPage(1);
         };
 
-        loadInitialData();
+        // Só buscar se não tiver busca/filtros ativos
+        if (!isSearching && !hasFilters) {
+            loadData();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pageSize]);
+    }, [currentPage, pageSize, isSearching, hasFilters]);
 
-    // Atualizar total de páginas baseado nas métricas
+    // Resetar paginação quando buscar/filtrar
     useEffect(() => {
-        if (metrics?.total) {
-            setTotalPages(Math.ceil(metrics.total / pageSize));
+        if (isSearching || hasFilters) {
+            setCurrentPage(1);
+            setCursorStack([]);
         }
-    }, [metrics, pageSize]);
+    }, [isSearching, hasFilters]);
 
-    // Handlers de Paginação
-    const handlePageChange = async (newPage) => {
-        // Próxima Página
-        if (newPage > currentPage) {
-            if (!nextPageCursor) return;
-
-            const cursorUsed = nextPageCursor;
-            setCursorStack(prev => [...prev, cursorUsed]);
-
-            const result = await fetchClients({
-                pageSize,
-                lastDoc: cursorUsed
-            });
-
-            setNextPageCursor(result.lastDoc || null);
-            setCurrentPage(newPage);
+    // Handlers de UI
+    const handlePageChange = (newPage) => {
+        if (newPage > currentPage && lastDoc) {
+            setCursorStack((prev) => [...prev, lastDoc]);
         }
-
-        // Página Anterior
-        else if (newPage < currentPage) {
-            // Volta para página anterior removendo o último cursor
-            const newStack = cursorStack.slice(0, newPage - 1);
-            const cursorToUse = newStack.length > 0 ? newStack[newStack.length - 1] : null;
-
-            setCursorStack(newStack);
-
-            const result = await fetchClients({
-                pageSize,
-                lastDoc: cursorToUse
-            });
-
-            setNextPageCursor(result.lastDoc || null);
-            setCurrentPage(newPage);
-        }
+        setCurrentPage(newPage);
     };
 
     const handlePageSizeChange = (newSize) => {
         setPageSize(newSize);
+        setCurrentPage(1);
+        setCursorStack([]);
     };
-
-    // Busca com debounce
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            searchClients(localSearchTerm);
-        }, 300);
-
-        return () => clearTimeout(timer);
-    }, [localSearchTerm, searchClients]);
 
     const handleCreateClient = () => {
         setEditingClient(null);
@@ -117,14 +96,23 @@ export const ClientsPage = () => {
     const handleEditClient = (client) => {
         setEditingClient(client);
         setModalOpen(true);
+        setSelectedClient(null); // Fechar modal de detalhes
     };
 
     const handleSubmit = async (data) => {
-        if (editingClient) {
-            return await updateClient(editingClient.id, data);
-        } else {
-            return await createClient(data);
+        const result = editingClient
+            ? await updateClient(editingClient.id, data)
+            : await createClient(data);
+
+        if (result?.success) {
+            setModalOpen(false);
+            setEditingClient(null);
+            if (!editingClient) {
+                fetchClients({ pageSize });
+            }
         }
+
+        return result;
     };
 
     const handleDeleteClick = (client) => {
@@ -139,10 +127,17 @@ export const ClientsPage = () => {
         }
     };
 
-    // ✅ SOLUÇÃO P2-2: Loading State com Skeleton
-    if (loading && clients.length === 0) {
+    // Renderização Condicional (Skeleton)
+    if (loading && clients.length === 0 && !isSearching) {
         return <ListPageSkeleton />;
     }
+
+    // Usar clientes filtrados ou todos
+    const displayClients = isSearching || hasFilters ? filteredClients : clients;
+    const displayMetrics = isSearching || hasFilters ? searchMetrics : metrics;
+
+    // Cálculo total páginas
+    const totalPages = displayMetrics?.total ? Math.ceil(displayMetrics.total / pageSize) : 1;
 
     return (
         <div className="h-full flex flex-col gap-6">
@@ -151,34 +146,34 @@ export const ClientsPage = () => {
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Clientes</h1>
                     <p className="mt-1 text-gray-600 dark:text-gray-400">
-                        Gerencie todos os seus clientes
+                        Gerencie todos os seus clientes de Geração Distribuída
                     </p>
                 </div>
                 <Button onClick={handleCreateClient}>
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-4 w-4 mr-2" />
                     Novo Cliente
                 </Button>
             </div>
 
             {/* Métricas */}
-            {metrics && (
+            {displayMetrics && (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <MetricCard
                         icon={Users}
                         label="Total"
-                        value={metrics.total}
+                        value={displayMetrics.total}
                         variant="default"
                     />
                     <MetricCard
                         icon={UserCheck}
                         label="Ativos"
-                        value={metrics.active}
+                        value={displayMetrics.ativos || displayMetrics.active || 0}
                         variant="success"
                     />
                     <MetricCard
                         icon={UserX}
                         label="Inativos"
-                        value={metrics.inactive}
+                        value={displayMetrics.inativos || displayMetrics.inactive || 0}
                         variant="default"
                     />
                 </div>
@@ -189,12 +184,24 @@ export const ClientsPage = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                     type="text"
-                    placeholder="Buscar por nome, email, telefone, CPF/CNPJ..."
-                    value={localSearchTerm}
-                    onChange={(e) => setLocalSearchTerm(e.target.value)}
+                    placeholder="Buscar por nome, email, telefone, CPF/CNPJ, UC, projeto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="input pl-10"
                 />
+                {loading && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                        Buscando...
+                    </span>
+                )}
             </div>
+
+            {/* Filtros Avançados */}
+            <ClientFilters
+                onFilterChange={setFilters}
+                plants={[]} // TODO: Buscar usinas do store
+                projects={[]} // TODO: Buscar projetos do store
+            />
 
             {/* Erro */}
             {error && (
@@ -203,39 +210,22 @@ export const ClientsPage = () => {
                 </div>
             )}
 
-            {/* Conteúdo Principal */}
-            <div className="flex-1 flex gap-6 min-h-0">
-                {/* Lista de Clientes */}
-                <div className={cn('flex-1 min-w-0', selectedClient && 'lg:flex-[2]')}>
-                    <ClientsList
-                        clients={clients}
-                        onSelectClient={setSelectedClient}
-                        selectedClientId={selectedClient?.id}
-                        className="h-full"
-                    />
-                </div>
-
-                {/* Painel de Detalhes (Desktop) */}
-                {selectedClient && (
-                    <div className="hidden lg:block lg:w-96 xl:w-[28rem]">
-                        <ClientDetailsPanel
-                            client={selectedClient}
-                            onUpdate={updateClient}
-                            onDelete={() => handleDeleteClick(selectedClient)}
-                            onEdit={() => handleEditClient(selectedClient)}
-                            onClose={() => setSelectedClient(null)}
-                            className="sticky top-0"
-                        />
-                    </div>
-                )}
+            {/* Conteúdo Principal - Lista de Clientes */}
+            <div className="flex-1 min-h-0">
+                <ClientsList
+                    clients={displayClients}
+                    onSelectClient={setSelectedClient}
+                    selectedClientId={selectedClient?.id}
+                    className="h-full"
+                />
             </div>
 
-            {/* ✅ P2-4: Paginação */}
-            {clients.length > 0 && (
+            {/* Paginação */}
+            {!isSearching && !hasFilters && displayClients.length > 0 && (
                 <Pagination
                     currentPage={currentPage}
                     totalPages={totalPages}
-                    totalItems={metrics?.total || clients.length}
+                    totalItems={displayMetrics?.total || displayClients.length}
                     pageSize={pageSize}
                     onPageChange={handlePageChange}
                     onPageSizeChange={handlePageSizeChange}
@@ -245,6 +235,16 @@ export const ClientsPage = () => {
                     loading={loading}
                 />
             )}
+
+            {/* Modal de Detalhes do Cliente (Full-Width) */}
+            <ClientDetailsModal
+                client={selectedClient}
+                isOpen={!!selectedClient}
+                onClose={() => setSelectedClient(null)}
+                onUpdate={updateClient}
+                onDelete={handleDeleteClick}
+                onEdit={handleEditClient}
+            />
 
             {/* Modal de Criação/Edição */}
             <ClientModal
@@ -257,7 +257,7 @@ export const ClientsPage = () => {
                 client={editingClient}
             />
 
-            {/* ✅ SOLUÇÃO P2-1: Modal de Confirmação de Deleção */}
+            {/* Modal de Confirmação de Deleção */}
             <ConfirmDialog
                 isOpen={!!confirmDelete}
                 onClose={() => setConfirmDelete(null)}
@@ -268,22 +268,6 @@ export const ClientsPage = () => {
                 cancelText="Cancelar"
                 variant="danger"
             />
-
-            {/* Modal de Detalhes (Mobile) */}
-            {selectedClient && (
-                <div className="lg:hidden fixed inset-0 z-50 bg-white dark:bg-gray-900">
-                    <ClientDetailsPanel
-                        client={selectedClient}
-                        onUpdate={updateClient}
-                        onDelete={() => handleDeleteClick(selectedClient)}
-                        onEdit={() => {
-                            handleEditClient(selectedClient);
-                            setSelectedClient(null);
-                        }}
-                        onClose={() => setSelectedClient(null)}
-                    />
-                </div>
-            )}
         </div>
     );
 };

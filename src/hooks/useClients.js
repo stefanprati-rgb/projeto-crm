@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { clientService } from '../services/clientService';
 import useStore, { useCurrentBase, useClients as useClientsStore } from '../stores/useStore';
 import toast from 'react-hot-toast';
@@ -6,12 +6,14 @@ import toast from 'react-hot-toast';
 /**
  * Hook para gerenciar clientes
  * Integra com Zustand store e Firebase
+ * 
+ * CORREÇÃO: Removido useEffect automático e searchTerm interno
+ * A página agora controla quando fazer fetch
  */
 export const useClients = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [metrics, setMetrics] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
 
     const currentBase = useCurrentBase();
     const clients = useClientsStore();
@@ -19,30 +21,35 @@ export const useClients = () => {
 
     /**
      * Busca clientes com paginação
+     * CORREÇÃO: Não atualiza métricas se for busca filtrada
      */
     const fetchClients = useCallback(
         async (options = {}) => {
+            if (!currentBase?.id) return { clients: [], lastDoc: null };
+
             setLoading(true);
             setError(null);
 
             try {
                 const result = await clientService.getAll({
-                    baseFilter: currentBase?.id,
+                    baseFilter: currentBase.id,
                     ...options,
                 });
 
                 setClients(result.clients);
 
-                // Calcular métricas
-                const clientMetrics = clientService.getMetrics(result.clients);
-                setMetrics(clientMetrics);
+                // Atualiza métricas apenas se não for uma busca filtrada
+                if (!options.search) {
+                    const clientMetrics = clientService.getMetrics(result.clients);
+                    setMetrics(clientMetrics);
+                }
 
                 return result;
             } catch (err) {
                 console.error('Erro ao buscar clientes:', err);
                 setError(err.message);
                 toast.error('Erro ao carregar clientes');
-                return { clients: [], hasMore: false };
+                return { clients: [], lastDoc: null };
             } finally {
                 setLoading(false);
             }
@@ -169,44 +176,35 @@ export const useClients = () => {
 
     /**
      * Buscar clientes
+     * CORREÇÃO: Simplificado, não gerencia estado interno de searchTerm
      */
-    const searchClients = async (term) => {
-        setSearchTerm(term);
+    const searchClients = useCallback(
+        async (term) => {
+            if (!currentBase?.id) return;
 
-        if (!term) {
-            fetchClients();
-            return;
-        }
+            setLoading(true);
+            setError(null);
 
-        setLoading(true);
-        try {
-            const results = await clientService.search(term, currentBase?.id);
-            setClients(results);
-            const clientMetrics = clientService.getMetrics(results);
-            setMetrics(clientMetrics);
-        } catch (err) {
-            console.error('Erro ao buscar clientes:', err);
-            toast.error('Erro na busca');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    /**
-     * Buscar clientes automaticamente quando o componente monta
-     */
-    useEffect(() => {
-        if (currentBase) {
-            fetchClients();
-        }
-    }, [currentBase, fetchClients]);
+            try {
+                const results = await clientService.search(term, currentBase.id);
+                setClients(results);
+                // Não atualiza métricas em busca
+            } catch (err) {
+                console.error('Erro ao buscar clientes:', err);
+                setError(err.message);
+                toast.error('Erro na busca');
+            } finally {
+                setLoading(false);
+            }
+        },
+        [currentBase, setClients]
+    );
 
     return {
         clients,
         loading,
         error,
         metrics,
-        searchTerm,
         fetchClients,
         listenToClients,
         createClient,
