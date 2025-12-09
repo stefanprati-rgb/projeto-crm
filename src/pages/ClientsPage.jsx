@@ -4,7 +4,7 @@ import { useClients } from '../hooks/useClients';
 import { ClientsList } from '../components/clients/ClientsList';
 import { ClientModal } from '../components/clients/ClientModal';
 import { ClientDetailsPanel } from '../components/clients/ClientDetailsPanel';
-import { Button, ListPageSkeleton, ConfirmDialog } from '../components';
+import { Button, ListPageSkeleton, ConfirmDialog, Pagination } from '../components';
 import { cn } from '../utils/cn';
 
 export const ClientsPage = () => {
@@ -18,7 +18,7 @@ export const ClientsPage = () => {
         updateClient,
         deleteClient,
         searchClients,
-        listenToClients,
+        fetchClients,
     } = useClients();
 
     const [selectedClient, setSelectedClient] = useState(null);
@@ -27,11 +27,78 @@ export const ClientsPage = () => {
     const [localSearchTerm, setLocalSearchTerm] = useState('');
     const [confirmDelete, setConfirmDelete] = useState(null);
 
-    // Listener em tempo real
+    // ✅ P2-4: States de paginação
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [totalPages, setTotalPages] = useState(1);
+
+    // Cursores para paginação
+    const [nextPageCursor, setNextPageCursor] = useState(null);
+    const [cursorStack, setCursorStack] = useState([]);
+
+    // Carregar dados iniciais (Página 1)
     useEffect(() => {
-        const unsubscribe = listenToClients();
-        return () => unsubscribe?.();
-    }, [listenToClients]);
+        const loadInitialData = async () => {
+            const result = await fetchClients({ pageSize });
+            if (result && result.lastDoc) {
+                setNextPageCursor(result.lastDoc);
+            } else {
+                setNextPageCursor(null);
+            }
+            setCursorStack([]);
+            setCurrentPage(1);
+        };
+
+        loadInitialData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pageSize]);
+
+    // Atualizar total de páginas baseado nas métricas
+    useEffect(() => {
+        if (metrics?.total) {
+            setTotalPages(Math.ceil(metrics.total / pageSize));
+        }
+    }, [metrics, pageSize]);
+
+    // Handlers de Paginação
+    const handlePageChange = async (newPage) => {
+        // Próxima Página
+        if (newPage > currentPage) {
+            if (!nextPageCursor) return;
+
+            const cursorUsed = nextPageCursor;
+            setCursorStack(prev => [...prev, cursorUsed]);
+
+            const result = await fetchClients({
+                pageSize,
+                lastDoc: cursorUsed
+            });
+
+            setNextPageCursor(result.lastDoc || null);
+            setCurrentPage(newPage);
+        }
+
+        // Página Anterior
+        else if (newPage < currentPage) {
+            // Volta para página anterior removendo o último cursor
+            const newStack = cursorStack.slice(0, newPage - 1);
+            const cursorToUse = newStack.length > 0 ? newStack[newStack.length - 1] : null;
+
+            setCursorStack(newStack);
+
+            const result = await fetchClients({
+                pageSize,
+                lastDoc: cursorToUse
+            });
+
+            setNextPageCursor(result.lastDoc || null);
+            setCurrentPage(newPage);
+        }
+    };
+
+    const handlePageSizeChange = (newSize) => {
+        setPageSize(newSize);
+    };
 
     // Busca com debounce
     useEffect(() => {
@@ -162,6 +229,21 @@ export const ClientsPage = () => {
                     </div>
                 )}
             </div>
+
+            {/* ✅ P2-4: Paginação */}
+            {!loading && clients.length > 0 && (
+                <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={metrics?.total || clients.length}
+                    pageSize={pageSize}
+                    onPageChange={handlePageChange}
+                    onPageSizeChange={handlePageSizeChange}
+                    pageSizeOptions={[10, 20, 50, 100]}
+                    showPageSize={true}
+                    showInfo={true}
+                />
+            )}
 
             {/* Modal de Criação/Edição */}
             <ClientModal
