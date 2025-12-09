@@ -231,7 +231,7 @@ export const ClientsPage = () => {
             </div>
 
             {/* ✅ P2-4: Paginação */}
-            {!loading && clients.length > 0 && (
+            {clients.length > 0 && (
                 <Pagination
                     currentPage={currentPage}
                     totalPages={totalPages}
@@ -242,6 +242,7 @@ export const ClientsPage = () => {
                     pageSizeOptions={[10, 20, 50, 100]}
                     showPageSize={true}
                     showInfo={true}
+                    loading={loading}
                 />
             )}
 

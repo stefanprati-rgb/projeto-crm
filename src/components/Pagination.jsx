@@ -12,6 +12,7 @@ export const Pagination = ({
     pageSizeOptions = [10, 20, 50, 100],
     showPageSize = true,
     showInfo = true,
+    loading = false,
     className,
 }) => {
     const startItem = (currentPage - 1) * pageSize + 1;
@@ -58,7 +59,11 @@ export const Pagination = ({
     }
 
     return (
-        <div className={cn('flex flex-col sm:flex-row items-center justify-between gap-4', className)}>
+        <div className={cn(
+            'flex flex-col sm:flex-row items-center justify-between gap-4 transition-opacity',
+            loading && 'opacity-50 pointer-events-none',
+            className
+        )}>
             {/* Info */}
             {showInfo && (
                 <div className="text-sm text-gray-600 dark:text-gray-400">
