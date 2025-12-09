@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.9",
+    "@heroicons/react": "^2.2.0",
     "@tanstack/react-virtual": "^3.13.12",
     "clsx": "^2.1.1",
     "cpf-cnpj-validator": "^1.0.3",
