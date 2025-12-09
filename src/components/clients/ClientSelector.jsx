@@ -13,7 +13,22 @@ export const ClientSelector = ({
     const clients = useClients();
     const [searchTerm, setSearchTerm] = useState('');
     const [isOpen, setIsOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const dropdownRef = useRef(null);
+
+    // Detectar quando dados terminam de carregar
+    useEffect(() => {
+        // Se há clientes, não está mais carregando
+        if (clients.length > 0) {
+            setIsLoading(false);
+        }
+        // Após 3 segundos, assumir que não há clientes (timeout)
+        const timeout = setTimeout(() => {
+            setIsLoading(false);
+        }, 3000);
+
+        return () => clearTimeout(timeout);
+    }, [clients.length]);
 
     // Cliente selecionado
     const selectedClient = clients.find(c => c.id === value);
@@ -112,7 +127,14 @@ export const ClientSelector = ({
 
                     {/* Lista */}
                     <div className="overflow-y-auto max-h-64">
-                        {filteredClients.length === 0 ? (
+                        {isLoading ? (
+                            <div className="p-4 text-center text-gray-500 dark:text-gray-400">
+                                <div className="flex items-center justify-center gap-2">
+                                    <div className="animate-spin h-4 w-4 border-2 border-primary-600 border-t-transparent rounded-full"></div>
+                                    Carregando clientes...
+                                </div>
+                            </div>
+                        ) : filteredClients.length === 0 ? (
                             <div className="p-4 text-center text-gray-500 dark:text-gray-400">
                                 {searchTerm
                                     ? 'Nenhum cliente encontrado'

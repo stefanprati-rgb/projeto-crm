@@ -4,8 +4,6 @@ import useStore from '../stores/useStore';
 import { DashboardSkeleton } from '../components';
 import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 import { TrendChart, PieChartComponent, MultiLineChart, BarChartComponent } from '../components/charts/Charts';
-import { useClients } from '../hooks/useClients';
-import { useTickets } from '../hooks/useTickets';
 
 const StatCard = ({ title, value, icon: Icon, trend, color = 'primary' }) => {
     const colorClasses = {
@@ -43,20 +41,6 @@ const StatCard = ({ title, value, icon: Icon, trend, color = 'primary' }) => {
 export const DashboardPage = () => {
     const { stats, chartData, loading } = useDashboardMetrics();
     const { setDashboardStats, setDashboardLoading } = useStore();
-    const { listenToClients } = useClients();
-    const { listenToTickets } = useTickets();
-
-    // ✅ SOLUÇÃO P0-3: Listener em tempo real para clientes
-    useEffect(() => {
-        const unsubscribe = listenToClients();
-        return () => unsubscribe?.();
-    }, [listenToClients]);
-
-    // ✅ SOLUÇÃO P0-3: Listener em tempo real para tickets
-    useEffect(() => {
-        const unsubscribe = listenToTickets();
-        return () => unsubscribe?.();
-    }, [listenToTickets]);
 
     // Sincronizar métricas com a store
     useEffect(() => {

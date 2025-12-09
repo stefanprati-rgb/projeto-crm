@@ -9,8 +9,7 @@ export const maskCPF = (cpf) => {
     if (!cpf) return '';
     const clean = cpf.replace(/\D/g, '');
     if (clean.length !== 11) return cpf; // Retorna original se formato inválido
-    return `***.${clean.substr(3, 3)}.${clean.substr(6, 3)}-**`;
-    // Ou formato mais estrito: ***.456.***-00
+    return `***.${clean.substring(3, 6)}.${clean.substring(6, 9)}-**`;
 };
 
 /**
@@ -20,7 +19,7 @@ export const maskCNPJ = (cnpj) => {
     if (!cnpj) return '';
     const clean = cnpj.replace(/\D/g, '');
     if (clean.length !== 14) return cnpj;
-    return `${clean.substr(0, 2)}.${clean.substr(2, 3)}.***/${clean.substr(8, 4)}-**`;
+    return `${clean.substring(0, 2)}.${clean.substring(2, 5)}.***/${clean.substring(8, 12)}-**`;
 };
 
 /**
@@ -33,8 +32,8 @@ export const maskEmail = (email) => {
 
     const [user, domain] = parts;
     const maskedUser = user.length > 3
-        ? `${user.substr(0, 1)}***${user.substr(-1)}`
-        : `${user.substr(0, 1)}***`;
+        ? `${user.substring(0, 1)}***${user.slice(-1)}`
+        : `${user.substring(0, 1)}***`;
 
     return `${maskedUser}@${domain}`;
 };
@@ -48,13 +47,9 @@ export const maskPhone = (phone) => {
     if (phone.includes('-')) {
         const parts = phone.split('-');
         if (parts.length === 2) {
-            // (11) 98765 => (11) 9****
             const prefix = parts[0];
             const suffix = parts[1];
-            // Mantém os 2 últimos dígitos do sufixo
-            const maskedPrefix = prefix.replace(/\d(?=\d{2})/g, '*'); // Substitui digitos exceto os 2 ultimos? Não.
-            // Simples: (11) 9****-4321
-            return `${prefix.substr(0, prefix.length - 4)}****-${suffix}`;
+            return `${prefix.substring(0, prefix.length - 4)}****-${suffix}`;
         }
     }
     return phone.replace(/(\d{4,5})-(\d{4})/, '****-$2');

@@ -6,6 +6,8 @@ import { LoadingScreen } from './components';
 import { MainLayout } from './layouts/MainLayout';
 import { useAuth } from './hooks/useAuth';
 import { useUser, useDarkMode } from './stores/useStore';
+import { useClients } from './hooks/useClients';
+import { useTickets } from './hooks/useTickets';
 
 // Lazy load pages para melhor performance
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
@@ -49,6 +51,9 @@ const PublicRoute = ({ children }) => {
 
 function App() {
   const darkMode = useDarkMode();
+  const user = useUser();
+  const { listenToClients } = useClients();
+  const { listenToTickets } = useTickets();
 
   // Apply dark mode class to html element
   useEffect(() => {
@@ -58,6 +63,28 @@ function App() {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  // ✅ SOLUÇÃO P0-1: Listeners globais para popular store ao fazer login
+  // Isso garante que Dashboard, ClientSelector e todos os componentes
+  // vejam os mesmos dados sincronizados do Firestore
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('🔄 Iniciando listeners globais de dados...');
+
+    // Listener de clientes
+    const unsubscribeClients = listenToClients();
+
+    // Listener de tickets
+    const unsubscribeTickets = listenToTickets();
+
+    // Cleanup ao fazer logout
+    return () => {
+      console.log('🛑 Parando listeners globais de dados...');
+      if (unsubscribeClients) unsubscribeClients();
+      if (unsubscribeTickets) unsubscribeTickets();
+    };
+  }, [user, listenToClients, listenToTickets]);
 
   return (
     <ErrorBoundary>
