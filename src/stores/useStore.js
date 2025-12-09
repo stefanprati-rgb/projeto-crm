@@ -32,6 +32,7 @@ const useStore = create(
                 darkMode: false,
                 sidebarOpen: true,
                 loading: false,
+                privacyMode: false, // P3-2: Mascaramento de PII
 
                 // Dados
                 clients: [],
@@ -71,6 +72,10 @@ const useStore = create(
                 toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
                 setSidebarOpen: (value) => set({ sidebarOpen: value }),
                 setLoading: (value) => set({ loading: value }),
+
+                // Actions - Privacy
+                togglePrivacyMode: () => set((state) => ({ privacyMode: !state.privacyMode })),
+                setPrivacyMode: (value) => set({ privacyMode: value }),
 
                 // Actions - Clients
                 setClients: (clients) => set({ clients }),
@@ -152,5 +157,6 @@ export const useClients = () => useStore((state) => state.clients);
 export const useTickets = () => useStore((state) => state.tickets);
 export const usePagination = (type) => useStore((state) => state.pagination[type]);
 export const useDashboard = () => useStore((state) => state.dashboard);
+export const usePrivacyMode = () => useStore((state) => state.privacyMode);
 
 export default useStore;

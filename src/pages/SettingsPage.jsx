@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { User, Bell, Shield, Palette, Database } from 'lucide-react';
 import { Button } from '../components';
-import useStore, { useDarkMode, useUser } from '../stores/useStore';
+import useStore, { useDarkMode, useUser, usePrivacyMode } from '../stores/useStore';
 import { cn } from '../utils/cn';
 
 const SettingsSection = ({ title, description, icon: Icon, children }) => {
@@ -27,8 +27,9 @@ const SettingsSection = ({ title, description, icon: Icon, children }) => {
 
 export const SettingsPage = () => {
     const darkMode = useDarkMode();
+    const privacyMode = usePrivacyMode(); // P3-2
     const user = useUser();
-    const { toggleDarkMode } = useStore();
+    const { toggleDarkMode, togglePrivacyMode } = useStore();
 
     const [notifications, setNotifications] = useState({
         email: true,
@@ -246,7 +247,33 @@ export const SettingsPage = () => {
                 icon={Database}
             >
                 <div className="space-y-4">
-                    <div>
+                    {/* P3-2: Toggle Privacidade */}
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">
+                                Modo de Privacidade
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                Ocultar dados sensíveis (CPF, Email) nas listagens
+                            </p>
+                        </div>
+                        <button
+                            onClick={togglePrivacyMode}
+                            className={cn(
+                                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                                privacyMode ? 'bg-primary-600' : 'bg-gray-200 dark:bg-gray-700'
+                            )}
+                        >
+                            <span
+                                className={cn(
+                                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                                    privacyMode ? 'translate-x-6' : 'translate-x-1'
+                                )}
+                            />
+                        </button>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                         <Button variant="secondary" disabled>
                             Exportar Dados
                         </Button>

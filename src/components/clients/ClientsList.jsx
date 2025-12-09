@@ -1,6 +1,8 @@
 import { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Mail, Phone, MapPin, Building2, AlertCircle } from 'lucide-react';
+import { usePrivacyMode } from '../../stores/useStore';
+import { maskEmail, maskPhone, maskValue } from '../../utils/masker';
 import { Badge } from '../Badge';
 import { cn } from '../../utils/cn';
 import { formatDistanceToNow } from 'date-fns';
@@ -8,6 +10,7 @@ import { ptBR } from 'date-fns/locale';
 
 export const ClientsList = ({ clients, onSelectClient, selectedClientId, className }) => {
     const parentRef = useRef();
+    const privacyMode = usePrivacyMode();
 
     // Virtualização para performance com listas grandes
     const virtualizer = useVirtualizer({
@@ -102,14 +105,18 @@ export const ClientsList = ({ clients, onSelectClient, selectedClientId, classNa
                                             {client.email && (
                                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                                     <Mail className="h-3 w-3 flex-shrink-0" />
-                                                    <span className="truncate">{client.email}</span>
+                                                    <span className="truncate">
+                                                        {privacyMode ? maskEmail(client.email) : client.email}
+                                                    </span>
                                                 </div>
                                             )}
 
                                             {client.phone && (
                                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                                     <Phone className="h-3 w-3 flex-shrink-0" />
-                                                    <span>{client.phone}</span>
+                                                    <span>
+                                                        {privacyMode ? maskPhone(client.phone) : client.phone}
+                                                    </span>
                                                 </div>
                                             )}
 
@@ -138,7 +145,9 @@ export const ClientsList = ({ clients, onSelectClient, selectedClientId, classNa
                                         <div className="hidden md:block flex-shrink-0 text-right">
                                             <p className="text-xs text-gray-500 dark:text-gray-400">CPF/CNPJ</p>
                                             <p className="text-sm font-mono text-gray-900 dark:text-gray-100">
-                                                {client.cpfCnpj}
+                                                {privacyMode
+                                                    ? (client.cpfCnpj.length > 14 ? maskValue(client.cpfCnpj, 'cnpj') : maskValue(client.cpfCnpj, 'cpf'))
+                                                    : client.cpfCnpj}
                                             </p>
                                         </div>
                                     )}
