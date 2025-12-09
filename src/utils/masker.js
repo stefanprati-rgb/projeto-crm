@@ -3,17 +3,17 @@
  */
 
 /**
- * Mascara CPF: 123.456.789-00 -> ***.456.***-00
+ * Mascara CPF: 123.456.789-00 -> XXX.456.XXX-00
  */
 export const maskCPF = (cpf) => {
     if (!cpf) return '';
     const clean = cpf.replace(/\D/g, '');
-    if (clean.length !== 11) return cpf; // Retorna original se formato inválido
+    if (clean.length !== 11) return cpf;
     return `***.${clean.substring(3, 6)}.${clean.substring(6, 9)}-**`;
 };
 
 /**
- * Mascara CNPJ: 12.345.678/0001-90 -> 12.***.***/0001 -**
+ * Mascara CNPJ: 12.345.678/0001-90 -> 12.345.678/0001-XX
  */
 export const maskCNPJ = (cnpj) => {
     if (!cnpj) return '';
@@ -23,7 +23,7 @@ export const maskCNPJ = (cnpj) => {
 };
 
 /**
- * Mascara Email: usuario@exemplo.com -> u***@exemplo.com
+ * Mascara Email: usuario@exemplo.com -> uXXX@exemplo.com
  */
 export const maskEmail = (email) => {
     if (!email) return '';
@@ -39,11 +39,10 @@ export const maskEmail = (email) => {
 };
 
 /**
- * Mascara Telefone: (11) 98765-4321 -> (11) 9****-4321
+ * Mascara Telefone: (11) 98765-4321 -> (11) 9XXXX-4321
  */
 export const maskPhone = (phone) => {
     if (!phone) return '';
-    // Assume formato formatado (XX) XXXXX-XXXX
     if (phone.includes('-')) {
         const parts = phone.split('-');
         if (parts.length === 2) {
@@ -64,8 +63,8 @@ export const maskName = (name) => {
     if (parts.length <= 1) return name;
 
     return parts.map((part, index) => {
-        if (index === 0) return part; // Primeiro nome visível
-        if (part.length <= 2) return part; // de, da, do
+        if (index === 0) return part;
+        if (part.length <= 2) return part;
         return `${part[0]}.`;
     }).join(' ');
 };
