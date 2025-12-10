@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, TrendingUp, AlertCircle } from 'lucide-react';
+import { Plus, Search, Filter, AlertCircle, TrendingUp } from 'lucide-react';
 import { useTickets } from '../hooks/useTickets';
 import { TicketsList } from '../components/tickets/TicketsList';
 import { TicketModal } from '../components/tickets/TicketModal';
 import { TicketDetailsDrawer } from '../components/tickets/TicketDetailsDrawer';
 import { Button, Spinner, Badge } from '../components';
-import { cn } from '../utils/cn';
 
+/**
+ * Página de Tickets - Layout com lista full-width e Drawer lateral
+ * 
+ * A lista ocupa toda a largura disponível
+ * O detalhe abre como overlay (drawer) de 1280px
+ */
 export const TicketsPage = () => {
     const {
         tickets,
@@ -22,7 +27,6 @@ export const TicketsPage = () => {
     const [modalOpen, setModalOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [showFilters, setShowFilters] = useState(false);
 
     // Listener em tempo real
     useEffect(() => {
@@ -32,15 +36,26 @@ export const TicketsPage = () => {
 
     // Filtrar tickets
     const filteredTickets = tickets.filter((ticket) => {
+        const searchLower = searchTerm.toLowerCase();
         const matchesSearch =
-            ticket.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            ticket.protocol?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            ticket.description?.toLowerCase().includes(searchTerm.toLowerCase());
+            ticket.subject?.toLowerCase().includes(searchLower) ||
+            ticket.protocol?.toLowerCase().includes(searchLower) ||
+            ticket.description?.toLowerCase().includes(searchLower) ||
+            ticket.clientName?.toLowerCase().includes(searchLower);
 
         const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
 
         return matchesSearch && matchesStatus;
     });
+
+    // Handler de atualização do ticket
+    const handleUpdateTicket = async (ticketId, clientId, updates) => {
+        await updateTicket(ticketId, clientId, updates);
+        // Atualiza o ticket selecionado se for o mesmo
+        if (selectedTicket?.id === ticketId) {
+            setSelectedTicket((prev) => ({ ...prev, ...updates }));
+        }
+    };
 
     if (loading && tickets.length === 0) {
         return (
@@ -51,13 +66,15 @@ export const TicketsPage = () => {
     }
 
     return (
-        <div className="h-full flex flex-col gap-6">
+        <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Tickets</h1>
-                    <p className="mt-1 text-gray-600 dark:text-gray-400">
-                        Gerencie todos os tickets de suporte
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                        Central de Atendimento
+                    </h1>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Gerencie chamados e suporte técnico de O&M Solar
                     </p>
                 </div>
                 <Button onClick={() => setModalOpen(true)}>
@@ -68,7 +85,7 @@ export const TicketsPage = () => {
 
             {/* Métricas */}
             {metrics && (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                     <MetricCard label="Total" value={metrics.total} />
                     <MetricCard label="Abertos" value={metrics.open} variant="info" />
                     <MetricCard label="Vencidos" value={metrics.overdue} variant="danger" />
@@ -86,17 +103,17 @@ export const TicketsPage = () => {
                 </div>
             )}
 
-            {/* Busca e Filtros */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            {/* Barra de Ferramentas */}
+            <div className="flex flex-col sm:flex-row gap-3 px-6 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 {/* Busca */}
                 <div className="flex-1 relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
                         type="text"
-                        placeholder="Buscar por assunto, protocolo ou descrição..."
+                        placeholder="Buscar por assunto, protocolo, cliente..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="input pl-10"
+                        className="input pl-10 w-full"
                     />
                 </div>
 
@@ -110,23 +127,19 @@ export const TicketsPage = () => {
                         <option value="all">Todos os Status</option>
                         <option value="open">Abertos</option>
                         <option value="in_progress">Em Andamento</option>
+                        <option value="waiting_client">Pendente Cliente</option>
+                        <option value="waiting_parts">Aguardando Peças</option>
+                        <option value="scheduled">Visita Agendada</option>
+                        <option value="monitoring">Em Monitoramento</option>
                         <option value="resolved">Resolvidos</option>
                         <option value="closed">Fechados</option>
                     </select>
-
-                    <Button
-                        variant="secondary"
-                        onClick={() => setShowFilters(!showFilters)}
-                        className="hidden sm:flex"
-                    >
-                        <Filter className="h-4 w-4" />
-                    </Button>
                 </div>
             </div>
 
             {/* Erro */}
             {error && (
-                <div className="card bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                <div className="mx-6 mt-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-4">
                     <div className="flex items-center gap-3">
                         <AlertCircle className="h-5 w-5 text-red-600" />
                         <div className="flex-1">
@@ -139,8 +152,8 @@ export const TicketsPage = () => {
                 </div>
             )}
 
-            {/* Conteúdo Principal - Lista de Tickets ocupa toda a largura */}
-            <div className="flex-1 min-h-0">
+            {/* Lista de Tickets (Full Width) */}
+            <div className="flex-1 overflow-hidden px-6 py-4 bg-gray-50 dark:bg-gray-900">
                 <TicketsList
                     tickets={filteredTickets}
                     onSelectTicket={setSelectedTicket}
@@ -156,12 +169,12 @@ export const TicketsPage = () => {
                 onSubmit={createTicket}
             />
 
-            {/* Drawer de Detalhes (90% da tela) */}
+            {/* Drawer de Detalhes (1280px max) */}
             <TicketDetailsDrawer
-                ticket={selectedTicket}
                 isOpen={!!selectedTicket}
-                onUpdate={updateTicket}
                 onClose={() => setSelectedTicket(null)}
+                ticket={selectedTicket}
+                onUpdate={handleUpdateTicket}
             />
         </div>
     );
@@ -172,7 +185,7 @@ export const TicketsPage = () => {
  */
 const MetricCard = ({ label, value, variant = 'default' }) => {
     const variants = {
-        default: 'bg-gray-50 dark:bg-gray-800',
+        default: 'bg-white dark:bg-gray-800',
         info: 'bg-blue-50 dark:bg-blue-900/20',
         success: 'bg-green-50 dark:bg-green-900/20',
         warning: 'bg-yellow-50 dark:bg-yellow-900/20',
@@ -180,9 +193,9 @@ const MetricCard = ({ label, value, variant = 'default' }) => {
     };
 
     return (
-        <div className={cn('rounded-lg p-4', variants[variant])}>
+        <div className={`rounded-lg p-3 border border-gray-200 dark:border-gray-700 ${variants[variant]}`}>
             <p className="text-xs font-medium text-gray-600 dark:text-gray-400">{label}</p>
-            <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+            <p className="mt-1 text-xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
         </div>
     );
 };

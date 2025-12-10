@@ -1,31 +1,32 @@
-import { useRef, useMemo } from 'react';
+import { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Clock, AlertCircle, UserCheck, User } from 'lucide-react';
+import { Clock, AlertCircle, User, Building2 } from 'lucide-react';
 import { Badge } from '../Badge';
 import { cn } from '../../utils/cn';
 import { ticketService } from '../../services/ticketService';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+/**
+ * Lista virtualizada de tickets com cards enriquecidos
+ * Mostra cliente, responsável, badges e tempo
+ */
 export const TicketsList = ({ tickets, onSelectTicket, selectedTicketId, className }) => {
     const parentRef = useRef();
 
-    // Virtualização para performance com listas grandes
     const virtualizer = useVirtualizer({
         count: tickets.length,
         getScrollElement: () => parentRef.current,
-        estimateSize: () => 100,
+        estimateSize: () => 140, // Aumentado para acomodar novos campos
         overscan: 5,
     });
-
-    const virtualItems = virtualizer.getVirtualItems();
 
     if (tickets.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500 dark:text-gray-400">
-                <AlertCircle className="h-12 w-12 mb-4" />
+                <AlertCircle className="h-12 w-12 mb-4 opacity-50" />
                 <p className="text-lg font-medium">Nenhum ticket encontrado</p>
-                <p className="text-sm">Crie um novo ticket para começar</p>
+                <p className="text-sm">Ajuste os filtros ou crie um novo ticket.</p>
             </div>
         );
     }
@@ -39,7 +40,7 @@ export const TicketsList = ({ tickets, onSelectTicket, selectedTicketId, classNa
                     position: 'relative',
                 }}
             >
-                {virtualItems.map((virtualItem) => {
+                {virtualizer.getVirtualItems().map((virtualItem) => {
                     const ticket = tickets[virtualItem.index];
                     const statusFormat = ticketService.formatStatus(ticket.status);
                     const priorityFormat = ticketService.formatPriority(ticket.priority);
@@ -62,153 +63,101 @@ export const TicketsList = ({ tickets, onSelectTicket, selectedTicketId, classNa
                             <div
                                 onClick={() => onSelectTicket(ticket)}
                                 className={cn(
-                                    'card cursor-pointer transition-all duration-200 h-full',
+                                    'cursor-pointer transition-all duration-200 p-4 rounded-lg border bg-white dark:bg-gray-800',
+                                    'hover:shadow-md',
                                     isSelected
-                                        ? 'ring-2 ring-primary-500 shadow-lg'
-                                        : 'hover:shadow-md hover:border-primary-200 dark:hover:border-primary-800',
-                                    ticket.pending && 'opacity-60'
+                                        ? 'border-primary-500 ring-1 ring-primary-500 bg-primary-50/50 dark:bg-primary-900/20'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-700'
                                 )}
                             >
-                                <div className="flex items-start justify-between gap-3">
-                                    {/* Conteúdo Principal */}
-                                    <div className="flex-1 min-w-0">
-                                        {/* Nome do Cliente (destaque) */}
-                                        {ticket.clientName && (
-                                            <span className="text-xs font-bold text-primary-600 dark:text-primary-400 uppercase tracking-wide">
-                                                {ticket.clientName}
+                                <div className="flex flex-col gap-2">
+                                    {/* Linha 1: Cliente e Protocolo */}
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <Building2 className="h-3.5 w-3.5 text-primary-500 flex-shrink-0" />
+                                            <span className="text-xs font-bold text-primary-600 dark:text-primary-400 truncate uppercase tracking-wide">
+                                                {ticket.clientName || 'Cliente Desconhecido'}
+                                            </span>
+                                        </div>
+                                        <span className="text-[10px] font-mono text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                            {ticket.protocol}
+                                        </span>
+                                    </div>
+
+                                    {/* Linha 2: Assunto */}
+                                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate text-sm">
+                                        {ticket.subject}
+                                    </h3>
+
+                                    {/* Linha 3: Badges e Categoria */}
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <Badge variant={statusFormat.variant} className="text-[10px] px-1.5 py-0">
+                                            {statusFormat.text}
+                                        </Badge>
+                                        <Badge variant={priorityFormat.variant} className="text-[10px] px-1.5 py-0">
+                                            {priorityFormat.text}
+                                        </Badge>
+                                        {ticket.category && (
+                                            <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+                                                • {ticket.category}
                                             </span>
                                         )}
+                                        {ticket.generationImpact === 'parada_total' && (
+                                            <Badge variant="danger" className="text-[10px] px-1.5 py-0">
+                                                🔴 Parada Total
+                                            </Badge>
+                                        )}
+                                    </div>
 
-                                        {/* Protocolo e Badges */}
-                                        <div className="flex items-center gap-2 mb-1 mt-1">
-                                            <span className="text-xs font-mono text-gray-500 dark:text-gray-400">
-                                                {ticket.protocol}
-                                            </span>
-                                            <Badge variant={statusFormat.variant}>
-                                                {statusFormat.text}
-                                            </Badge>
-                                            <Badge variant={priorityFormat.variant}>
-                                                {priorityFormat.text}
-                                            </Badge>
-                                            {isOverdue && (
-                                                <Badge variant="danger" className="flex items-center gap-1">
-                                                    <Clock className="h-3 w-3" />
-                                                    Vencido
-                                                </Badge>
+                                    {/* Linha 4: Rodapé (Responsável e Tempo/SLA) */}
+                                    <div className="flex items-center justify-between mt-1 pt-2 border-t border-gray-100 dark:border-gray-700">
+                                        {/* Responsável */}
+                                        <div className="flex items-center gap-1.5">
+                                            {ticket.responsibleName ? (
+                                                <>
+                                                    <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                                                        {ticket.responsibleName.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
+                                                        {ticket.responsibleName.split(' ')[0]}
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                                        <User className="h-3 w-3 text-gray-400" />
+                                                    </div>
+                                                    <span className="text-xs text-gray-400 italic">
+                                                        Não atribuído
+                                                    </span>
+                                                </>
                                             )}
                                         </div>
 
-                                        {/* Assunto */}
-                                        <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate mb-1">
-                                            {ticket.subject}
-                                        </h3>
-
-                                        {/* Descrição - line-clamp-2 */}
-                                        {ticket.description && (
-                                            <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                                                {ticket.description}
-                                            </p>
-                                        )}
-
-                                        {/* Rodapé: Metadata + Responsável */}
-                                        <div className="flex items-center justify-between gap-3 mt-2">
-                                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                                <span>
-                                                    {ticket.createdAt &&
-                                                        formatDistanceToNow(new Date(ticket.createdAt), {
-                                                            addSuffix: true,
-                                                            locale: ptBR,
-                                                        })}
+                                        {/* Tempo / SLA */}
+                                        <div className="flex items-center gap-2">
+                                            {isOverdue ? (
+                                                <Badge variant="danger" className="text-[10px] py-0 px-1.5 flex items-center gap-1">
+                                                    <Clock className="h-3 w-3" />
+                                                    SLA Vencido
+                                                </Badge>
+                                            ) : (
+                                                <span className="text-xs text-gray-400 flex items-center gap-1">
+                                                    <Clock className="h-3 w-3" />
+                                                    {ticket.createdAt && formatDistanceToNow(new Date(ticket.createdAt), {
+                                                        addSuffix: true,
+                                                        locale: ptBR,
+                                                    })}
                                                 </span>
-                                                {ticket.category && (
-                                                    <>
-                                                        <span>•</span>
-                                                        <span className="capitalize">{ticket.category}</span>
-                                                    </>
-                                                )}
-                                            </div>
-
-                                            {/* Avatar do Responsável */}
-                                            <ResponsibleAvatar
-                                                responsibleId={ticket.responsibleId}
-                                                responsibleName={ticket.responsibleName}
-                                            />
+                                            )}
                                         </div>
                                     </div>
-
-                                    {/* SLA Indicator */}
-                                    {ticket.dueDate && !['resolved', 'closed'].includes(ticket.status) && (
-                                        <div className="flex-shrink-0">
-                                            <DueDateIndicator dueDate={ticket.dueDate} overdue={ticket.overdue} />
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                         </div>
                     );
                 })}
             </div>
-        </div>
-    );
-};
-
-/**
- * Indicador visual de prazo (SLA)
- */
-const DueDateIndicator = ({ dueDate, overdue }) => {
-    const now = new Date();
-    const due = new Date(dueDate);
-    const hoursRemaining = Math.floor((due - now) / (1000 * 60 * 60));
-
-    let color = 'text-green-600 bg-green-50 dark:bg-green-900/20';
-    let text = `${hoursRemaining}h`;
-
-    if (overdue) {
-        color = 'text-red-600 bg-red-50 dark:bg-red-900/20';
-        text = 'Vencido';
-    } else if (hoursRemaining < 2) {
-        color = 'text-red-600 bg-red-50 dark:bg-red-900/20';
-    } else if (hoursRemaining < 6) {
-        color = 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20';
-    }
-
-    return (
-        <div className={cn('rounded-lg px-2 py-1 text-xs font-medium', color)}>
-            <Clock className="h-3 w-3 inline mr-1" />
-            {text}
-        </div>
-    );
-};
-
-/**
- * Avatar do Responsável
- */
-const ResponsibleAvatar = ({ responsibleId, responsibleName }) => {
-    if (!responsibleId) {
-        return (
-            <div
-                className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500"
-                title="Não atribuído"
-            >
-                <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                    <User className="h-3 w-3 text-gray-400" />
-                </div>
-                <span className="hidden sm:inline">Não atribuído</span>
-            </div>
-        );
-    }
-
-    return (
-        <div
-            className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"
-            title={responsibleName}
-        >
-            <div className="w-5 h-5 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-xs font-medium text-primary-600 dark:text-primary-400">
-                {responsibleName?.charAt(0)?.toUpperCase() || '?'}
-            </div>
-            <span className="hidden sm:inline truncate max-w-[80px]">
-                {responsibleName?.split(' ')[0] || 'Atribuído'}
-            </span>
         </div>
     );
 };
