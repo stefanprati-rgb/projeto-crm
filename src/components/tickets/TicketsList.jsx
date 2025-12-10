@@ -1,6 +1,6 @@
 import { useRef, useMemo } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Clock, AlertCircle } from 'lucide-react';
+import { Clock, AlertCircle, UserCheck, User } from 'lucide-react';
 import { Badge } from '../Badge';
 import { cn } from '../../utils/cn';
 import { ticketService } from '../../services/ticketService';
@@ -72,8 +72,15 @@ export const TicketsList = ({ tickets, onSelectTicket, selectedTicketId, classNa
                                 <div className="flex items-start justify-between gap-3">
                                     {/* Conteúdo Principal */}
                                     <div className="flex-1 min-w-0">
+                                        {/* Nome do Cliente (destaque) */}
+                                        {ticket.clientName && (
+                                            <span className="text-xs font-bold text-primary-600 dark:text-primary-400 uppercase tracking-wide">
+                                                {ticket.clientName}
+                                            </span>
+                                        )}
+
                                         {/* Protocolo e Badges */}
-                                        <div className="flex items-center gap-2 mb-2">
+                                        <div className="flex items-center gap-2 mb-1 mt-1">
                                             <span className="text-xs font-mono text-gray-500 dark:text-gray-400">
                                                 {ticket.protocol}
                                             </span>
@@ -96,28 +103,36 @@ export const TicketsList = ({ tickets, onSelectTicket, selectedTicketId, classNa
                                             {ticket.subject}
                                         </h3>
 
-                                        {/* Descrição */}
+                                        {/* Descrição - line-clamp-2 */}
                                         {ticket.description && (
                                             <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                                                 {ticket.description}
                                             </p>
                                         )}
 
-                                        {/* Metadata */}
-                                        <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                            <span>
-                                                {ticket.createdAt &&
-                                                    formatDistanceToNow(new Date(ticket.createdAt), {
-                                                        addSuffix: true,
-                                                        locale: ptBR,
-                                                    })}
-                                            </span>
-                                            {ticket.category && (
-                                                <>
-                                                    <span>•</span>
-                                                    <span className="capitalize">{ticket.category}</span>
-                                                </>
-                                            )}
+                                        {/* Rodapé: Metadata + Responsável */}
+                                        <div className="flex items-center justify-between gap-3 mt-2">
+                                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                                <span>
+                                                    {ticket.createdAt &&
+                                                        formatDistanceToNow(new Date(ticket.createdAt), {
+                                                            addSuffix: true,
+                                                            locale: ptBR,
+                                                        })}
+                                                </span>
+                                                {ticket.category && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="capitalize">{ticket.category}</span>
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            {/* Avatar do Responsável */}
+                                            <ResponsibleAvatar
+                                                responsibleId={ticket.responsibleId}
+                                                responsibleName={ticket.responsibleName}
+                                            />
                                         </div>
                                     </div>
 
@@ -161,6 +176,39 @@ const DueDateIndicator = ({ dueDate, overdue }) => {
         <div className={cn('rounded-lg px-2 py-1 text-xs font-medium', color)}>
             <Clock className="h-3 w-3 inline mr-1" />
             {text}
+        </div>
+    );
+};
+
+/**
+ * Avatar do Responsável
+ */
+const ResponsibleAvatar = ({ responsibleId, responsibleName }) => {
+    if (!responsibleId) {
+        return (
+            <div
+                className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500"
+                title="Não atribuído"
+            >
+                <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                    <User className="h-3 w-3 text-gray-400" />
+                </div>
+                <span className="hidden sm:inline">Não atribuído</span>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300"
+            title={responsibleName}
+        >
+            <div className="w-5 h-5 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-xs font-medium text-primary-600 dark:text-primary-400">
+                {responsibleName?.charAt(0)?.toUpperCase() || '?'}
+            </div>
+            <span className="hidden sm:inline truncate max-w-[80px]">
+                {responsibleName?.split(' ')[0] || 'Atribuído'}
+            </span>
         </div>
     );
 };

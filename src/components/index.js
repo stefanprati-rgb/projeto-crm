@@ -23,6 +23,7 @@ export { TicketDetailsDrawer } from './tickets/TicketDetailsDrawer';
 export { TicketDetailsContent } from './tickets/TicketDetailsContent';
 export { TicketTimeline } from './tickets/TicketTimeline';
 export { CommentInput } from './tickets/CommentInput';
+export { ActionChecklist } from './tickets/ActionChecklist';
 export { TicketModal } from './tickets/TicketModal';
 export { TicketsList } from './tickets/TicketsList';
 export { ProjectSelector, EQUIPMENT_TYPES, GENERATION_IMPACT } from './tickets/ProjectSelector';

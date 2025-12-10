@@ -18,6 +18,7 @@ import {
 import { Button, Badge } from '../';
 import { ticketService } from '../../services/ticketService';
 import { TicketTimeline } from './TicketTimeline';
+import { ActionChecklist } from './ActionChecklist';
 import { EQUIPMENT_TYPES, GENERATION_IMPACT } from './ProjectSelector';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -337,6 +338,11 @@ export const TicketDetailsContent = ({ ticket, onUpdate }) => {
                 {/* Dados do Equipamento GD */}
                 {(ticket.projectId || ticket.equipmentType || ticket.errorCode || ticket.generationImpact) && (
                     <EquipmentSection ticket={ticket} />
+                )}
+
+                {/* Checklist de Ações (para tickets técnicos) */}
+                {['tecnico', 'parada_total', 'manutencao', 'instalacao'].includes(ticket.category) && (
+                    <ActionChecklist ticket={ticket} onUpdate={onUpdate} />
                 )}
             </div>
 

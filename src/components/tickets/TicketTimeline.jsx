@@ -13,7 +13,7 @@ import { ticketService } from '../../services/ticketService';
 import { CommentInput } from './CommentInput';
 import { Badge } from '../';
 import { cn } from '../../utils/cn';
-import { format, formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isToday, isYesterday, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { auth } from '../../services/firebase';
 
@@ -103,21 +103,7 @@ export const TicketTimeline = ({ ticketId, clientId, className }) => {
                         <span className="text-sm">Nenhum histórico</span>
                     </div>
                 ) : (
-                    <div className="relative">
-                        {/* Linha vertical conectora */}
-                        <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-gradient-to-b from-primary-300 via-gray-200 to-gray-200 dark:from-primary-700 dark:via-gray-700 dark:to-gray-700" />
-
-                        <div className="space-y-4">
-                            {timeline.map((item, index) => (
-                                <TimelineItem
-                                    key={item.id}
-                                    item={item}
-                                    isLast={index === timeline.length - 1}
-                                />
-                            ))}
-                            <div ref={timelineEndRef} />
-                        </div>
-                    </div>
+                    <GroupedTimeline timeline={timeline} timelineEndRef={timelineEndRef} />
                 )}
             </div>
 
@@ -255,6 +241,66 @@ const EventItem = ({ item, icon: Icon, color = 'gray' }) => {
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                     {formatTime(item.createdAt)}
                 </p>
+            </div>
+        </div>
+    );
+};
+
+/**
+ * Timeline Agrupada por Data
+ */
+const GroupedTimeline = ({ timeline, timelineEndRef }) => {
+    // Agrupa itens por data
+    const groupedItems = timeline.reduce((groups, item) => {
+        if (!item.createdAt) return groups;
+
+        const date = new Date(item.createdAt);
+        let key;
+
+        if (isToday(date)) {
+            key = 'Hoje';
+        } else if (isYesterday(date)) {
+            key = 'Ontem';
+        } else {
+            key = format(date, "dd 'de' MMMM", { locale: ptBR });
+        }
+
+        if (!groups[key]) {
+            groups[key] = [];
+        }
+        groups[key].push(item);
+        return groups;
+    }, {});
+
+    const groupKeys = Object.keys(groupedItems);
+
+    return (
+        <div className="relative">
+            {/* Linha vertical conectora */}
+            <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-gradient-to-b from-primary-300 via-gray-200 to-gray-200 dark:from-primary-700 dark:via-gray-700 dark:to-gray-700" />
+
+            <div className="space-y-4">
+                {groupKeys.map((dateKey) => (
+                    <div key={dateKey}>
+                        {/* Header de Data */}
+                        <div className="relative flex items-center justify-center mb-3">
+                            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                                <div className="w-full border-t border-gray-200 dark:border-gray-700" />
+                            </div>
+                            <span className="relative bg-white dark:bg-gray-900 px-3 py-0.5 text-xs font-medium text-gray-500 dark:text-gray-400 rounded-full border border-gray-200 dark:border-gray-700">
+                                {dateKey}
+                            </span>
+                        </div>
+
+                        {/* Itens do grupo */}
+                        <div className="space-y-3">
+                            {groupedItems[dateKey].map((item) => (
+                                <TimelineItem key={item.id} item={item} />
+                            ))}
+                        </div>
+                    </div>
+                ))}
+                <div ref={timelineEndRef} />
             </div>
         </div>
     );
