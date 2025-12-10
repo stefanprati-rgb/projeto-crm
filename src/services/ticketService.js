@@ -14,6 +14,7 @@ import {
     limit,
     startAfter,
     getDocs,
+    getDoc,
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
@@ -41,6 +42,10 @@ export const ticketService = {
         const formats = {
             open: { text: 'Aberto', variant: 'info', color: 'blue' },
             in_progress: { text: 'Em Andamento', variant: 'warning', color: 'yellow' },
+            waiting_client: { text: 'Pendente Cliente', variant: 'warning', color: 'orange' },
+            waiting_parts: { text: 'Aguardando Peças', variant: 'warning', color: 'orange' },
+            scheduled: { text: 'Visita Agendada', variant: 'info', color: 'purple' },
+            monitoring: { text: 'Em Monitoramento', variant: 'info', color: 'indigo' },
             resolved: { text: 'Resolvido', variant: 'success', color: 'green' },
             closed: { text: 'Fechado', variant: 'default', color: 'gray' },
         };
@@ -48,13 +53,117 @@ export const ticketService = {
     },
 
     /**
-     * Calcula data de vencimento baseada na prioridade
+     * Configuração de SLA por prioridade
+     * businessHours: true = conta apenas horas comerciais (8h-18h, Seg-Sex)
      */
-    calculateDueDate(priority) {
-        const hours = priority === 'high' ? 4 : priority === 'medium' ? 24 : 48;
-        const date = new Date();
-        date.setHours(date.getHours() + hours);
+    SLA_CONFIG: {
+        high: { hours: 4, businessHours: true },
+        medium: { hours: 24, businessHours: true },
+        low: { hours: 72, businessHours: false },
+    },
+
+    /**
+     * Categorias que forçam prioridade alta automaticamente
+     */
+    HIGH_PRIORITY_CATEGORIES: ['parada_total'],
+
+    /**
+     * Verifica se uma categoria deve forçar prioridade alta
+     */
+    shouldForceHighPriority(category) {
+        return this.HIGH_PRIORITY_CATEGORIES.includes(category);
+    },
+
+    /**
+     * Calcula data de vencimento baseada na prioridade e configuração de SLA
+     * @param {string} priority - Prioridade do ticket (high, medium, low)
+     * @param {string} category - Categoria do ticket (opcional, para forçar prioridade)
+     * @returns {string} Data de vencimento em ISO string
+     */
+    calculateDueDate(priority, category = null) {
+        // Força prioridade alta para categorias críticas
+        const effectivePriority = (category && this.shouldForceHighPriority(category))
+            ? 'high'
+            : priority;
+
+        const config = this.SLA_CONFIG[effectivePriority] || this.SLA_CONFIG.medium;
+        const now = new Date();
+
+        if (config.businessHours) {
+            return this.addBusinessHours(now, config.hours);
+        } else {
+            const date = new Date(now);
+            date.setHours(date.getHours() + config.hours);
+            return date.toISOString();
+        }
+    },
+
+    /**
+     * Adiciona horas comerciais a uma data
+     * Horário comercial: 8h às 18h, Segunda a Sexta
+     * @param {Date} startDate - Data inicial
+     * @param {number} hoursToAdd - Horas comerciais a adicionar
+     * @returns {string} Data resultante em ISO string
+     */
+    addBusinessHours(startDate, hoursToAdd) {
+        const BUSINESS_START = 8;  // 8:00
+        const BUSINESS_END = 18;   // 18:00
+        const BUSINESS_HOURS_PER_DAY = BUSINESS_END - BUSINESS_START; // 10 horas
+
+        let date = new Date(startDate);
+        let remainingHours = hoursToAdd;
+
+        // Se começar fora do horário comercial, avança para próximo horário comercial
+        date = this.moveToNextBusinessHour(date, BUSINESS_START, BUSINESS_END);
+
+        while (remainingHours > 0) {
+            const currentHour = date.getHours();
+            const hoursLeftToday = BUSINESS_END - currentHour;
+
+            if (remainingHours <= hoursLeftToday) {
+                // Consegue completar no mesmo dia
+                date.setHours(date.getHours() + remainingHours);
+                remainingHours = 0;
+            } else {
+                // Avança para o próximo dia útil
+                remainingHours -= hoursLeftToday;
+                date.setDate(date.getDate() + 1);
+                date.setHours(BUSINESS_START, 0, 0, 0);
+                date = this.moveToNextBusinessHour(date, BUSINESS_START, BUSINESS_END);
+            }
+        }
+
         return date.toISOString();
+    },
+
+    /**
+     * Move uma data para o próximo horário comercial válido
+     */
+    moveToNextBusinessHour(date, businessStart, businessEnd) {
+        const result = new Date(date);
+
+        // Pula fins de semana
+        while (result.getDay() === 0 || result.getDay() === 6) {
+            result.setDate(result.getDate() + 1);
+            result.setHours(businessStart, 0, 0, 0);
+        }
+
+        // Se antes do horário comercial, ajusta para início
+        if (result.getHours() < businessStart) {
+            result.setHours(businessStart, 0, 0, 0);
+        }
+
+        // Se depois do horário comercial, vai para próximo dia útil
+        if (result.getHours() >= businessEnd) {
+            result.setDate(result.getDate() + 1);
+            result.setHours(businessStart, 0, 0, 0);
+            // Verifica novamente fins de semana
+            while (result.getDay() === 0 || result.getDay() === 6) {
+                result.setDate(result.getDate() + 1);
+            }
+        }
+
+        return result;
     },
 
     /**
@@ -82,12 +191,16 @@ export const ticketService = {
             subject: ticketData.subject,
             description: ticketData.description || '',
             category: ticketData.category || 'outros',
-            priority: ticketData.priority || 'medium',
+            priority: this.shouldForceHighPriority(ticketData.category) ? 'high' : (ticketData.priority || 'medium'),
             status: 'open',
 
-            // SLA
-            dueDate: ticketData.dueDate || this.calculateDueDate(ticketData.priority || 'medium'),
+            // SLA - considera categoria para forçar prioridade
+            dueDate: ticketData.dueDate || this.calculateDueDate(ticketData.priority || 'medium', ticketData.category),
             overdue: false,
+
+            // Responsável (técnico atribuído)
+            responsibleId: ticketData.responsibleId || null,
+            responsibleName: ticketData.responsibleName || null,
 
             // Metadata
             openedBy: user?.uid || null,
@@ -98,7 +211,17 @@ export const ticketService = {
         };
 
         const docRef = await addDoc(collection(db, path), ticket);
-        return { id: docRef.id, clientId, ...ticket };
+        const ticketId = docRef.id;
+
+        // Adiciona evento inicial na timeline
+        await this.addTimelineItem(clientId, ticketId, {
+            type: 'ticket_created',
+            message: `Ticket criado por ${user?.email || 'Sistema'}`,
+            authorId: user?.uid || null,
+            authorName: user?.email || 'Sistema',
+        });
+
+        return { id: ticketId, clientId, ...ticket };
     },
 
     /**
@@ -123,10 +246,31 @@ export const ticketService = {
     },
 
     /**
-     * Atualiza apenas o status
+     * Atualiza apenas o status e registra na timeline
      */
     async updateStatus(clientId, ticketId, newStatus) {
-        return this.update(clientId, ticketId, { status: newStatus });
+        const user = auth.currentUser;
+        const path = `clients/${clientId}/tickets`;
+        const ref = doc(db, path, ticketId);
+
+        // Busca status atual para registrar na timeline
+        const ticketDoc = await getDoc(ref);
+        const oldStatus = ticketDoc.exists() ? ticketDoc.data().status : 'unknown';
+
+        // Atualiza o ticket
+        await this.update(clientId, ticketId, { status: newStatus });
+
+        // Registra mudança na timeline
+        await this.addTimelineItem(clientId, ticketId, {
+            type: 'status_change',
+            oldStatus,
+            newStatus,
+            message: `Status alterado de "${this.formatStatus(oldStatus).text}" para "${this.formatStatus(newStatus).text}"`,
+            authorId: user?.uid || null,
+            authorName: user?.email || 'Sistema',
+        });
+
+        return { id: ticketId, clientId, status: newStatus };
     },
 
     /**
@@ -325,5 +469,122 @@ export const ticketService = {
             avgResolutionHours,
             complianceRate,
         };
+    },
+
+    // ========================================
+    // TIMELINE & COMENTÁRIOS
+    // ========================================
+
+    /**
+     * Adiciona um item à timeline do ticket (comentário ou log de sistema)
+     * @param {string} clientId - ID do cliente
+     * @param {string} ticketId - ID do ticket
+     * @param {object} item - Item a ser adicionado
+     * @param {string} item.type - Tipo: 'comment', 'status_change', 'ticket_created', 'assignment_change'
+     * @param {string} item.message - Mensagem ou conteúdo
+     * @param {string} item.authorId - UID do autor
+     * @param {string} item.authorName - Nome/email do autor
+     */
+    async addTimelineItem(clientId, ticketId, item) {
+        if (!clientId || !ticketId) throw new Error('Client ID e Ticket ID são obrigatórios');
+
+        const path = `clients/${clientId}/tickets/${ticketId}/timeline`;
+
+        const timelineItem = {
+            type: item.type || 'comment',
+            message: item.message || '',
+            authorId: item.authorId || null,
+            authorName: item.authorName || 'Sistema',
+            createdAt: new Date().toISOString(),
+            timestamp: serverTimestamp(),
+            // Campos extras para logs de mudança
+            ...(item.oldStatus && { oldStatus: item.oldStatus }),
+            ...(item.newStatus && { newStatus: item.newStatus }),
+            ...(item.oldResponsible && { oldResponsible: item.oldResponsible }),
+            ...(item.newResponsible && { newResponsible: item.newResponsible }),
+        };
+
+        const docRef = await addDoc(collection(db, path), timelineItem);
+        return { id: docRef.id, ...timelineItem };
+    },
+
+    /**
+     * Adiciona um comentário à timeline (atalho para addTimelineItem)
+     * @param {string} clientId - ID do cliente
+     * @param {string} ticketId - ID do ticket
+     * @param {string} message - Mensagem do comentário
+     * @param {string} authorId - UID do autor
+     * @param {string} authorName - Nome/email do autor
+     */
+    async addComment(clientId, ticketId, message, authorId, authorName) {
+        return this.addTimelineItem(clientId, ticketId, {
+            type: 'comment',
+            message,
+            authorId,
+            authorName,
+        });
+    },
+
+    /**
+     * Busca a timeline do ticket em tempo real
+     * @param {string} clientId - ID do cliente
+     * @param {string} ticketId - ID do ticket
+     * @param {function} onData - Callback com os dados
+     * @param {function} onError - Callback de erro
+     * @returns {function} Unsubscribe function
+     */
+    getTicketTimeline(clientId, ticketId, onData, onError) {
+        if (!clientId || !ticketId) return null;
+
+        const path = `clients/${clientId}/tickets/${ticketId}/timeline`;
+        const q = query(collection(db, path), orderBy('createdAt', 'asc'));
+
+        return onSnapshot(
+            q,
+            (snapshot) => {
+                const timeline = snapshot.docs.map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
+                onData(timeline);
+            },
+            onError
+        );
+    },
+
+    /**
+     * Atribui ou altera o responsável do ticket
+     * @param {string} clientId - ID do cliente
+     * @param {string} ticketId - ID do ticket
+     * @param {string} responsibleId - UID do novo responsável
+     * @param {string} responsibleName - Nome/email do novo responsável
+     */
+    async assignResponsible(clientId, ticketId, responsibleId, responsibleName) {
+        const user = auth.currentUser;
+        const path = `clients/${clientId}/tickets`;
+        const ref = doc(db, path, ticketId);
+
+        // Busca responsável atual para registrar na timeline
+        const ticketDoc = await getDoc(ref);
+        const currentData = ticketDoc.exists() ? ticketDoc.data() : {};
+        const oldResponsibleName = currentData.responsibleName || 'Não atribuído';
+
+        // Atualiza o ticket
+        await this.update(clientId, ticketId, {
+            responsibleId,
+            responsibleName
+        });
+
+        // Registra mudança na timeline
+        await this.addTimelineItem(clientId, ticketId, {
+            type: 'assignment_change',
+            oldResponsible: oldResponsibleName,
+            newResponsible: responsibleName || 'Não atribuído',
+            message: `Responsável alterado de "${oldResponsibleName}" para "${responsibleName || 'Não atribuído'}"`,
+            authorId: user?.uid || null,
+            authorName: user?.email || 'Sistema',
+        });
+
+        return { id: ticketId, clientId, responsibleId, responsibleName };
     },
 };

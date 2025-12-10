@@ -16,3 +16,11 @@ export { EmptyState } from './EmptyState';
 // Import components
 export { BaseImporter } from './import/BaseImporter';
 export { InvoiceImporter } from './import/InvoiceImporter';
+
+// Ticket components
+export { TicketDetailsPanel } from './tickets/TicketDetailsPanel';
+export { TicketTimeline } from './tickets/TicketTimeline';
+export { CommentInput } from './tickets/CommentInput';
+export { TicketModal } from './tickets/TicketModal';
+export { TicketsList } from './tickets/TicketsList';
+export { ProjectSelector, EQUIPMENT_TYPES, GENERATION_IMPACT } from './tickets/ProjectSelector';

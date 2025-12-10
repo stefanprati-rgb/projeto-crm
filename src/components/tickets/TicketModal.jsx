@@ -1,7 +1,9 @@
-import { useForm } from 'react-hook-form';
-import { Modal, Button, Input, ClientSelector } from '../';
-import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
+import { Modal, Button, ClientSelector } from '../';
+import { Loader2, Sun, Zap, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ProjectSelector, EQUIPMENT_TYPES, GENERATION_IMPACT } from './ProjectSelector';
+import { cn } from '../../utils/cn';
 
 const CATEGORIES = [
     { value: 'suporte', label: 'Suporte Técnico' },
@@ -9,19 +11,30 @@ const CATEGORIES = [
     { value: 'comercial', label: 'Comercial' },
     { value: 'instalacao', label: 'Instalação' },
     { value: 'manutencao', label: 'Manutenção' },
+    // Categorias técnicas de GD
+    { value: 'tecnico', label: '⚡ Técnico (GD)', highlight: true },
+    { value: 'parada_total', label: '🔴 Parada Total', highlight: true, forcePriority: 'high' },
     { value: 'outros', label: 'Outros' },
 ];
 
 const PRIORITIES = [
-    { value: 'low', label: 'Baixa', description: 'Resolução em até 48h' },
+    { value: 'low', label: 'Baixa', description: 'Resolução em até 72h' },
     { value: 'medium', label: 'Média', description: 'Resolução em até 24h' },
     { value: 'high', label: 'Alta', description: 'Resolução em até 4h' },
 ];
+
+// Categorias que mostram campos de GD
+const GD_CATEGORIES = ['tecnico', 'parada_total', 'manutencao', 'instalacao'];
 
 export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId = null }) => {
     const [loading, setLoading] = useState(false);
     const [selectedClientId, setSelectedClientId] = useState(clientId || ticket?.clientId || null);
     const [clientError, setClientError] = useState(null);
+
+    // Estados para campos de GD
+    const [selectedProjectId, setSelectedProjectId] = useState(ticket?.projectId || null);
+    const [selectedProject, setSelectedProject] = useState(null);
+
     const isEdit = !!ticket;
 
     const {
@@ -29,17 +42,53 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
         handleSubmit,
         formState: { errors },
         reset,
+        control,
+        setValue,
+        watch,
     } = useForm({
         defaultValues: ticket || {
             subject: '',
             description: '',
             category: 'outros',
             priority: 'medium',
+            // Campos GD
+            equipmentType: '',
+            equipmentModel: '',
+            errorCode: '',
+            generationImpact: '',
         },
     });
 
+    // Observa a categoria selecionada para mostrar/esconder campos GD
+    const selectedCategory = watch('category');
+    const showGDFields = GD_CATEGORIES.includes(selectedCategory);
+
+    // Auto-ajusta prioridade para parada_total
+    useEffect(() => {
+        if (selectedCategory === 'parada_total') {
+            setValue('priority', 'high');
+        }
+    }, [selectedCategory, setValue]);
+
+    // Limpa campos GD quando muda de categoria
+    useEffect(() => {
+        if (!showGDFields) {
+            setValue('equipmentType', '');
+            setValue('equipmentModel', '');
+            setValue('errorCode', '');
+            setValue('generationImpact', '');
+            setSelectedProjectId(null);
+            setSelectedProject(null);
+        }
+    }, [showGDFields, setValue]);
+
+    const handleProjectChange = (projectId, projectData) => {
+        setSelectedProjectId(projectId);
+        setSelectedProject(projectData);
+    };
+
     const handleFormSubmit = async (data) => {
-        // ✅ SOLUÇÃO P0-1: Validar cliente
+        // Validar cliente
         if (!selectedClientId) {
             setClientError('Selecione um cliente');
             return;
@@ -49,14 +98,29 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
         setClientError(null);
 
         try {
-            const result = await onSubmit({
+            // Monta payload com campos GD se aplicável
+            const payload = {
                 ...data,
                 clientId: selectedClientId,
-            });
+            };
+
+            // Adiciona campos GD se categoria for técnica
+            if (showGDFields) {
+                payload.projectId = selectedProjectId;
+                payload.projectName = selectedProject?.nome || selectedProject?.codigo || null;
+                payload.equipmentType = data.equipmentType || null;
+                payload.equipmentModel = data.equipmentModel || null;
+                payload.errorCode = data.errorCode || null;
+                payload.generationImpact = data.generationImpact || null;
+            }
+
+            const result = await onSubmit(payload);
 
             if (result?.success) {
                 reset();
                 setSelectedClientId(null);
+                setSelectedProjectId(null);
+                setSelectedProject(null);
                 onClose();
             }
         } catch (error) {
@@ -70,6 +134,8 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
         reset();
         setSelectedClientId(null);
         setClientError(null);
+        setSelectedProjectId(null);
+        setSelectedProject(null);
         onClose();
     };
 
@@ -78,7 +144,7 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
             isOpen={isOpen}
             onClose={handleClose}
             title={isEdit ? 'Editar Ticket' : 'Novo Ticket'}
-            size="lg"
+            size="xl"
             footer={
                 <>
                     <Button variant="secondary" onClick={handleClose} disabled={loading}>
@@ -142,7 +208,7 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                         Descrição
                     </label>
                     <textarea
-                        className="input min-h-[100px] resize-y"
+                        className="input min-h-[80px] resize-y"
                         placeholder="Descreva o problema ou solicitação..."
                         {...register('description')}
                     />
@@ -160,7 +226,11 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                             {...register('category', { required: 'Categoria é obrigatória' })}
                         >
                             {CATEGORIES.map((cat) => (
-                                <option key={cat.value} value={cat.value}>
+                                <option
+                                    key={cat.value}
+                                    value={cat.value}
+                                    className={cat.highlight ? 'font-semibold' : ''}
+                                >
                                     {cat.label}
                                 </option>
                             ))}
@@ -180,6 +250,7 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                         <select
                             className="input"
                             {...register('priority', { required: 'Prioridade é obrigatória' })}
+                            disabled={selectedCategory === 'parada_total'}
                         >
                             {PRIORITIES.map((priority) => (
                                 <option key={priority.value} value={priority.value}>
@@ -187,6 +258,11 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                                 </option>
                             ))}
                         </select>
+                        {selectedCategory === 'parada_total' && (
+                            <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                                ⚠️ Parada Total força prioridade Alta automaticamente
+                            </p>
+                        )}
                         {errors.priority && (
                             <p className="mt-1 text-sm text-red-600 dark:text-red-400">
                                 {errors.priority.message}
@@ -194,6 +270,114 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                         )}
                     </div>
                 </div>
+
+                {/* ========================================
+                    SEÇÃO DE CAMPOS GD (Condicional)
+                    ======================================== */}
+                {showGDFields && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Sun className="h-5 w-5 text-yellow-500" />
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                Dados do Sistema Fotovoltaico
+                            </h4>
+                        </div>
+
+                        {/* Projeto/Usina */}
+                        <ProjectSelector
+                            clientId={selectedClientId}
+                            value={selectedProjectId}
+                            onChange={handleProjectChange}
+                            className="mb-4"
+                        />
+
+                        {/* Tipo de Equipamento e Modelo */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            {/* Tipo de Equipamento */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Tipo de Equipamento
+                                </label>
+                                <select
+                                    className="input"
+                                    {...register('equipmentType')}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {EQUIPMENT_TYPES.map((type) => (
+                                        <option key={type.value} value={type.value}>
+                                            {type.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Modelo do Equipamento */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Modelo/Marca
+                                </label>
+                                <input
+                                    type="text"
+                                    className="input"
+                                    placeholder="Ex: Growatt 10kW, JA Solar 550W..."
+                                    {...register('equipmentModel')}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Código de Erro e Impacto na Geração */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Código de Erro */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <AlertTriangle className="h-3 w-3 inline mr-1 text-amber-500" />
+                                    Código de Erro
+                                </label>
+                                <input
+                                    type="text"
+                                    className="input font-mono"
+                                    placeholder="Ex: E001, Falha ISO, F24..."
+                                    {...register('errorCode')}
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Código exibido no inversor ou sistema de monitoramento
+                                </p>
+                            </div>
+
+                            {/* Impacto na Geração */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    <Zap className="h-3 w-3 inline mr-1 text-yellow-500" />
+                                    Impacto na Geração
+                                </label>
+                                <select
+                                    className="input"
+                                    {...register('generationImpact')}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {GENERATION_IMPACT.map((impact) => (
+                                        <option key={impact.value} value={impact.value}>
+                                            {impact.icon} {impact.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Alerta de Parada Total */}
+                        {(selectedCategory === 'parada_total' || watch('generationImpact') === 'parada_total') && (
+                            <div className="mt-4 rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800">
+                                <p className="font-medium flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    🔴 Usina em Parada Total
+                                </p>
+                                <p className="text-xs mt-1 opacity-80">
+                                    Este ticket será tratado com máxima prioridade. SLA: 4 horas.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* Info sobre SLA */}
                 <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-sm text-blue-800 dark:text-blue-200">
