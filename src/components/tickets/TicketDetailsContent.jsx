@@ -28,28 +28,72 @@ import toast from 'react-hot-toast';
 // ========================================
 // CONSTANTES
 // ========================================
+// STATUS ALINHADOS COM GERAÇÃO DISTRIBUÍDA (GD)
+// ========================================
 
 const STATUS_OPTIONS = [
-    { value: 'open', label: 'Aberto', color: 'blue' },
-    { value: 'in_progress', label: 'Em Andamento', color: 'yellow' },
-    { value: 'waiting_client', label: 'Pendente Cliente', color: 'orange' },
-    { value: 'waiting_parts', label: 'Aguardando Peças', color: 'orange' },
-    { value: 'scheduled', label: 'Visita Agendada', color: 'purple' },
-    { value: 'monitoring', label: 'Em Monitoramento', color: 'indigo' },
-    { value: 'resolved', label: 'Resolvido', color: 'green' },
-    { value: 'closed', label: 'Fechado', color: 'gray' },
+    // Status básicos
+    { value: 'open', label: 'Aberto', color: 'blue', group: 'básico' },
+    { value: 'in_analysis', label: 'Em Análise', color: 'yellow', group: 'básico' },
+    { value: 'waiting_client', label: 'Pendente Cliente', color: 'orange', group: 'básico' },
+
+    // Status financeiros (específicos GD)
+    { value: 'financial_validation', label: 'Validação Financeira', color: 'amber', group: 'financeiro' },
+    { value: 'pending_agreement', label: 'Pendente Acordo', color: 'orange', group: 'financeiro' },
+    { value: 'agreed', label: 'Acordado', color: 'indigo', group: 'financeiro' },
+
+    // Status regulatórios (específicos GD)
+    { value: 'waiting_distributor', label: 'Aguard. Distribuidora', color: 'purple', group: 'regulatório' },
+    { value: 'regulatory_analysis', label: 'Análise Regulatória', color: 'violet', group: 'regulatório' },
+
+    // Status de monitoramento e encerramento
+    { value: 'monitoring', label: 'Em Monitoramento', color: 'cyan', group: 'final' },
+    { value: 'resolved', label: 'Resolvido', color: 'green', group: 'final' },
+    { value: 'closed', label: 'Fechado', color: 'gray', group: 'final' },
 ];
 
-// Máquina de estados - Transições permitidas
+// ========================================
+// MÁQUINA DE ESTADOS - FLUXOS DE GD
+// ========================================
+
 const ALLOWED_TRANSITIONS = {
-    'open': ['in_progress', 'waiting_client', 'scheduled', 'closed'],
-    'in_progress': ['waiting_client', 'waiting_parts', 'scheduled', 'monitoring', 'resolved'],
-    'waiting_client': ['in_progress', 'resolved', 'closed'],
-    'waiting_parts': ['in_progress', 'scheduled'],
-    'scheduled': ['in_progress', 'monitoring', 'resolved'],
-    'monitoring': ['in_progress', 'resolved'],
-    'resolved': ['closed', 'in_progress'], // Pode reabrir
-    'closed': [], // Estado final
+    // Aberto -> pode ir para análise, aguardar cliente ou fechar direto
+    'open': ['in_analysis', 'waiting_client', 'financial_validation', 'closed'],
+
+    // Em análise -> pode ir para qualquer status de trabalho
+    'in_analysis': ['waiting_client', 'financial_validation', 'waiting_distributor', 'regulatory_analysis', 'monitoring', 'resolved'],
+
+    // Pendente cliente -> volta para análise ou resolve
+    'waiting_client': ['in_analysis', 'financial_validation', 'resolved', 'closed'],
+
+    // Validação financeira -> pode ir para acordo ou resolver
+    'financial_validation': ['in_analysis', 'pending_agreement', 'agreed', 'resolved'],
+
+    // Pendente acordo -> aguarda assinatura
+    'pending_agreement': ['agreed', 'in_analysis', 'closed'],
+
+    // Acordado -> somente resolve ou reabre (importantíssimo para GD)
+    'agreed': ['resolved', 'in_analysis'],
+
+    // Aguardando distribuidora -> análise regulatória ou resolve
+    'waiting_distributor': ['in_analysis', 'regulatory_analysis', 'resolved'],
+
+    // Análise regulatória -> resolve ou volta para análise
+    'regulatory_analysis': ['in_analysis', 'waiting_distributor', 'resolved'],
+
+    // Monitoramento -> resolve ou volta para análise
+    'monitoring': ['in_analysis', 'resolved'],
+
+    // Resolvido -> pode fechar ou reabrir
+    'resolved': ['closed', 'in_analysis'],
+
+    // Fechado -> somente reabertura administrativa
+    'closed': ['in_analysis'],
+
+    // Legado (tickets antigos)
+    'in_progress': ['in_analysis', 'waiting_client', 'resolved'],
+    'waiting_parts': ['in_analysis', 'resolved'],
+    'scheduled': ['in_analysis', 'resolved'],
 };
 
 // Mock de técnicos (substituir por busca real no futuro)

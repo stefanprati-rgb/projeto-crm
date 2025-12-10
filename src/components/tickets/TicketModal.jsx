@@ -1,20 +1,36 @@
 import { useForm, useWatch } from 'react-hook-form';
 import { Modal, Button, ClientSelector } from '../';
-import { Loader2, Sun, Zap, AlertTriangle } from 'lucide-react';
+import { Loader2, Zap, AlertTriangle } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { ProjectSelector, EQUIPMENT_TYPES, GENERATION_IMPACT } from './ProjectSelector';
 import { cn } from '../../utils/cn';
 
+// ========================================
+// CATEGORIAS ALINHADAS COM GERAÇÃO DISTRIBUÍDA (GD)
+// Modelo de negócio: Administrativo/Financeiro, NÃO hardware
+// ========================================
+
 const CATEGORIES = [
-    { value: 'suporte', label: 'Suporte Técnico' },
-    { value: 'financeiro', label: 'Financeiro' },
-    { value: 'comercial', label: 'Comercial' },
-    { value: 'instalacao', label: 'Instalação' },
-    { value: 'manutencao', label: 'Manutenção' },
-    // Categorias técnicas de GD
-    { value: 'tecnico', label: '⚡ Técnico (GD)', highlight: true },
-    { value: 'parada_total', label: '🔴 Parada Total', highlight: true, forcePriority: 'high' },
-    { value: 'outros', label: 'Outros' },
+    // Categorias financeiras (core do negócio GD)
+    { value: 'faturamento', label: '💰 Faturamento e Cobrança', group: 'financeiro', highlight: true },
+    { value: 'compensacao', label: '⚡ Compensação de Energia', group: 'financeiro', highlight: true },
+    { value: 'creditos', label: '💵 Créditos e Reembolsos', group: 'financeiro' },
+    { value: 'acordo', label: '📝 Acordos e Parcelamentos', group: 'financeiro' },
+
+    // Categorias regulatórias
+    { value: 'regulatorio', label: '📋 Regulamentação/ANEEL', group: 'regulatório' },
+    { value: 'distribuidora', label: '🔌 Questões Distribuidora', group: 'regulatório' },
+    { value: 'contratual', label: '📄 Questões Contratuais', group: 'regulatório' },
+
+    // Categorias administrativas
+    { value: 'cadastro', label: '👤 Cadastro/Dados Cliente', group: 'administrativo' },
+    { value: 'comercial', label: '🤝 Comercial', group: 'administrativo' },
+    { value: 'suporte', label: '💬 Suporte Geral', group: 'administrativo' },
+
+    // Casos críticos
+    { value: 'inadimplencia', label: '🔴 Inadimplência', group: 'crítico', highlight: true, forcePriority: 'high' },
+
+    // Outros
+    { value: 'outros', label: 'Outros', group: 'outros' },
 ];
 
 const PRIORITIES = [
@@ -23,17 +39,13 @@ const PRIORITIES = [
     { value: 'high', label: 'Alta', description: 'Resolução em até 4h' },
 ];
 
-// Categorias que mostram campos de GD
-const GD_CATEGORIES = ['tecnico', 'parada_total', 'manutencao', 'instalacao'];
+// Categorias que mostram campos específicos de GD (financeiros)
+const GD_CATEGORIES = ['faturamento', 'compensacao', 'creditos', 'acordo', 'regulatorio', 'distribuidora', 'inadimplencia'];
 
 export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId = null }) => {
     const [loading, setLoading] = useState(false);
     const [selectedClientId, setSelectedClientId] = useState(clientId || ticket?.clientId || null);
     const [clientError, setClientError] = useState(null);
-
-    // Estados para campos de GD
-    const [selectedProjectId, setSelectedProjectId] = useState(ticket?.projectId || null);
-    const [selectedProject, setSelectedProject] = useState(null);
 
     const isEdit = !!ticket;
 
@@ -49,9 +61,21 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
         defaultValues: ticket || {
             subject: '',
             description: '',
-            category: 'outros',
+            category: 'faturamento',
             priority: 'medium',
-            // Campos GD
+
+            // Campos específicos GD (Financeiros/Regulatórios)
+            referencePeriod: '',          // Mês/Ano de referência (ex: "2024-12")
+            invoiceReference: '',          // Número/Referência da fatura
+            disputedValue: '',             // Valor em discussão (R$)
+            ucNumber: '',                  // Número da Unidade Consumidora
+            compensationType: '',          // Tipo de compensação (net_metering, etc.)
+            agreementStatus: '',           // Status do acordo
+            agreementDueDate: '',          // Data de vencimento do acordo
+            regulatoryReference: '',       // Referência ANEEL/normativa
+            distributorProtocol: '',       // Protocolo da distribuidora
+
+            // Campos legados (para compatibilidade)
             equipmentType: '',
             equipmentModel: '',
             equipmentSerialNumber: '',
@@ -68,9 +92,9 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
     const selectedCategory = watch('category');
     const showGDFields = GD_CATEGORIES.includes(selectedCategory);
 
-    // Auto-ajusta prioridade para parada_total
+    // Auto-ajusta prioridade para inadimplência
     useEffect(() => {
-        if (selectedCategory === 'parada_total') {
+        if (selectedCategory === 'inadimplencia') {
             setValue('priority', 'high');
         }
     }, [selectedCategory, setValue]);
@@ -78,19 +102,18 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
     // Limpa campos GD quando muda de categoria
     useEffect(() => {
         if (!showGDFields) {
-            setValue('equipmentType', '');
-            setValue('equipmentModel', '');
-            setValue('errorCode', '');
-            setValue('generationImpact', '');
-            setSelectedProjectId(null);
-            setSelectedProject(null);
+            // Limpa campos específicos de GD
+            setValue('referencePeriod', '');
+            setValue('invoiceReference', '');
+            setValue('disputedValue', '');
+            setValue('ucNumber', '');
+            setValue('compensationType', '');
+            setValue('agreementStatus', '');
+            setValue('agreementDueDate', '');
+            setValue('regulatoryReference', '');
+            setValue('distributorProtocol', '');
         }
     }, [showGDFields, setValue]);
-
-    const handleProjectChange = (projectId, projectData) => {
-        setSelectedProjectId(projectId);
-        setSelectedProject(projectData);
-    };
 
     const handleFormSubmit = async (data) => {
         // Validar cliente
@@ -109,19 +132,17 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                 clientId: selectedClientId,
             };
 
-            // Adiciona campos GD se categoria for técnica
+            // Adiciona campos específicos de GD (financeiro/regulatório)
             if (showGDFields) {
-                payload.projectId = selectedProjectId;
-                payload.projectName = selectedProject?.nome || selectedProject?.codigo || null;
-                payload.equipmentType = data.equipmentType || null;
-                payload.equipmentModel = data.equipmentModel || null;
-                payload.equipmentSerialNumber = data.equipmentSerialNumber || null;
-                payload.errorCode = data.errorCode || null;
-                payload.generationImpact = data.generationImpact || null;
-                payload.installationDate = data.installationDate || null;
-                payload.warrantyStatus = data.warrantyStatus || null;
-                payload.inverterPower = data.inverterPower ? parseFloat(data.inverterPower) : null;
-                payload.actionsExecuted = data.actionsExecuted || [];
+                payload.referencePeriod = data.referencePeriod || null;
+                payload.invoiceReference = data.invoiceReference || null;
+                payload.disputedValue = data.disputedValue ? parseFloat(data.disputedValue) : null;
+                payload.ucNumber = data.ucNumber || null;
+                payload.compensationType = data.compensationType || null;
+                payload.agreementStatus = data.agreementStatus || null;
+                payload.agreementDueDate = data.agreementDueDate || null;
+                payload.regulatoryReference = data.regulatoryReference || null;
+                payload.distributorProtocol = data.distributorProtocol || null;
             }
 
             const result = await onSubmit(payload);
@@ -282,193 +303,172 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                 </div>
 
                 {/* ========================================
-                    SEÇÃO DE CAMPOS GD (Condicional)
+                    SEÇÃO DE CAMPOS GD - FINANCEIRO/REGULATÓRIO
                     ======================================== */}
                 {showGDFields && (
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
                         <div className="flex items-center gap-2 mb-4">
-                            <Sun className="h-5 w-5 text-yellow-500" />
+                            <Zap className="h-5 w-5 text-yellow-500" />
                             <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                Dados do Sistema Fotovoltaico
+                                Dados Específicos de GD
                             </h4>
                         </div>
 
-                        {/* Projeto/Usina */}
-                        <ProjectSelector
-                            clientId={selectedClientId}
-                            value={selectedProjectId}
-                            onChange={handleProjectChange}
-                            className="mb-4"
-                        />
-
-                        {/* Tipo de Equipamento e Modelo */}
+                        {/* Linha 1: Período de Referência e Nº UC */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            {/* Tipo de Equipamento */}
+                            {/* Período de Referência (Mês/Ano) */}
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Tipo de Equipamento
-                                </label>
-                                <select
-                                    className="input"
-                                    {...register('equipmentType')}
-                                >
-                                    <option value="">Selecione...</option>
-                                    {EQUIPMENT_TYPES.map((type) => (
-                                        <option key={type.value} value={type.value}>
-                                            {type.label}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Modelo do Equipamento */}
-                            <div>
-                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Modelo/Marca
+                                    📅 Período de Referência
                                 </label>
                                 <input
-                                    type="text"
+                                    type="month"
                                     className="input"
-                                    placeholder="Ex: Growatt 10kW, JA Solar 550W..."
-                                    {...register('equipmentModel')}
+                                    {...register('referencePeriod')}
                                 />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Mês/Ano da fatura ou crédito em discussão
+                                </p>
                             </div>
-                        </div>
 
-                        {/* Serial Number e Potência */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            {/* Número de Série */}
+                            {/* Número da UC */}
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Número de Série / SN
+                                    🔌 Número da UC
                                 </label>
                                 <input
                                     type="text"
                                     className="input font-mono"
-                                    placeholder="Ex: GRT0123456789"
-                                    {...register('equipmentSerialNumber')}
+                                    placeholder="Ex: 3004567890"
+                                    {...register('ucNumber')}
+                                />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Unidade Consumidora relacionada
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Linha 2: Referência da Fatura e Valor em Discussão */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            {/* Referência da Fatura */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    📄 Referência da Fatura
+                                </label>
+                                <input
+                                    type="text"
+                                    className="input"
+                                    placeholder="Ex: FAT-2024-12-001"
+                                    {...register('invoiceReference')}
                                 />
                             </div>
 
-                            {/* Potência Nominal */}
+                            {/* Valor em Discussão */}
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Potência Nominal (kW)
+                                    💰 Valor em Discussão (R$)
                                 </label>
                                 <input
                                     type="number"
-                                    step="0.1"
+                                    step="0.01"
                                     min="0"
                                     className="input"
-                                    placeholder="Ex: 10.5"
-                                    {...register('inverterPower')}
+                                    placeholder="Ex: 1500.00"
+                                    {...register('disputedValue')}
                                 />
                             </div>
                         </div>
 
-                        {/* Data de Instalação e Garantia */}
+                        {/* Linha 3: Tipo de Compensação e Status do Acordo */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            {/* Data de Instalação */}
+                            {/* Tipo de Compensação */}
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Data da Instalação
+                                    ⚡ Tipo de Compensação
+                                </label>
+                                <select
+                                    className="input"
+                                    {...register('compensationType')}
+                                >
+                                    <option value="">Selecione...</option>
+                                    <option value="net_metering">Net Metering (Compensação)</option>
+                                    <option value="gross_metering">Gross Metering (Injeção Total)</option>
+                                    <option value="autoconsumo">Autoconsumo Remoto</option>
+                                    <option value="geracao_compartilhada">Geração Compartilhada</option>
+                                    <option value="consorcio">Consórcio/Cooperativa</option>
+                                </select>
+                            </div>
+
+                            {/* Status do Acordo (se aplicável) */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    📝 Status do Acordo
+                                </label>
+                                <select
+                                    className="input"
+                                    {...register('agreementStatus')}
+                                >
+                                    <option value="">Não se aplica</option>
+                                    <option value="proposta_enviada">Proposta Enviada</option>
+                                    <option value="em_negociacao">Em Negociação</option>
+                                    <option value="aguardando_assinatura">Aguardando Assinatura</option>
+                                    <option value="assinado">Assinado</option>
+                                    <option value="parcelado">Parcelado</option>
+                                    <option value="recusado">Recusado</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Linha 4: Data de Vencimento do Acordo e Protocolo Distribuidora */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            {/* Data de Vencimento do Acordo */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    📆 Vencimento do Acordo
                                 </label>
                                 <input
                                     type="date"
                                     className="input"
-                                    {...register('installationDate')}
+                                    {...register('agreementDueDate')}
                                 />
                             </div>
 
-                            {/* Status de Garantia */}
+                            {/* Protocolo da Distribuidora */}
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    Status da Garantia
-                                </label>
-                                <select
-                                    className="input"
-                                    {...register('warrantyStatus')}
-                                >
-                                    <option value="">Selecione...</option>
-                                    <option value="Em Garantia">✅ Em Garantia</option>
-                                    <option value="Fora de Garantia">❌ Fora de Garantia</option>
-                                    <option value="Verificar">⚠️ Verificar com Fabricante</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Código de Erro e Impacto na Geração */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            {/* Código de Erro */}
-                            <div>
-                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <AlertTriangle className="h-3 w-3 inline mr-1 text-amber-500" />
-                                    Código de Erro
+                                    🔌 Protocolo Distribuidora
                                 </label>
                                 <input
                                     type="text"
                                     className="input font-mono"
-                                    placeholder="Ex: E001, Falha ISO, F24..."
-                                    {...register('errorCode')}
+                                    placeholder="Ex: CEMIG-2024-123456"
+                                    {...register('distributorProtocol')}
                                 />
-                                <p className="mt-1 text-xs text-gray-500">
-                                    Código exibido no inversor ou monitoramento
-                                </p>
-                            </div>
-
-                            {/* Impacto na Geração */}
-                            <div>
-                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    <Zap className="h-3 w-3 inline mr-1 text-yellow-500" />
-                                    Impacto na Geração
-                                </label>
-                                <select
-                                    className="input"
-                                    {...register('generationImpact')}
-                                >
-                                    <option value="">Selecione...</option>
-                                    {GENERATION_IMPACT.map((impact) => (
-                                        <option key={impact.value} value={impact.value}>
-                                            {impact.icon} {impact.label}
-                                        </option>
-                                    ))}
-                                </select>
                             </div>
                         </div>
 
-                        {/* Ações Já Executadas - Checkboxes */}
+                        {/* Linha 5: Referência Regulatória */}
                         <div className="mb-4">
                             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Ações Já Executadas
+                                📋 Referência ANEEL/Regulatória
                             </label>
-                            <div className="grid grid-cols-2 gap-2">
-                                {[
-                                    { value: 'diagnostico_remoto', label: 'Diagnóstico Remoto' },
-                                    { value: 'reset_fisico', label: 'Reset Físico' },
-                                    { value: 'atualizacao_firmware', label: 'Atualização Firmware' },
-                                    { value: 'acionamento_fabricante', label: 'Acionamento Fabricante' },
-                                    { value: 'visita_tecnica', label: 'Visita Técnica' },
-                                    { value: 'troca_componente', label: 'Troca de Componente' },
-                                ].map((action) => (
-                                    <label key={action.value} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                        <input
-                                            type="checkbox"
-                                            value={action.value}
-                                            {...register('actionsExecuted')}
-                                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                                        />
-                                        {action.label}
-                                    </label>
-                                ))}
-                            </div>
+                            <input
+                                type="text"
+                                className="input"
+                                placeholder="Ex: REN 482/2012, REN 687/2015..."
+                                {...register('regulatoryReference')}
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Norma ou resolução aplicável (se relevante)
+                            </p>
                         </div>
 
-                        {/* Alerta de Parada Total */}
-                        {(selectedCategory === 'parada_total' || watch('generationImpact') === 'parada_total') && (
+                        {/* Alerta de Inadimplência */}
+                        {selectedCategory === 'inadimplencia' && (
                             <div className="mt-4 rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-800 dark:text-red-200 border border-red-200 dark:border-red-800">
                                 <p className="font-medium flex items-center gap-2">
                                     <AlertTriangle className="h-4 w-4" />
-                                    🔴 Usina em Parada Total
+                                    🔴 Caso de Inadimplência
                                 </p>
                                 <p className="text-xs mt-1 opacity-80">
                                     Este ticket será tratado com máxima prioridade. SLA: 4 horas.

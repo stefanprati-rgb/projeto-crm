@@ -37,17 +37,35 @@ export const ticketService = {
 
     /**
      * Formata status para exibição
+     * STATUS ALINHADOS COM GERAÇÃO DISTRIBUÍDA (GD)
      */
     formatStatus(status) {
         const formats = {
+            // Status básicos
             open: { text: 'Aberto', variant: 'info', color: 'blue' },
-            in_progress: { text: 'Em Andamento', variant: 'warning', color: 'yellow' },
+            in_analysis: { text: 'Em Análise', variant: 'warning', color: 'yellow' },
             waiting_client: { text: 'Pendente Cliente', variant: 'warning', color: 'orange' },
-            waiting_parts: { text: 'Aguardando Peças', variant: 'warning', color: 'orange' },
-            scheduled: { text: 'Visita Agendada', variant: 'info', color: 'purple' },
-            monitoring: { text: 'Em Monitoramento', variant: 'info', color: 'indigo' },
+
+            // Status financeiros (específicos GD)
+            financial_validation: { text: 'Validação Financeira', variant: 'warning', color: 'amber' },
+            pending_agreement: { text: 'Pendente Acordo', variant: 'warning', color: 'orange' },
+            agreed: { text: 'Acordado', variant: 'info', color: 'indigo' },
+
+            // Status regulatórios (específicos GD)
+            waiting_distributor: { text: 'Aguard. Distribuidora', variant: 'info', color: 'purple' },
+            regulatory_analysis: { text: 'Análise Regulatória', variant: 'info', color: 'violet' },
+
+            // Status de monitoramento
+            monitoring: { text: 'Em Monitoramento', variant: 'info', color: 'cyan' },
+
+            // Status de encerramento
             resolved: { text: 'Resolvido', variant: 'success', color: 'green' },
             closed: { text: 'Fechado', variant: 'default', color: 'gray' },
+
+            // Legado (para tickets antigos) - mapeados para novos
+            in_progress: { text: 'Em Análise', variant: 'warning', color: 'yellow' },
+            waiting_parts: { text: 'Pendente Acordo', variant: 'warning', color: 'orange' },
+            scheduled: { text: 'Aguard. Distribuidora', variant: 'info', color: 'purple' },
         };
         return formats[status] || formats.open;
     },

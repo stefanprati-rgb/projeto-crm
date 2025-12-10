@@ -122,17 +122,28 @@ export const TicketsPage = () => {
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="input w-48"
+                        className="input w-56"
                     >
                         <option value="all">Todos os Status</option>
-                        <option value="open">Abertos</option>
-                        <option value="in_progress">Em Andamento</option>
-                        <option value="waiting_client">Pendente Cliente</option>
-                        <option value="waiting_parts">Aguardando Peças</option>
-                        <option value="scheduled">Visita Agendada</option>
-                        <option value="monitoring">Em Monitoramento</option>
-                        <option value="resolved">Resolvidos</option>
-                        <option value="closed">Fechados</option>
+                        <optgroup label="Básicos">
+                            <option value="open">Abertos</option>
+                            <option value="in_analysis">Em Análise</option>
+                            <option value="waiting_client">Pendente Cliente</option>
+                        </optgroup>
+                        <optgroup label="Financeiros">
+                            <option value="financial_validation">Validação Financeira</option>
+                            <option value="pending_agreement">Pendente Acordo</option>
+                            <option value="agreed">Acordado</option>
+                        </optgroup>
+                        <optgroup label="Regulatórios">
+                            <option value="waiting_distributor">Aguard. Distribuidora</option>
+                            <option value="regulatory_analysis">Análise Regulatória</option>
+                        </optgroup>
+                        <optgroup label="Encerramento">
+                            <option value="monitoring">Em Monitoramento</option>
+                            <option value="resolved">Resolvidos</option>
+                            <option value="closed">Fechados</option>
+                        </optgroup>
                     </select>
                 </div>
             </div>
