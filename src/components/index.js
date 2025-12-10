@@ -19,6 +19,8 @@ export { InvoiceImporter } from './import/InvoiceImporter';
 
 // Ticket components
 export { TicketDetailsPanel } from './tickets/TicketDetailsPanel';
+export { TicketDetailsDrawer } from './tickets/TicketDetailsDrawer';
+export { TicketDetailsContent } from './tickets/TicketDetailsContent';
 export { TicketTimeline } from './tickets/TicketTimeline';
 export { CommentInput } from './tickets/CommentInput';
 export { TicketModal } from './tickets/TicketModal';

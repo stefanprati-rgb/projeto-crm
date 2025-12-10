@@ -54,8 +54,13 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
             // Campos GD
             equipmentType: '',
             equipmentModel: '',
+            equipmentSerialNumber: '',
             errorCode: '',
             generationImpact: '',
+            installationDate: '',
+            warrantyStatus: '',
+            inverterPower: '',
+            actionsExecuted: [],
         },
     });
 
@@ -110,8 +115,13 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                 payload.projectName = selectedProject?.nome || selectedProject?.codigo || null;
                 payload.equipmentType = data.equipmentType || null;
                 payload.equipmentModel = data.equipmentModel || null;
+                payload.equipmentSerialNumber = data.equipmentSerialNumber || null;
                 payload.errorCode = data.errorCode || null;
                 payload.generationImpact = data.generationImpact || null;
+                payload.installationDate = data.installationDate || null;
+                payload.warrantyStatus = data.warrantyStatus || null;
+                payload.inverterPower = data.inverterPower ? parseFloat(data.inverterPower) : null;
+                payload.actionsExecuted = data.actionsExecuted || [];
             }
 
             const result = await onSubmit(payload);
@@ -325,8 +335,70 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                             </div>
                         </div>
 
+                        {/* Serial Number e Potência */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            {/* Número de Série */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Número de Série / SN
+                                </label>
+                                <input
+                                    type="text"
+                                    className="input font-mono"
+                                    placeholder="Ex: GRT0123456789"
+                                    {...register('equipmentSerialNumber')}
+                                />
+                            </div>
+
+                            {/* Potência Nominal */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Potência Nominal (kW)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0"
+                                    className="input"
+                                    placeholder="Ex: 10.5"
+                                    {...register('inverterPower')}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Data de Instalação e Garantia */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            {/* Data de Instalação */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Data da Instalação
+                                </label>
+                                <input
+                                    type="date"
+                                    className="input"
+                                    {...register('installationDate')}
+                                />
+                            </div>
+
+                            {/* Status de Garantia */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    Status da Garantia
+                                </label>
+                                <select
+                                    className="input"
+                                    {...register('warrantyStatus')}
+                                >
+                                    <option value="">Selecione...</option>
+                                    <option value="Em Garantia">✅ Em Garantia</option>
+                                    <option value="Fora de Garantia">❌ Fora de Garantia</option>
+                                    <option value="Verificar">⚠️ Verificar com Fabricante</option>
+                                </select>
+                            </div>
+                        </div>
+
                         {/* Código de Erro e Impacto na Geração */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                             {/* Código de Erro */}
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -340,7 +412,7 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                                     {...register('errorCode')}
                                 />
                                 <p className="mt-1 text-xs text-gray-500">
-                                    Código exibido no inversor ou sistema de monitoramento
+                                    Código exibido no inversor ou monitoramento
                                 </p>
                             </div>
 
@@ -361,6 +433,33 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+                        </div>
+
+                        {/* Ações Já Executadas - Checkboxes */}
+                        <div className="mb-4">
+                            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Ações Já Executadas
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {[
+                                    { value: 'diagnostico_remoto', label: 'Diagnóstico Remoto' },
+                                    { value: 'reset_fisico', label: 'Reset Físico' },
+                                    { value: 'atualizacao_firmware', label: 'Atualização Firmware' },
+                                    { value: 'acionamento_fabricante', label: 'Acionamento Fabricante' },
+                                    { value: 'visita_tecnica', label: 'Visita Técnica' },
+                                    { value: 'troca_componente', label: 'Troca de Componente' },
+                                ].map((action) => (
+                                    <label key={action.value} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                        <input
+                                            type="checkbox"
+                                            value={action.value}
+                                            {...register('actionsExecuted')}
+                                            className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                        />
+                                        {action.label}
+                                    </label>
+                                ))}
                             </div>
                         </div>
 

@@ -3,7 +3,7 @@ import { Plus, Search, Filter, TrendingUp, AlertCircle } from 'lucide-react';
 import { useTickets } from '../hooks/useTickets';
 import { TicketsList } from '../components/tickets/TicketsList';
 import { TicketModal } from '../components/tickets/TicketModal';
-import { TicketDetailsPanel } from '../components/tickets/TicketDetailsPanel';
+import { TicketDetailsDrawer } from '../components/tickets/TicketDetailsDrawer';
 import { Button, Spinner, Badge } from '../components';
 import { cn } from '../utils/cn';
 
@@ -139,29 +139,14 @@ export const TicketsPage = () => {
                 </div>
             )}
 
-            {/* Conteúdo Principal */}
-            <div className="flex-1 flex gap-6 min-h-0">
-                {/* Lista de Tickets */}
-                <div className={cn('flex-1 min-w-0', selectedTicket && 'lg:flex-[2]')}>
-                    <TicketsList
-                        tickets={filteredTickets}
-                        onSelectTicket={setSelectedTicket}
-                        selectedTicketId={selectedTicket?.id}
-                        className="h-full"
-                    />
-                </div>
-
-                {/* Painel de Detalhes (Desktop) */}
-                {selectedTicket && (
-                    <div className="hidden lg:block lg:w-96 xl:w-[28rem]">
-                        <TicketDetailsPanel
-                            ticket={selectedTicket}
-                            onUpdate={updateTicket}
-                            onClose={() => setSelectedTicket(null)}
-                            className="sticky top-0"
-                        />
-                    </div>
-                )}
+            {/* Conteúdo Principal - Lista de Tickets ocupa toda a largura */}
+            <div className="flex-1 min-h-0">
+                <TicketsList
+                    tickets={filteredTickets}
+                    onSelectTicket={setSelectedTicket}
+                    selectedTicketId={selectedTicket?.id}
+                    className="h-full"
+                />
             </div>
 
             {/* Modal de Criação */}
@@ -171,16 +156,13 @@ export const TicketsPage = () => {
                 onSubmit={createTicket}
             />
 
-            {/* Modal de Detalhes (Mobile) */}
-            {selectedTicket && (
-                <div className="lg:hidden fixed inset-0 z-50 bg-white dark:bg-gray-900">
-                    <TicketDetailsPanel
-                        ticket={selectedTicket}
-                        onUpdate={updateTicket}
-                        onClose={() => setSelectedTicket(null)}
-                    />
-                </div>
-            )}
+            {/* Drawer de Detalhes (90% da tela) */}
+            <TicketDetailsDrawer
+                ticket={selectedTicket}
+                isOpen={!!selectedTicket}
+                onUpdate={updateTicket}
+                onClose={() => setSelectedTicket(null)}
+            />
         </div>
     );
 };
