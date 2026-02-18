@@ -14,6 +14,8 @@ const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const TicketsPage = lazy(() => import('./pages/TicketsPage').then(m => ({ default: m.TicketsPage })));
 const ClientsPage = lazy(() => import('./pages/ClientsPage').then(m => ({ default: m.ClientsPage })));
+const OnboardingPipelinePage = lazy(() => import('./pages/OnboardingPipelinePage').then(m => ({ default: m.OnboardingPipelinePage })));
+const OnboardingDashboard = lazy(() => import('./pages/OnboardingDashboard').then(m => ({ default: m.OnboardingDashboard })));
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then(m => ({ default: m.ReportsPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const AdminPage = lazy(() => import('./pages/AdminPage').then(m => ({ default: m.AdminPage })));
@@ -134,6 +136,28 @@ function App() {
                 <ProtectedRoute>
                   <MainLayout>
                     <TicketsPage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <OnboardingPipelinePage />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/onboarding/dashboard"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <OnboardingDashboard />
                   </MainLayout>
                 </ProtectedRoute>
               }

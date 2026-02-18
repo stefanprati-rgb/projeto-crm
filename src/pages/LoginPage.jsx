@@ -2,10 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Mail, Lock, Loader2 } from 'lucide-react';
-import { Button, Input } from '../components';
+import { Button } from '../components';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
 
+/**
+ * Página de Login com estética premium.
+ * Otimizada para Desktop, removendo paddings excessivos de mobile.
+ */
 export const LoginPage = () => {
     const navigate = useNavigate();
     const { login } = useAuth();
@@ -24,63 +28,74 @@ export const LoginPage = () => {
             const result = await login(data.email, data.password);
 
             if (result.success) {
-                toast.success('Login realizado com sucesso!');
+                toast.success('Bem-vindo de volta!');
                 navigate('/');
             } else {
-                toast.error(result.error || 'Erro ao fazer login');
+                toast.error(result.error || 'Credenciais inválidas');
             }
         } catch (error) {
-            toast.error('Erro ao fazer login');
+            toast.error('Erro de conexão com o servidor');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 px-4">
-            <div className="w-full max-w-md">
-                {/* Logo */}
-                <div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold text-primary-600 mb-2">Hube CRM</h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        Faça login para continuar
+        <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] dark:bg-gray-950 overflow-hidden relative">
+            {/* Background Decorative Elements */}
+            <div className="absolute top-0 -left-1/4 w-1/2 h-1/2 bg-primary-500/5 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 -right-1/4 w-1/2 h-1/2 bg-primary-600/5 rounded-full blur-3xl" />
+
+            <div className="w-full max-w-md relative z-10">
+                {/* Logo Section */}
+                <div className="text-center mb-10">
+                    <h1 className="text-5xl font-black bg-gradient-to-r from-primary-600 to-primary-400 bg-clip-text text-transparent mb-3 tracking-tight">
+                        Hube CRM
+                    </h1>
+                    <p className="text-slate-500 dark:text-gray-400 font-medium">
+                        Plataforma de Gestão de Energia
                     </p>
                 </div>
 
                 {/* Login Card */}
-                <div className="card">
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                        {/* Email */}
+                <div className="card glass !p-8 shadow-2xl shadow-primary-500/10">
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                        {/* Email Field */}
                         <div>
-                            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                <Mail className="inline h-4 w-4 mr-2" />
-                                E-mail
+                            <label className="mb-2 block text-sm font-bold text-slate-700 dark:text-gray-300">
+                                <Mail className="inline h-4 w-4 mr-2 text-primary-500" />
+                                E-mail Institucional
                             </label>
                             <input
                                 type="email"
                                 className="input"
-                                placeholder="seu@email.com"
+                                placeholder="exemplo@hube.com"
                                 {...register('email', {
-                                    required: 'E-mail é obrigatório',
+                                    required: 'O e-mail é obrigatório para acesso',
                                     pattern: {
                                         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                                        message: 'E-mail inválido',
+                                        message: 'Formato de e-mail inválido',
                                     },
                                 })}
                             />
                             {errors.email && (
-                                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                <p className="mt-1.5 text-xs font-bold text-red-500">
                                     {errors.email.message}
                                 </p>
                             )}
                         </div>
 
-                        {/* Password */}
+                        {/* Password Field */}
                         <div>
-                            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                <Lock className="inline h-4 w-4 mr-2" />
-                                Senha
-                            </label>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-sm font-bold text-slate-700 dark:text-gray-300">
+                                    <Lock className="inline h-4 w-4 mr-2 text-primary-500" />
+                                    Senha
+                                </label>
+                                <a href="#" className="text-xs font-bold text-primary-600 hover:text-primary-700">
+                                    Esqueceu?
+                                </a>
+                            </div>
                             <input
                                 type="password"
                                 className="input"
@@ -89,32 +104,25 @@ export const LoginPage = () => {
                                     required: 'Senha é obrigatória',
                                     minLength: {
                                         value: 6,
-                                        message: 'Senha deve ter no mínimo 6 caracteres',
+                                        message: 'A senha deve possuir ao menos 6 caracteres',
                                     },
                                 })}
                             />
                             {errors.password && (
-                                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                                <p className="mt-1.5 text-xs font-bold text-red-500">
                                     {errors.password.message}
                                 </p>
                             )}
                         </div>
 
-                        {/* Submit Button */}
+                        {/* Submit Action */}
                         <Button
                             type="submit"
                             variant="primary"
-                            className="w-full"
-                            disabled={loading}
+                            className="w-full py-3.5 text-base"
+                            loading={loading}
                         >
-                            {loading ? (
-                                <>
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                    Entrando...
-                                </>
-                            ) : (
-                                'Entrar'
-                            )}
+                            {loading ? 'Autenticando...' : 'Acessar Painel'}
                         </Button>
                     </form>
 
@@ -155,10 +163,12 @@ export const LoginPage = () => {
                     </div>
                 </div>
 
-                {/* Version */}
-                <p className="mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                    Hube CRM v1.0.0
-                </p>
+                {/* Footer Info */}
+                <div className="mt-10 text-center space-y-4">
+                    <p className="text-xs text-slate-400 dark:text-gray-500 font-medium">
+                        Enterprise Grade Security &bull; v1.2.0
+                    </p>
+                </div>
             </div>
         </div>
     );

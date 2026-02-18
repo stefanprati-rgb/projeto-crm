@@ -303,6 +303,79 @@ export const clientService = {
     },
 
     /**
+     * Busca clientes focada no pipeline de onboarding com filtros e paginação
+     */
+    async getOnboardingPipeline(options = {}) {
+        const {
+            baseFilter = null,
+            pageSize = 20,
+            lastDoc = null,
+            statusFilter = [],
+            searchTerm = '',
+        } = options;
+
+        const constraints = [];
+
+        // Filtro de Base (Obrigatório para Tenancy)
+        if (baseFilter && baseFilter !== 'TODOS') {
+            constraints.push(where('database', '==', baseFilter));
+        }
+
+        // Filtro de Status do Pipeline
+        if (statusFilter && statusFilter.length > 0) {
+            constraints.push(where('onboarding.pipelineStatus', 'in', statusFilter));
+        }
+
+        // Ordenação por última atualização de onboarding
+        constraints.push(orderBy('onboarding.updatedAt', 'desc'));
+
+        // Paginação
+        constraints.push(limit(pageSize));
+        if (lastDoc) {
+            constraints.push(startAfter(lastDoc));
+        }
+
+        const q = query(collection(db, 'clients'), ...constraints);
+        const snapshot = await getDocs(q);
+
+        let clients = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+        }));
+
+        // Se houver termo de busca, filtramos (Nota: Firestore não suporta busca parcial nativa bem)
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            clients = clients.filter(c =>
+                c.uc?.toLowerCase().includes(term) ||
+                c.name?.toLowerCase().includes(term)
+            );
+        }
+
+        return {
+            clients,
+            lastDoc: snapshot.docs[snapshot.docs.length - 1] || null,
+            hasMore: snapshot.docs.length === pageSize,
+        };
+    },
+
+    /**
+     * Atualiza especificamente o objeto de onboarding de um cliente
+     */
+    async updateOnboarding(clientId, onboardingData) {
+        const ref = doc(db, 'clients', clientId);
+
+        await updateDoc(ref, {
+            'onboarding': {
+                ...onboardingData,
+                updatedAt: new Date().toISOString()
+            }
+        });
+
+        return { success: true };
+    },
+
+    /**
      * Remove campos undefined, null e vazios
      */
     _removeUndefined(obj) {
