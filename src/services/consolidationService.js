@@ -19,23 +19,79 @@ export const consolidationService = {
     },
 
     /**
+     * Aplica atualizações no onboarding com regras de governança (Idempotência e Histórico)
+     * @private
+     */
+    _applyGovernance(existing, newData, source = 'import') {
+        const onboarding = existing?.onboarding || {};
+
+        // 1. Manual Override: Se true, não permite sobrescrita automática
+        if (onboarding.manualOverride && source === 'import') {
+            return null;
+        }
+
+        const updatedOnboarding = { ...onboarding, ...newData };
+
+        // Recalcular status sempre que houver mudança nos campos base
+        updatedOnboarding.pipelineStatus = this.calculatePipelineStatus(updatedOnboarding);
+
+        // 2. Idempotência e Histórico
+        const history = [...(onboarding.history || [])];
+        let hasChanges = false;
+
+        // Campos críticos para monitoramento de histórico
+        const trackedFields = [
+            'pipelineStatus',
+            'sentToApportionment',
+            'apportionmentRegistered',
+            'hasBeenInvoiced',
+            'compensationForecastDate'
+        ];
+
+        trackedFields.forEach(field => {
+            const oldValue = onboarding[field];
+            const newValue = updatedOnboarding[field];
+
+            // Comparação simples para tipos primitivos e datas
+            if (oldValue !== newValue) {
+                history.push({
+                    field,
+                    oldValue: oldValue === undefined ? null : oldValue,
+                    newValue: newValue === undefined ? null : newValue,
+                    updatedBy: source === 'import' ? 'system_import' : (auth.currentUser?.email || 'user'),
+                    updatedAt: new Date().toISOString(),
+                    source
+                });
+                hasChanges = true;
+            }
+        });
+
+        // Se não houve mudanças reais nos dados monitorados e o cliente já existe, retornamos null (Idempotência)
+        if (!hasChanges && existing) {
+            return null;
+        }
+
+        return {
+            ...updatedOnboarding,
+            history: history.slice(-50), // Mantém apenas as últimas 50 entradas para performance
+            updatedAt: new Date().toISOString(),
+            updatedBy: source === 'import' ? 'system_import' : 'user'
+        };
+    },
+
+    /**
      * Processa a importação da Base de Clientes (Cadastral)
      */
     async processClientBase(items, database) {
         return this._runConsolidation(items, database, 'clients', (existing, item) => {
-            const onboarding = existing?.onboarding || {};
-
             // Regra: Se tem usina vinculada, vai para rateio
             const hasPowerPlant = !!(item.usina || item.usina_vinculada);
 
-            const updatedOnboarding = {
-                ...onboarding,
-                sentToApportionment: onboarding.sentToApportionment || hasPowerPlant,
-                updatedAt: new Date().toISOString(),
-                updatedBy: 'system_import'
-            };
+            const updatedOnboarding = this._applyGovernance(existing, {
+                sentToApportionment: (existing?.onboarding?.sentToApportionment) || hasPowerPlant,
+            });
 
-            updatedOnboarding.pipelineStatus = this.calculatePipelineStatus(updatedOnboarding);
+            if (!updatedOnboarding && existing) return null;
 
             return {
                 name: item.name || item.cliente || existing?.name,
@@ -43,7 +99,7 @@ export const consolidationService = {
                 uc_normalized: normalization.normalizeUC(item.uc),
                 uc: item.uc,
                 database,
-                onboarding: updatedOnboarding,
+                onboarding: updatedOnboarding || existing?.onboarding,
                 updatedAt: new Date().toISOString()
             };
         });
@@ -54,22 +110,21 @@ export const consolidationService = {
      */
     async processApportionment(items, database) {
         return this._runConsolidation(items, database, 'apportionment', (existing, item) => {
-            if (!existing) return null; // Não cria cliente via planilha de rateio
+            if (!existing) return null;
 
-            const onboarding = existing.onboarding || {};
             const rateio = parseFloat(item.rateio || item.percentual || 0);
+            const isRegistered = rateio > 0;
 
-            const updatedOnboarding = {
-                ...onboarding,
+            const updatedOnboarding = this._applyGovernance(existing, {
                 sentToApportionment: true,
-                apportionmentRegistered: rateio > 0,
-                apportionmentRegisteredAt: rateio > 0 ? (onboarding.apportionmentRegisteredAt || new Date().toISOString()) : onboarding.apportionmentRegisteredAt,
-                compensationForecastDate: normalization.normalizeDate(item.previsao || item.mes_referencia) || onboarding.compensationForecastDate,
-                updatedAt: new Date().toISOString(),
-                updatedBy: 'system_import'
-            };
+                apportionmentRegistered: isRegistered,
+                apportionmentRegisteredAt: isRegistered
+                    ? (existing.onboarding?.apportionmentRegisteredAt || new Date().toISOString())
+                    : (existing.onboarding?.apportionmentRegisteredAt || null),
+                compensationForecastDate: normalization.normalizeDate(item.previsao || item.mes_referencia) || existing.onboarding?.compensationForecastDate || null,
+            });
 
-            updatedOnboarding.pipelineStatus = this.calculatePipelineStatus(updatedOnboarding);
+            if (!updatedOnboarding) return null;
 
             return {
                 onboarding: updatedOnboarding,
@@ -85,20 +140,17 @@ export const consolidationService = {
         return this._runConsolidation(items, database, 'invoicing', (existing, item) => {
             if (!existing) return null;
 
-            const onboarding = existing.onboarding || {};
             const invoiceDate = normalization.normalizeDate(item.data_emissao || item.emissao);
+            const currentFirstInvoiceAt = existing.onboarding?.firstInvoiceAt;
 
-            const updatedOnboarding = {
-                ...onboarding,
+            const updatedOnboarding = this._applyGovernance(existing, {
                 hasBeenInvoiced: true,
-                firstInvoiceAt: onboarding.firstInvoiceAt
-                    ? (invoiceDate && invoiceDate < onboarding.firstInvoiceAt ? invoiceDate : onboarding.firstInvoiceAt)
-                    : invoiceDate,
-                updatedAt: new Date().toISOString(),
-                updatedBy: 'system_import'
-            };
+                firstInvoiceAt: currentFirstInvoiceAt
+                    ? (invoiceDate && invoiceDate < currentFirstInvoiceAt ? invoiceDate : currentFirstInvoiceAt)
+                    : invoiceDate
+            });
 
-            updatedOnboarding.pipelineStatus = this.calculatePipelineStatus(updatedOnboarding);
+            if (!updatedOnboarding) return null;
 
             return {
                 onboarding: updatedOnboarding,

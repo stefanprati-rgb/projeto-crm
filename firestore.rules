@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ✅ P3-4: HELPERS DE SEGURANÇA OTIMIZADOS
+    // ✅ HELPERS DE SEGURANÇA OTIMIZADOS
     
     function isAuth() {
       return request.auth != null;
@@ -28,8 +28,21 @@ service cloud.firestore {
       return isAuth() && request.auth.uid == userId;
     }
 
-    function isCreator(createdBy) {
-      return isAuth() && request.auth.uid == createdBy;
+    // ✅ NOVO: Verificador de Tenancy (Isolamento por Base/Projeto)
+    function isAllowedBase(baseId) {
+      let userData = getUserData();
+      return isAuth() && (
+        userData.role == 'admin' || 
+        (userData.allowedBases is list && baseId in userData.allowedBases)
+      );
+    }
+
+    function isSystem() {
+      return isAuth() && request.auth.token.get('system', false) == true;
+    }
+
+    function canUpdateFinancialFields() {
+      return isAdmin() || isSystem();
     }
 
     // Validação de tamanho de string
@@ -45,93 +58,89 @@ service cloud.firestore {
              request.resource.data[field].matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
     }
 
-    // ✅ P3-4: REGRAS POR COLEÇÃO
+    // Validação de schema do Onboarding
+    function validOnboarding() {
+      let onboarding = request.resource.data.onboarding;
+      return onboarding is map &&
+             (!onboarding.keys().hasAny(['pipelineStatus']) || onboarding.pipelineStatus in ['new', 'waiting_apportionment', 'sent_to_apportionment', 'apportionment_done', 'waiting_compensation', 'invoiced']);
+    }
 
-    // CLIENTES: Validação estrita de schema
+    // ✅ REGRAS POR COLEÇÃO
+
+    // CLIENTES: Validação estrita de schema e isolation
     match /clients/{clientId} {
-      // Leitura: apenas usuários autenticados
-      allow read: if isAuth();
+      // Leitura: apenas usuários autenticados com acesso à base do cliente
+      allow read: if isAuth() && (isAdmin() || isAllowedBase(resource.data.database));
       
-      // Criação: apenas editores, com validação de schema
+      // Criação: apenas editores, com validação de schema e tenancy
       allow create: if isEditor() &&
+        // Tenancy Check
+        isAllowedBase(request.resource.data.database) &&
         // Campos obrigatórios
-        request.resource.data.keys().hasAll(['name', 'createdAt', 'createdBy', 'status']) &&
+        request.resource.data.keys().hasAll(['name', 'createdAt', 'createdBy', 'status', 'database']) &&
         // Validações de tipo e tamanho
         validString('name', 1, 200) &&
         request.resource.data.status in ['active', 'inactive'] &&
         request.resource.data.createdBy == request.auth.uid &&
         request.resource.data.createdAt == request.time &&
-        // Email opcional mas válido se presente
-        (!request.resource.data.keys().hasAny(['email']) || validEmail('email')) &&
-        // CPF/CNPJ opcional mas com tamanho válido se presente
-        (!request.resource.data.keys().hasAny(['cpfCnpj']) || validString('cpfCnpj', 11, 18));
+        // Validação opcional de Onboarding
+        (!request.resource.data.keys().hasAny(['onboarding']) || validOnboarding());
 
-      // Atualização: apenas editores, campos limitados
+      // Atualização: apenas editores, campos limitados, sem mudar tenant
       allow update: if isEditor() &&
-        // Não pode mudar campos de auditoria
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy', 'id']) &&
-        // Validações dos campos que podem mudar
-        (request.resource.data.name == resource.data.name || validString('name', 1, 200)) &&
-        (request.resource.data.status == resource.data.status || request.resource.data.status in ['active', 'inactive']) &&
-        (!request.resource.data.keys().hasAny(['email']) || validEmail('email'));
-      
-      // Deleção: apenas admins (soft delete preferível)
-      allow delete: if isAdmin();
-    }
-
-    // TICKETS: Validação e isolamento
-    match /tickets/{ticketId} {
-      // Leitura: apenas usuários autenticados
-      allow read: if isAuth();
-      
-      // Criação: apenas editores, com validação
-      allow create: if isEditor() &&
-        request.resource.data.keys().hasAll(['title', 'clientId', 'status', 'createdAt', 'createdBy']) &&
-        validString('title', 1, 200) &&
-        request.resource.data.status in ['open', 'in_progress', 'resolved', 'closed'] &&
-        request.resource.data.createdBy == request.auth.uid &&
-        request.resource.data.createdAt == request.time &&
-        // Verifica se o cliente existe
-        exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId));
-
-      // Atualização: apenas editores
-      allow update: if isEditor() &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy', 'clientId', 'id']) &&
-        (request.resource.data.status == resource.data.status || request.resource.data.status in ['open', 'in_progress', 'resolved', 'closed']);
+        isAllowedBase(resource.data.database) &&
+        // Não pode mudar campos de auditoria ou tenancy
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy', 'id', 'database']) &&
+        // ✅ Hardening Financeiro: Protege campos críticos do Onboarding
+        (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['onboarding']) ||
+          !request.resource.data.onboarding.diff(resource.data.get('onboarding', {})).affectedKeys().hasAny(['hasBeenInvoiced', 'firstInvoiceAt']) ||
+          canUpdateFinancialFields()
+        ) &&
+        // Se onboarding mudar, valida schema
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['onboarding']) || validOnboarding());
       
       // Deleção: apenas admins
       allow delete: if isAdmin();
     }
 
+    // TICKETS: Validação e isolamento
+    match /tickets/{ticketId} {
+      // Leitura: Verificação de tenancy
+      allow read: if isAuth() && (isAdmin() || 
+        // Se for collectionGroup, o filtro de database deve estar na query
+        isAllowedBase(resource.data.database));
+      
+      // Criação: apenas editores
+      allow create: if isEditor() &&
+        isAllowedBase(request.resource.data.database) &&
+        request.resource.data.keys().hasAll(['title', 'clientId', 'status', 'createdAt', 'createdBy', 'database']) &&
+        exists(/databases/$(database)/documents/clients/$(request.resource.data.clientId));
+
+      // Atualização
+      allow update: if isEditor() &&
+        isAllowedBase(resource.data.database) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt', 'createdBy', 'clientId', 'id', 'database']);
+      
+      allow delete: if isAdmin();
+    }
+
     // USUÁRIOS: Isolamento total
     match /users/{userId} {
-      // Leitura: apenas o próprio usuário ou admin
       allow read: if isOwner(userId) || isAdmin();
-      
-      // Escrita: apenas via Admin SDK
       allow write: if false;
     }
 
-    // BASES/PROJETOS: Leitura para todos autenticados
+    // BASES/PROJETOS
     match /bases/{baseId} {
-      allow read: if isAuth();
+      allow read: if isAllowedBase(baseId);
       allow write: if isAdmin();
     }
 
-    // AUDIT LOGS: Append-only (ninguém edita ou deleta)
+    // AUDIT LOGS: Append-only
     match /audit_logs/{logId} {
-      // Leitura: apenas admins
       allow read: if isAdmin();
-      
-      // Criação: qualquer usuário autenticado pode criar seu próprio log
-      allow create: if isAuth() &&
-        request.resource.data.keys().hasAll(['userId', 'action', 'timestamp', 'resource']) &&
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.timestamp == request.time &&
-        validString('action', 1, 100) &&
-        validString('resource', 1, 200);
-      
-      // Nunca pode atualizar ou deletar logs
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if false;
     }
 
@@ -141,13 +150,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // FATURAS: Imutável (apenas via Backend/Admin SDK)
+    // FATURAS: Imutável
     match /invoices/{invoiceId} {
-      allow read: if isAuth();
+      allow read: if isAllowedBase(resource.data.database);
       allow write: if false;
     }
 
-    // FALLBACK: Bloqueia tudo que não foi explicitamente permitido
+    // FALLBACK
     match /{document=**} {
       allow read, write: if false;
     }

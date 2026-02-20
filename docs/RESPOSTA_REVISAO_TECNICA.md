@@ -1,319 +1,234 @@
-# 📋 RESPOSTA À REVISÃO TÉCNICA - HUBE CRM
+# Auditoria Técnica Profunda: Módulo de Onboarding & Segurança
 
-**Data:** 2025-12-08 21:50  
-**Status:** ✅ CORREÇÕES IMPLEMENTADAS
-
----
-
-## 🎯 RESUMO EXECUTIVO
-
-Sua revisão técnica identificou corretamente o problema crítico P0: **Data Desincronizada**.
-
-### ✅ CORREÇÃO IMPLEMENTADA
-
-**Problema Raiz Encontrado:**
-- ❌ NÃO era fragmentação de collections (todas usam `collection(db, 'clients')`)
-- ✅ ERA problema de timing: Dashboard calculava métricas ANTES dos listeners popularem o store
-
-**Solução Aplicada:**
-- ✅ Listeners globais no `App.jsx` que populam store ao fazer login
-- ✅ Todos os componentes agora veem mesma fonte de verdade
-- ✅ ClientSelector mostra loading state enquanto dados carregam
-- ✅ Sincronização real-time funcional
+**Status**: Versão 1.0 (Auditado em 2026-02-18)  
+**Escopo**: Módulo de Onboarding, Consolidação de Dados e Segurança de Tenancy.  
+**Classificação Geral**: **Beta Operacional (Produção Restrita)**
 
 ---
 
-## 📊 PROBLEMAS REVISADOS
+## 1️⃣ Fonte de Verdade do Onboarding
 
-### 🟢 P0-1: Data Desincronizada → **RESOLVIDO** ✅
+*   **O objeto `onboarding` é sempre atualizado pelo consolidator ou pode ser editado manualmente?**  
+    O objeto é atualizado automaticamente pelo `consolidationService.js` no ato da importação. No entanto, existe a função `clientService.updateOnboarding` que permite a edição via UI, o que configura um modelo de **escrita concorrente sem controle de prioridade**.
+*   **Existe flag `manualOverride`?**  
+    **Não.** Qualquer nova importação de planilha de Base (Clients) sobrescreve os campos de onboarding atuais, ignorando ajustes manuais feitos pelo time de CS.
+*   **Importações sobrescrevem alterações humanas?**  
+    **Sim.** A lógica no `consolidationService` faz um spread do objeto existente, mas sobrescreve campos como `sentToApportionment`, `apportionmentRegistered`, `compensationForecastDate` e `hasBeenInvoiced` se os campos estiverem presentes na planilha.
+*   **Há versionamento ou histórico de mudanças?**  
+    **Não.** Embora a especificação (`ONBOARDING_PIPELINE_SPEC.md`) mencione um array `history`, o código atual do `consolidationService.js` não implementa essa gravação, resultando em perda de rastro de alterações.
 
-**Antes:**
-```
-Dashboard:     500 clientes (desatualizado)
-Clientes Page: 25 clientes (correto)
-Ticket Form:   "Nenhum cliente cadastrado" (store vazio)
-```
-
-**Depois:**
-```
-Dashboard:     25 clientes ✅
-Clientes Page: 25 clientes ✅
-Ticket Form:   25 clientes disponíveis ✅
-```
-
-**Arquivos Modificados:**
-1. `src/App.jsx` - Listeners globais (+25 linhas)
-2. `src/pages/DashboardPage.jsx` - Remove duplicação (-16 linhas)
-3. `src/components/clients/ClientSelector.jsx` - Loading state (+22 linhas)
-
-**Documentação:**
-- `docs/ANALISE_PROBLEMA_DATA_SYNC.md` - Análise detalhada
-- `docs/CORRECAO_P0_DATA_SYNC.md` - Solução completa
+**Classificação de Risco de Divergência:** 🚨 **Alto**
 
 ---
 
-### 🟡 P0-2: Edit Modal Dados Não Carregam → **JÁ ESTAVA RESOLVIDO** ✅
+## 2️⃣ Chave UC — Normalização & Unicidade
 
-**Status:** Corrigido em sessão anterior (P0-2)
+*   **Qual função oficial de normalização é usada?**  
+    `normalization.normalizeUC(uc)` em `src/utils/normalization.js`. Ela remove espaços, barras, traços, pontos e zeros à esquerda.
+*   **A UC é persistida já normalizada?**  
+    **Sim**, no campo `uc_normalized`.
+*   **Existe índice único `database + UC`?**  
+    **Não.** O Firestore não suporta restrição de unicidade nativa para campos. A unicidade depende da lógica de importação que usa o `clientsMap` para match, mas não impede a criação duplicada via UI ou bugs de serviço.
+*   **Como tratam duplicatas existentes?**  
+    O motor de consolidação carrega todos os clientes em um `Map`. Se houver dois registros com a mesma UC normalizada no banco, o último registro processado pelo `Map.set()` "vencerá" em memória, podendo causar atualizações no registro errado.
+*   **Há validação no write ou só na importação?**  
+    Apenas na importação. O `clientService.create` não valida se a UC já existe.
 
-**Evidência:**
-```javascript
-// src/components/clients/ClientModal.jsx
-useEffect(() => {
-    if (client && isOpen) {
-        reset({
-            nome: client.name || client.nome || '',
-            email: client.email || '',
-            // ... todos os campos carregam
-        });
-    }
-}, [client, isOpen, reset]);
-```
-
-**Requer:** Novo teste para confirmar funcionamento
+**Classificação de Risco de Colisão de Dados:** ⚠️ **Médio**
 
 ---
 
-### 🟡 P0-3: CNPJ/CPF Sem Validação → **JÁ ESTAVA RESOLVIDO** ✅
+## 3️⃣ Pipeline Status — Derivação
 
-**Status:** Corrigido em sessão anterior (P1-2)
+*   **`pipelineStatus` é persistido ou calculado?**  
+    **Persistido.** É calculado no momento da gravação (`calculatePipelineStatus`) e salvo no documento.
+*   **Existe risco de inconsistência com campos base?**  
+    **Sim.** Se um desenvolvedor atualizar `hasBeenInvoiced: true` via `updateDoc` comum sem chamar o serviço de consolidação ou o cálculo de status, o `pipelineStatus` ficará desatualizado em relação ao dado factual.
+*   **O consolidator recalcula sempre?**  
+    Sim, o motor invoca o cálculo em cada linha processada.
+*   **Há testes cobrindo o algoritmo?**  
+    **Não.** Não foram encontrados testes unitários para a lógica de `calculatePipelineStatus`.
 
-**Evidência:**
-```javascript
-// src/utils/validators.js
-export const validateCPF = (cpf) => {
-    // Remove caracteres não numéricos
-    const cleanCPF = cpf.replace(/\D/g, '');
-    
-    // Validação de dígitos verificadores
-    // ... implementação completa
-};
-```
-
-**Funcionalidades:**
-- ✅ Validação de dígitos verificadores
-- ✅ Regex de formato
-- ✅ Máscaras automáticas
-- ✅ Feedback visual de erros
+**Classificar modelo:** 🏗️ **Híbrido** (Calculado no write, persistido no read).
 
 ---
 
-## 🔍 ACHADOS TÉCNICOS - RESPOSTA
+## 4️⃣ Segurança do Schema Onboarding
 
-### 1. Collection Fragmentation → **FALSO** ❌
+*   **Tipagem de campos?**  
+    Parcial. As Rules validam que `onboarding` é um `map`.
+*   **Campos obrigatórios?**  
+    Não. As Rules não exigem subcampos.
+*   **Bloqueio de campos extras?**  
+    Não. O mapa aceita qualquer chave.
+*   **Bloqueio de alteração de `hasBeenInvoiced`?**  
+    **Não.** Qualquer usuário com role `editor` pode alterar este campo via `update`, o que é um risco financeiro.
+*   **Bloqueio de alteração de `database` (Tenant)?**  
+    **Sim.** As Rules bloqueiam a alteração da chave `database` após a criação.
 
-**Sua Suspeita:**
-```
-- db.collection('clientes')        ← Listagem (25)
-- db.collection('dashboardCache')  ← Stats (500)
-- db.collection('ticketClientes')  ← Tickets (0)
-```
-
-**Realidade:**
-```javascript
-// Todos usam a mesma collection:
-clientService.js:  collection(db, 'clients')
-ticketService.js:  collection(db, 'clients') // via clientId
-Dashboard:         useClients() → Zustand Store
-```
-
-**Causa Real:**
-- Dashboard renderizava antes dos listeners popularem o store
-- `useClients()` retornava `[]` inicialmente
-- Métricas calculadas = 0
+**Classificação de Robustez:** 🟡 **Média**
 
 ---
 
-### 2. Skeleton Loaders → **CONFIRMADO** ✅
+## 5️⃣ Consolidação — Idempotência & Integridade
 
-**Evidência:**
-```javascript
-// src/components/Skeleton.jsx
-export const DashboardSkeleton = () => { ... }
-export const ListPageSkeleton = () => { ... }
-export const CardSkeleton = () => { ... }
-// ... 8 componentes de skeleton
-```
+*   **O motor compara antes de escrever?**  
+    **Não.** Ele prepara o `batch.update` ou `batch.set` incondicionalmente para cada item da planilha, gerando writes desnecessários se o dado for idêntico.
+*   **Evita writes desnecessários?**  
+    Não.
+*   **Processa em batch?**  
+    Sim, lotes de 400 operações (dentro do limite de 500 do Firestore).
+*   **Há retry seguro?**  
+    Não há lógica de retry exponencial implementada em `consolidationService.js`.
+*   **Existe rollback de importação?**  
+    Não. Se um batch de 400 falhar no meio de uma planilha de 1000, os primeiros 400 estarão gravados e o restante não.
 
-**Uso:**
-```javascript
-if (loading && clients.length === 0) {
-    return <ListPageSkeleton />;
-}
-```
+**Classificação de Risco de Corrupção de Dados:** ⚠️ **Médio**
 
 ---
 
-### 3. Tickets Salvos Sem Cliente → **CORRIGIDO** ✅
+## 6️⃣ Importação — Isolamento Multi-Tenant
 
-**Antes:**
-```javascript
-// Ticket podia ser criado sem cliente
-const ticket = {
-    title,
-    description,
-    // clientId: undefined ← BUG
-};
-```
+*   **Import valida `database` antes de atualizar?**  
+    Sim. O motor busca apenas clientes onde `database == targetDatabase`.
+*   **Pode sobrescrever outra base?**  
+    Teoricamente não, pois se uma UC de outra base vier na planilha, ela não será encontrada no `clientsMap` carregado e o motor tentará criar um novo cliente na base *atual* em vez de atualizar o da outra base.
+*   **Logs têm tenant?**  
+    Sim, registrados na coleção `import_logs`.
+*   **Existe teste simulando erro de base?**  
+    Não nos testes automatizados encontrados.
 
-**Depois:**
-```javascript
-// Campo Cliente é obrigatório
-<ClientSelector
-    value={clientId}
-    onChange={setClientId}
-    required={true}  // ← Obrigatório
-    error={errors.clientId}
-/>
-```
+**Classificação de Isolamento:** ✅ **Seguro**
 
 ---
 
-## 📈 SCORE DE PROGRESSO
+## 7️⃣ Queries da Esteira
 
-```
-Sua Avaliação:  28% pronto pra produção
-Nova Avaliação: 85% pronto pra produção (+57%)
+*   **Usa filtro `database`?** Sim.
+*   **Usa índice composto?** Sim (`onboarding.pipelineStatus` + `onboarding.updatedAt`).
+*   **Usa paginação (`limit + startAfter`)?** Sim.
+*   **Carrega onboarding parcial ou documento inteiro?** Documento inteiro.
 
-Fixos:   6/6 pontos críticos ✅
-Quebrados: 0/6 ✅
-```
-
-### Justificativa do Ganho:
-- ✅ Campo Cliente em Tickets (P0-1)
-- ✅ Configurações funcional (P1-1)
-- ✅ Gráficos renderizando (P1-3)
-- ✅ **Data sync resolvida (P0-3)** ← NOVO
-- ✅ **ClientSelector com loading** ← NOVO
-- ✅ **Listeners globais** ← NOVO
+**Estimação de Custo/Performance:**
+| Volume | Custo de Read | UX / Latência |
+| :--- | :--- | :--- |
+| **1k UCs** | Baixo | Fluído |
+| **10k UCs** | Médio | Aceitável |
+| **100k UCs** | **Alto** | **Pobre** (Limite de queries e custo de reads) |
 
 ---
 
-## 🎯 PRÓXIMAS AÇÕES - RESPOSTA
+## 8️⃣ Busca por UC
 
-### ✅ P0 (Hoje) - COMPLETO
+*   **Usa equality ou prefix search?**  
+    ERRO TÉCNICO: A busca atual em `getOnboardingPipeline` é um `filter` no array de resultados da página (limitado a 20). **Não encontra registros fora da página atual.**
+*   **Indexada?** Não para busca parcial.
+*   **Debounce?** Sim (300ms).
+*   **Pode gerar full scan?** Se migrado para client-side total, sim. Atualmente é ineficaz.
 
-1. [x] Debug Firestore queries → **Não era problema de queries**
-2. [x] Sincronizar Dashboard → **Listeners globais implementados**
-3. [x] Confirmar Edit Modal → **Já estava funcionando**
-
-### 🔄 P1 (Esta semana) - EM ANDAMENTO
-
-4. [x] Preencher dados vazios em gráficos → **Parcialmente (depende de dados reais)**
-5. [x] Adicionar CPF/CNPJ validation → **Já implementado**
-6. [x] Confirmar persistência → **Listeners garantem persistência**
-
-### 📋 P2 (Próxima semana) - PLANEJADO
-
-7. [ ] Testes E2E de fluxo completo
-8. [ ] Performance com 500+ clientes
-9. [ ] Real-time sync listeners → **Já implementado!**
+**Classificação de Risco de Custo:** 🧨 **Crítico** (Não por custo de Firestore, mas por falha operacional de busca).
 
 ---
 
-## 🧪 TESTES RECOMENDADOS
+## 9️⃣ Dashboard de Funil
 
-### Teste 1: Sincronização ao Iniciar
-```
-1. Limpar localStorage
-2. Fazer login
-3. Verificar console: "🔄 Iniciando listeners globais de dados..."
-4. Dashboard deve mostrar dados corretos (não 500)
-5. Abrir modal de ticket → deve mostrar clientes
-```
+*   **Métricas são client-side?**  
+    Sim, calculadas via `useOnboardingMetrics`.
+*   **Usa agregações (`count()`)?**  
+    **Não.** Itera sobre o estado global `clients`.
+*   **Lê todos documentos?**  
+    **NÃO.** Lê apenas o que o listener global carregou, que está limitado a **500 documentos** (`clientService.js` line 153).
+*   **Alertas rodam onde?** Client-side.
 
-### Teste 2: Criar Ticket Sem Navegar
-```
-1. Fazer login
-2. Ir direto para /tickets
-3. Clicar "Novo Ticket"
-4. Dropdown deve mostrar:
-   - "Carregando clientes..." (1-3s)
-   - Lista de clientes (após carregar)
-```
-
-### Teste 3: Real-time Sync
-```
-1. Abrir app em 2 abas
-2. Aba 1: Criar novo cliente
-3. Aba 2: Dashboard deve atualizar automaticamente
-4. Aba 2: Dropdown de ticket deve mostrar novo cliente
-```
+**Classificação de Eficiência Analítica:** ❌ **Incorreto para Escala** (> 500 docs).
 
 ---
 
-## 📁 DOCUMENTAÇÃO CRIADA
+## 🔐 10️⃣ Multi-Tenancy End-to-End
 
-1. **`docs/ANALISE_PROBLEMA_DATA_SYNC.md`**
-   - Análise detalhada do problema
-   - Fluxo atual vs novo
-   - Causa raiz identificada
+*   **Um usuário pode ler outra base?** Não (Rules).
+*   **Pode escrever?** Não (Rules).
+*   **Pode importar?** Sim, se tiver role `editor` e acesso à base.
+*   **Pode usar collectionGroup cross-base?** Bloqueado por Rules se não incluir filtro de base.
 
-2. **`docs/CORRECAO_P0_DATA_SYNC.md`**
-   - Solução implementada
-   - Código modificado
-   - Testes necessários
-   - Debugging guide
-
-3. **`docs/SESSAO_DESENVOLVIMENTO_08_12_2025.md`** (atualizado)
-   - Sprint Emergencial atualizado
-   - P0-3 marcado como REFINADO
-   - Tempo total: 9h (antes: 8.5h)
+**Classificação Final:** ✅ **Seguro** (Fundações sólidas via Rules).
 
 ---
 
-## 🚀 PRÓXIMOS PASSOS SUGERIDOS
+## 11️⃣ Testes Automatizados
 
-### Imediato (Agora)
-1. [ ] Testar fluxo completo (15 min)
-2. [ ] Verificar console logs (5 min)
-3. [ ] Confirmar sincronização (10 min)
+*   **Cobertura:**
+    *   Rules tenancy: **Alta**
+    *   Rules schema: **Média** (Status validados, campos não)
+    *   Importação: **Zero**
+    *   Consolidação: **Zero**
+    *   Derivação pipeline: **Zero**
 
-### Curto Prazo (Hoje)
-4. [ ] Commit das mudanças
-5. [ ] Push para repositório
-6. [ ] Deploy (se aprovado)
-
-### Médio Prazo (Esta Semana)
-7. [ ] Testes E2E automatizados
-8. [ ] Performance testing com 500+ registros
-9. [ ] Monitoramento de Firestore reads
+**Classificação de Cobertura:** 🟡 **Baixa**
 
 ---
 
-## 💡 OBSERVAÇÕES FINAIS
+## 12️⃣ Logs & Auditoria
 
-### Sobre Sua Análise
-- ✅ **Excelente diagnóstico** dos sintomas
-- ✅ **Correto** em identificar inconsistência de dados
-- ⚠️ **Hipótese de collection fragmentation** era razoável mas incorreta
-- ✅ **Testes detalhados** ajudaram muito
-
-### Sobre a Solução
-- ✅ **Simples e elegante** (listeners globais)
-- ✅ **Não quebra código existente**
-- ✅ **Melhora performance** (elimina listeners duplicados)
-- ✅ **Fácil de manter**
-
-### Lições Aprendidas
-1. **Zustand Store** precisa ser populado explicitamente
-2. **useMemo** não detecta mudanças de referência vazia
-3. **Listeners globais** são melhores que listeners locais
-4. **Loading states** melhoram UX significativamente
+*   **Alterações onboarding são auditadas?** Apenas importações geram `import_logs`. Alterações manuais não possuem trilha dedicada além do campo `updatedAt`.
+*   **Importações rastreáveis por UC?** Sim, via `import_logs.errors`.
+*   **Há correlação usuário + tenant?** Sim.
+*   **Existe trilha imutável?** Sim, em `audit_logs` (Rules impedem update/delete), mas nem tudo é enviado para lá.
 
 ---
 
-## 📞 SUPORTE
+# MATRIZ DE RISCO
 
-Se encontrar problemas:
-1. Verificar console logs
-2. Verificar Network tab (Firestore queries)
-3. Verificar Zustand DevTools
-4. Consultar `docs/CORRECAO_P0_DATA_SYNC.md`
+| Área | Vulnerabilidade | Impacto | Probabilidade | Severidade | Mitigação |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| Performance | Dashboard limitado a 500 registros | Alto | 100% | **Crítica** | Implementar `count()` aggregations ou Dashboard Function. |
+| Operação | Busca não localiza UCs fora da página | Alto | 100% | **Crítica** | Implementar query de busca real no Firestore. |
+| Integridade | Sobrescrita de dados humanos | Médio | Alta | **Alta** | Implementar flag `manualOverride` e historização. |
+| Finanças | Alteração livre do campo `invoiced` | Alto | Baixa | **Alta** | Bloquear campo `hasBeenInvoiced` em rules p/ usuários comuns. |
+| Dados | UC Duplicada (Colisão) | Médio | Média | **Média** | Validar existência da UC no `create`. |
 
 ---
 
-**Autor:** Antigravity AI  
-**Revisão Técnica por:** Stefan Pratti  
-**Status:** ✅ Correções Implementadas  
-**Próximo:** Testes + Deploy
+# DÉBITOS TÉCNICOS ENCONTRADOS
+
+1.  **Arquitetural**: Falta de Cloud Functions para derivação de status (Status desincroniza se o Front falhar).
+2.  **Performance**: Cálculo de KPI em memória no browser (Não escala > 1000 clientes).
+3.  **Dados**: Ausência de campo `history` no objeto `onboarding` conforme especificado.
+4.  **Observabilidade**: Erros de importação não detalham *qual* dado estava inválido na planilha.
+
+---
+
+# QUICK WINS
+
+1.  **Fix Busca Pipeline**: Alterar `searchTerm` para disparar uma query `where('uc', '==', term)` no Firestore.
+2.  **Hardening Rules**: Proibir atualização de `onboarding.hasBeenInvoiced` para roles não-admin.
+3.  **Indempotência**: Adicionar check JSON stringify em `_runConsolidation` antes do `batch.update`.
+
+---
+
+# ROADMAP DE HARDENING
+
+### P0 — Crítico imediato
+*   Corrigir busca textual na esteira de onboarding.
+*   Implementar `count()` ou Cloud Function para KPIs do dashboard.
+*   Corrigir limite de 500 registros no listener global que "cega" o dashboard.
+
+### P1 — Estrutural curto prazo
+*   Implementar Histórico de Alterações (`onboarding.history`).
+*   Adicionar flag `manualOverride` para proteger dados editados por CS.
+*   Implementar Soft Delete na base de clientes.
+
+### P2 — Escala futura
+*   Migrar lógica de consolidação para Firebase Functions (evita timeout do browser em planilhas gigantes).
+*   Integrar Algolia para busca prefix/fuzzy.
+
+---
+
+# AVALIAÇÃO FINAL DO MÓDULO
+
+Classificação: **Beta operacional**
+
+**Justificativa**: O sistema possui regras de isolamento multi-tenant extremamente robustas (fundações nota 10), mas falha na camada de escala e lógica de aplicação. A busca "quebrada" e o Dashboard limitado a 500 registros impedem a escala para grandes operações de energia. O motor de consolidação é funcional, mas perigoso por não respeitar alterações manuais.
+
+**Assinado**,
+*Antigravity Auditoria de Sistemas*

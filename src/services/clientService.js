@@ -15,6 +15,7 @@ import {
     onSnapshot,
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
+import { consolidationService } from './consolidationService';
 
 /**
  * Serviço de Clientes - Adaptado do código original
@@ -360,16 +361,61 @@ export const clientService = {
     },
 
     /**
-     * Atualiza especificamente o objeto de onboarding de um cliente
+     * Atualiza especificamente o objeto de onboarding de um cliente com Governança (Histórico e Idempotência)
      */
     async updateOnboarding(clientId, onboardingData) {
         const ref = doc(db, 'clients', clientId);
+        const docSnap = await getDoc(ref);
+
+        if (!docSnap.exists()) throw new Error("Cliente não encontrado");
+
+        const existing = docSnap.data();
+        const onboarding = existing.onboarding || {};
+
+        // Unir dados novos com existentes para processamento
+        const updatedOnboarding = { ...onboarding, ...onboardingData };
+
+        // Recalcular status baseado nas regras de negócio
+        updatedOnboarding.pipelineStatus = consolidationService.calculatePipelineStatus(updatedOnboarding);
+
+        // Implementação de Histórico para Auditoria
+        const history = [...(onboarding.history || [])];
+        const trackedFields = [
+            'pipelineStatus',
+            'sentToApportionment',
+            'apportionmentRegistered',
+            'hasBeenInvoiced',
+            'compensationForecastDate',
+            'manualOverride'
+        ];
+
+        let hasChanges = false;
+        trackedFields.forEach(field => {
+            if (onboarding[field] !== updatedOnboarding[field]) {
+                history.push({
+                    field,
+                    oldValue: onboarding[field] === undefined ? null : onboarding[field],
+                    newValue: updatedOnboarding[field] === undefined ? null : updatedOnboarding[field],
+                    updatedBy: auth.currentUser?.email || 'user',
+                    updatedAt: new Date().toISOString(),
+                    source: 'manual'
+                });
+                hasChanges = true;
+            }
+        });
+
+        // Se não houve mudanças nos campos rastreados, não atualizamos para evitar redundância
+        if (!hasChanges) return { success: true, message: "Sem alterações detectadas" };
+
+        const finalOnboarding = {
+            ...updatedOnboarding,
+            history: history.slice(-50),
+            updatedAt: new Date().toISOString(),
+            updatedBy: 'user'
+        };
 
         await updateDoc(ref, {
-            'onboarding': {
-                ...onboardingData,
-                updatedAt: new Date().toISOString()
-            }
+            'onboarding': finalOnboarding
         });
 
         return { success: true };
