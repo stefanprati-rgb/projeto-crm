@@ -39,6 +39,51 @@ const PRIORITIES = [
     { value: 'high', label: 'Alta', description: 'Resolução em até 4h' },
 ];
 
+// Lista de Distribuidoras/Concessionárias (principais do Brasil)
+const DISTRIBUIDORAS = [
+    { value: '', label: 'Selecione a distribuidora...' },
+    // Sudeste
+    { value: 'cemig', label: 'CEMIG - Minas Gerais', region: 'SE' },
+    { value: 'cpfl_paulista', label: 'CPFL Paulista', region: 'SE' },
+    { value: 'cpfl_piratininga', label: 'CPFL Piratininga', region: 'SE' },
+    { value: 'enel_sp', label: 'Enel São Paulo', region: 'SE' },
+    { value: 'elektro', label: 'Elektro', region: 'SE' },
+    { value: 'light', label: 'Light - Rio de Janeiro', region: 'SE' },
+    { value: 'enel_rj', label: 'Enel Rio de Janeiro', region: 'SE' },
+    { value: 'energisa_mg', label: 'Energisa Minas Gerais', region: 'SE' },
+    { value: 'escelsa', label: 'EDP Espírito Santo', region: 'SE' },
+    // Sul
+    { value: 'copel', label: 'COPEL - Paraná', region: 'S' },
+    { value: 'celesc', label: 'CELESC - Santa Catarina', region: 'S' },
+    { value: 'rge', label: 'RGE - Rio Grande do Sul', region: 'S' },
+    { value: 'ceee', label: 'CEEE Equatorial', region: 'S' },
+    // Nordeste
+    { value: 'coelba', label: 'Coelba - Bahia', region: 'NE' },
+    { value: 'celpe', label: 'Celpe - Pernambuco', region: 'NE' },
+    { value: 'cosern', label: 'Cosern - Rio Grande do Norte', region: 'NE' },
+    { value: 'energisa_pb', label: 'Energisa Paraíba', region: 'NE' },
+    { value: 'enel_ce', label: 'Enel Ceará', region: 'NE' },
+    { value: 'equatorial_ma', label: 'Equatorial Maranhão', region: 'NE' },
+    { value: 'equatorial_pi', label: 'Equatorial Piauí', region: 'NE' },
+    { value: 'equatorial_al', label: 'Equatorial Alagoas', region: 'NE' },
+    { value: 'energisa_se', label: 'Energisa Sergipe', region: 'NE' },
+    // Centro-Oeste
+    { value: 'enel_go', label: 'Enel Goiás', region: 'CO' },
+    { value: 'energisa_mt', label: 'Energisa Mato Grosso', region: 'CO' },
+    { value: 'energisa_ms', label: 'Energisa Mato Grosso do Sul', region: 'CO' },
+    { value: 'ceb', label: 'CEB - Brasília', region: 'CO' },
+    // Norte
+    { value: 'equatorial_pa', label: 'Equatorial Pará', region: 'N' },
+    { value: 'equatorial_am', label: 'Equatorial Amazonas', region: 'N' },
+    { value: 'energisa_to', label: 'Energisa Tocantins', region: 'N' },
+    { value: 'energisa_ro', label: 'Energisa Rondônia', region: 'N' },
+    { value: 'energisa_ac', label: 'Energisa Acre', region: 'N' },
+    { value: 'roraima_energia', label: 'Roraima Energia', region: 'N' },
+    { value: 'cea', label: 'CEA - Amapá', region: 'N' },
+    // Outras
+    { value: 'outra', label: 'Outra (especificar no protocolo)', region: 'other' },
+];
+
 // Categorias que mostram campos específicos de GD (financeiros)
 const GD_CATEGORIES = ['faturamento', 'compensacao', 'creditos', 'acordo', 'regulatorio', 'distribuidora', 'inadimplencia'];
 
@@ -74,6 +119,7 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
             agreementDueDate: '',          // Data de vencimento do acordo
             regulatoryReference: '',       // Referência ANEEL/normativa
             distributorProtocol: '',       // Protocolo da distribuidora
+            distributor: '',               // Distribuidora/Concessionária
 
             // Campos legados (para compatibilidade)
             equipmentType: '',
@@ -112,6 +158,7 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
             setValue('agreementDueDate', '');
             setValue('regulatoryReference', '');
             setValue('distributorProtocol', '');
+            setValue('distributor', '');
         }
     }, [showGDFields, setValue]);
 
@@ -143,6 +190,7 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                 payload.agreementDueDate = data.agreementDueDate || null;
                 payload.regulatoryReference = data.regulatoryReference || null;
                 payload.distributorProtocol = data.distributorProtocol || null;
+                payload.distributor = data.distributor || null;
             }
 
             const result = await onSubmit(payload);
@@ -419,18 +467,23 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                             </div>
                         </div>
 
-                        {/* Linha 4: Data de Vencimento do Acordo e Protocolo Distribuidora */}
+                        {/* Linha 4: Distribuidora e Protocolo */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                            {/* Data de Vencimento do Acordo */}
+                            {/* Distribuidora/Concessionária */}
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    📆 Vencimento do Acordo
+                                    🏢 Distribuidora/Concessionária
                                 </label>
-                                <input
-                                    type="date"
+                                <select
                                     className="input"
-                                    {...register('agreementDueDate')}
-                                />
+                                    {...register('distributor')}
+                                >
+                                    {DISTRIBUIDORAS.map((dist) => (
+                                        <option key={dist.value} value={dist.value}>
+                                            {dist.label}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
                             {/* Protocolo da Distribuidora */}
@@ -441,8 +494,23 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
                                 <input
                                     type="text"
                                     className="input font-mono"
-                                    placeholder="Ex: CEMIG-2024-123456"
+                                    placeholder="Ex: 2024-123456"
                                     {...register('distributorProtocol')}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Linha 5: Vencimento do Acordo */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            {/* Data de Vencimento do Acordo */}
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                    📆 Vencimento do Acordo
+                                </label>
+                                <input
+                                    type="date"
+                                    className="input"
+                                    {...register('agreementDueDate')}
                                 />
                             </div>
                         </div>

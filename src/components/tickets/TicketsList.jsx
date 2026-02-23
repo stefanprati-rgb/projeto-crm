@@ -102,9 +102,14 @@ export const TicketsList = ({ tickets, onSelectTicket, selectedTicketId, classNa
                                                 • {ticket.category}
                                             </span>
                                         )}
-                                        {ticket.generationImpact === 'parada_total' && (
+                                        {ticket.category === 'inadimplencia' && (
                                             <Badge variant="danger" className="text-[10px] px-1.5 py-0">
-                                                🔴 Parada Total
+                                                🔴 Inadimplência
+                                            </Badge>
+                                        )}
+                                        {ticket.disputedValue && ticket.disputedValue > 0 && (
+                                            <Badge variant="warning" className="text-[10px] px-1.5 py-0">
+                                                💰 R$ {ticket.disputedValue.toLocaleString('pt-BR')}
                                             </Badge>
                                         )}
                                     </div>

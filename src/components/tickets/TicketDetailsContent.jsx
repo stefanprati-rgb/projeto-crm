@@ -6,10 +6,7 @@ import {
     AlertCircle,
     UserCheck,
     ChevronDown,
-    Sun,
     Zap,
-    AlertTriangle,
-    Wrench,
     Shield,
     DollarSign,
     FileText,
@@ -19,7 +16,6 @@ import { Button, Badge } from '../';
 import { ticketService } from '../../services/ticketService';
 import { TicketTimeline } from './TicketTimeline';
 import { ActionChecklist } from './ActionChecklist';
-import { EQUIPMENT_TYPES, GENERATION_IMPACT } from './ProjectSelector';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '../../utils/cn';
@@ -379,13 +375,13 @@ export const TicketDetailsContent = ({ ticket, onUpdate }) => {
                     </Badge>
                 </div>
 
-                {/* Dados do Equipamento GD */}
-                {(ticket.projectId || ticket.equipmentType || ticket.errorCode || ticket.generationImpact) && (
-                    <EquipmentSection ticket={ticket} />
+                {/* Dados GD - UC/Faturamento */}
+                {(ticket.ucNumber || ticket.referencePeriod || ticket.invoiceReference || ticket.disputedValue || ticket.distributorProtocol || ticket.distributor) && (
+                    <GDDataSection ticket={ticket} />
                 )}
 
-                {/* Checklist de Ações (para tickets técnicos) */}
-                {['tecnico', 'parada_total', 'manutencao', 'instalacao'].includes(ticket.category) && (
+                {/* Checklist de Ações (para tickets de GD) */}
+                {['faturamento', 'compensacao', 'creditos', 'acordo', 'regulatorio', 'distribuidora', 'contratual', 'inadimplencia', 'cadastro', 'suporte'].includes(ticket.category) && (
                     <ActionChecklist ticket={ticket} onUpdate={onUpdate} />
                 )}
             </div>
@@ -439,124 +435,197 @@ const InfoRow = ({ icon: Icon, label, value, highlight = false, variant = 'defau
 };
 
 /**
- * Seção de Dados do Equipamento (GD)
+ * Seção de Dados GD - Unidade Consumidora e Faturamento
  */
-const EquipmentSection = ({ ticket }) => {
-    const equipmentTypeLabel = EQUIPMENT_TYPES.find(t => t.value === ticket.equipmentType)?.label || ticket.equipmentType;
-    const impactInfo = GENERATION_IMPACT.find(i => i.value === ticket.generationImpact);
+const GDDataSection = ({ ticket }) => {
+    // Mapeia tipo de compensação para label legível
+    const COMPENSATION_TYPES = {
+        'net_metering': 'Net Metering (Compensação)',
+        'gross_metering': 'Gross Metering (Injeção Total)',
+        'autoconsumo': 'Autoconsumo Remoto',
+        'geracao_compartilhada': 'Geração Compartilhada',
+        'consorcio': 'Consórcio/Cooperativa',
+    };
+
+    // Mapeia status do acordo para label e cor
+    const AGREEMENT_STATUS = {
+        'proposta_enviada': { label: 'Proposta Enviada', variant: 'info' },
+        'em_negociacao': { label: 'Em Negociação', variant: 'warning' },
+        'aguardando_assinatura': { label: 'Aguardando Assinatura', variant: 'warning' },
+        'assinado': { label: 'Assinado', variant: 'success' },
+        'parcelado': { label: 'Parcelado', variant: 'info' },
+        'recusado': { label: 'Recusado', variant: 'danger' },
+    };
+
+    // Mapeia código da distribuidora para nome legível
+    const DISTRIBUIDORAS = {
+        'cemig': 'CEMIG',
+        'cpfl_paulista': 'CPFL Paulista',
+        'cpfl_piratininga': 'CPFL Piratininga',
+        'enel_sp': 'Enel São Paulo',
+        'elektro': 'Elektro',
+        'light': 'Light',
+        'enel_rj': 'Enel Rio',
+        'energisa_mg': 'Energisa MG',
+        'escelsa': 'EDP ES',
+        'copel': 'COPEL',
+        'celesc': 'CELESC',
+        'rge': 'RGE',
+        'ceee': 'CEEE',
+        'coelba': 'Coelba',
+        'celpe': 'Celpe',
+        'cosern': 'Cosern',
+        'energisa_pb': 'Energisa PB',
+        'enel_ce': 'Enel Ceará',
+        'equatorial_ma': 'Equatorial MA',
+        'equatorial_pi': 'Equatorial PI',
+        'equatorial_al': 'Equatorial AL',
+        'energisa_se': 'Energisa SE',
+        'enel_go': 'Enel Goiás',
+        'energisa_mt': 'Energisa MT',
+        'energisa_ms': 'Energisa MS',
+        'ceb': 'CEB',
+        'equatorial_pa': 'Equatorial PA',
+        'equatorial_am': 'Equatorial AM',
+        'energisa_to': 'Energisa TO',
+        'energisa_ro': 'Energisa RO',
+        'energisa_ac': 'Energisa AC',
+        'roraima_energia': 'Roraima Energia',
+        'cea': 'CEA',
+        'outra': 'Outra',
+    };
+
+    const agreementInfo = ticket.agreementStatus ? AGREEMENT_STATUS[ticket.agreementStatus] : null;
 
     return (
         <div className="space-y-3">
             <div className="flex items-center gap-2">
-                <Sun className="h-4 w-4 text-yellow-500" />
+                <Zap className="h-4 w-4 text-primary-500" />
                 <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Sistema Fotovoltaico
+                    Dados de GD / Faturamento
                 </h4>
             </div>
 
-            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/10 dark:to-orange-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800 p-4 space-y-4">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-lg border border-blue-200 dark:border-blue-800 p-4 space-y-4">
 
-                {/* Projeto */}
-                {(ticket.projectId || ticket.projectName) && (
-                    <div className="flex items-start gap-3">
-                        <Sun className="h-4 w-4 text-yellow-600 mt-0.5" />
+                {/* Grid de dados principais */}
+                <div className="grid grid-cols-2 gap-4">
+                    {/* Número da UC */}
+                    {ticket.ucNumber && (
                         <div>
-                            <p className="text-xs text-gray-500">Projeto/Usina</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Nº da UC</p>
+                            <p className="text-sm font-mono font-bold text-primary-600 dark:text-primary-400 bg-white dark:bg-gray-800 px-2 py-1 rounded border border-primary-200 dark:border-primary-800 inline-block">
+                                {ticket.ucNumber}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* Período de Referência */}
+                    {ticket.referencePeriod && (
+                        <div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Período</p>
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {ticket.projectName || 'Projeto vinculado'}
+                                📅 {ticket.referencePeriod}
                             </p>
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
-                {/* Equipamento */}
-                {ticket.equipmentType && (
+                {/* Referência da Fatura */}
+                {ticket.invoiceReference && (
                     <div className="flex items-start gap-3">
-                        <Wrench className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <FileText className="h-4 w-4 text-blue-500 mt-0.5" />
                         <div>
-                            <p className="text-xs text-gray-500">Equipamento</p>
+                            <p className="text-xs text-gray-500">Referência da Fatura</p>
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {equipmentTypeLabel}
-                                {ticket.equipmentModel && (
-                                    <span className="text-gray-500 font-normal"> — {ticket.equipmentModel}</span>
-                                )}
+                                {ticket.invoiceReference}
                             </p>
                         </div>
                     </div>
                 )}
 
-                {/* Número de Série */}
-                {ticket.equipmentSerialNumber && (
+                {/* Valor em Discussão */}
+                {ticket.disputedValue && ticket.disputedValue > 0 && (
                     <div className="flex items-start gap-3">
-                        <FileText className="h-4 w-4 text-gray-500 mt-0.5" />
+                        <DollarSign className="h-4 w-4 text-amber-500 mt-0.5" />
                         <div>
-                            <p className="text-xs text-gray-500">Número de Série</p>
-                            <p className="text-sm font-mono font-medium text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded inline-block">
-                                {ticket.equipmentSerialNumber}
+                            <p className="text-xs text-gray-500">Valor em Discussão</p>
+                            <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
+                                R$ {ticket.disputedValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </p>
                         </div>
                     </div>
                 )}
 
-                {/* Código de Erro */}
-                {ticket.errorCode && (
-                    <div className="flex items-start gap-3">
-                        <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5" />
-                        <div>
-                            <p className="text-xs text-gray-500">Código de Erro</p>
-                            <p className="text-sm font-mono font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-3 py-1 rounded inline-block border border-red-200 dark:border-red-800">
-                                {ticket.errorCode}
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Impacto na Geração */}
-                {ticket.generationImpact && impactInfo && (
+                {/* Tipo de Compensação */}
+                {ticket.compensationType && (
                     <div className="flex items-start gap-3">
                         <Zap className="h-4 w-4 text-yellow-500 mt-0.5" />
                         <div>
-                            <p className="text-xs text-gray-500">Impacto na Geração</p>
-                            <Badge
-                                variant={
-                                    ticket.generationImpact === 'parada_total' ? 'danger' :
-                                        ticket.generationImpact === 'parada_parcial' ? 'warning' :
-                                            'success'
-                                }
-                                className="text-sm mt-1"
-                            >
-                                {impactInfo.icon} {impactInfo.label}
+                            <p className="text-xs text-gray-500">Tipo de Compensação</p>
+                            <Badge variant="info" className="text-sm mt-1">
+                                ⚡ {COMPENSATION_TYPES[ticket.compensationType] || ticket.compensationType}
                             </Badge>
                         </div>
                     </div>
                 )}
 
-                {/* Status de Garantia */}
-                {ticket.warrantyStatus && (
+                {/* Distribuidora */}
+                {ticket.distributor && (
                     <div className="flex items-start gap-3">
-                        <Shield className="h-4 w-4 text-green-500 mt-0.5" />
+                        <Shield className="h-4 w-4 text-blue-600 mt-0.5" />
                         <div>
-                            <p className="text-xs text-gray-500">Garantia</p>
-                            <Badge
-                                variant={ticket.warrantyStatus === 'Em Garantia' ? 'success' : 'warning'}
-                                className="text-sm mt-1"
-                            >
-                                {ticket.warrantyStatus}
-                            </Badge>
+                            <p className="text-xs text-gray-500">Distribuidora</p>
+                            <p className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                                🏢 {DISTRIBUIDORAS[ticket.distributor] || ticket.distributor.toUpperCase()}
+                            </p>
                         </div>
                     </div>
                 )}
 
-                {/* Ações Executadas */}
-                {ticket.actionsExecuted && ticket.actionsExecuted.length > 0 && (
-                    <div className="pt-3 border-t border-yellow-200 dark:border-yellow-800">
-                        <p className="text-xs text-gray-500 mb-2">Ações Já Executadas</p>
-                        <div className="flex flex-wrap gap-1">
-                            {ticket.actionsExecuted.map((action, i) => (
-                                <Badge key={i} variant="default" className="text-xs">
-                                    ✓ {action}
-                                </Badge>
-                            ))}
+                {/* Protocolo da Distribuidora */}
+                {ticket.distributorProtocol && (
+                    <div className="flex items-start gap-3">
+                        <FileText className="h-4 w-4 text-purple-500 mt-0.5" />
+                        <div>
+                            <p className="text-xs text-gray-500">Protocolo Distribuidora</p>
+                            <p className="text-sm font-mono font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2 py-1 rounded inline-block">
+                                🔌 {ticket.distributorProtocol}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Referência Regulatória */}
+                {ticket.regulatoryReference && (
+                    <div className="flex items-start gap-3">
+                        <Shield className="h-4 w-4 text-indigo-500 mt-0.5" />
+                        <div>
+                            <p className="text-xs text-gray-500">Referência ANEEL</p>
+                            <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                                ⚖️ {ticket.regulatoryReference}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Status do Acordo */}
+                {ticket.agreementStatus && agreementInfo && (
+                    <div className="flex items-start gap-3">
+                        <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                        <div>
+                            <p className="text-xs text-gray-500">Status do Acordo</p>
+                            <Badge
+                                variant={agreementInfo.variant}
+                                className="text-sm mt-1"
+                            >
+                                📝 {agreementInfo.label}
+                            </Badge>
+                            {ticket.agreementDueDate && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Vencimento: {new Date(ticket.agreementDueDate).toLocaleDateString('pt-BR')}
+                                </p>
+                            )}
                         </div>
                     </div>
                 )}

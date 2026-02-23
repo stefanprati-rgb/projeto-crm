@@ -74,7 +74,7 @@ export const TicketsPage = () => {
                         Central de Atendimento
                     </h1>
                     <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Gerencie chamados e suporte técnico de O&M Solar
+                        Gestão de chamados e atendimento ao cooperado de Geração Distribuída
                     </p>
                 </div>
                 <Button onClick={() => setModalOpen(true)}>
