@@ -4,7 +4,6 @@
 - [ ] Auditoria de conformidade com diretrizes globais (Revisão Contínua)
 
 ## Próximos Passos
-- [ ] Implementar Módulo de Tickets (Pendente)
 - [ ] Configurar Firebase Hosting para deploy oficial
 
 ## Concluído
@@ -14,6 +13,7 @@
 - [x] Hardening de Performance (Dashboard com Aggregations `count()`)
 - [x] Governança de Dados (Manual Override e Historização no Onboarding)
 - [x] Correção de limite de 500 registros nos listeners do dashboard
+- [x] Implementação e refinamento do Módulo de Tickets
 
 ## Backlog
 - [ ] Dashboards de consumo de energia
