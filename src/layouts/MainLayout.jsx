@@ -22,16 +22,18 @@ import { ProjectSelector } from '../components/ProjectSelector';
 import useStore, { useDarkMode, useSidebarOpen, useCurrentBase, useAllowedBases, useUser } from '../stores/useStore';
 import { useAuth } from '../hooks/useAuth';
 
+// Navegação controlada pelo Modo Esteira
+// As rotas que não possuem 'visible: true' existem no react-router mas sumiram do menu
 const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Clientes', href: '/clientes', icon: Users },
-    { name: 'Esteira Onboarding', href: '/onboarding', icon: Activity },
-    { name: 'Dashboard Onboarding', href: '/onboarding/dashboard', icon: BarChart3 },
-    { name: 'Tickets', href: '/tickets', icon: Ticket },
-    { name: 'Operações', href: '/operacoes', icon: Factory },
-    { name: 'Relatórios', href: '/relatorios', icon: BarChart3 },
-    { name: 'Admin', href: '/admin', icon: Database },
-    { name: 'Configurações', href: '/configuracoes', icon: Settings },
+    { name: 'Dashboard', href: '/', icon: Home, visible: false },
+    { name: 'Clientes', href: '/clientes', icon: Users, visible: false },
+    { name: 'Esteira Onboarding', href: '/onboarding', icon: Activity, visible: true },
+    { name: 'Dashboard Onboarding', href: '/onboarding/dashboard', icon: BarChart3, visible: true },
+    { name: 'Tickets', href: '/tickets', icon: Ticket, visible: false },
+    { name: 'Operações', href: '/operacoes', icon: Factory, visible: false },
+    { name: 'Relatórios', href: '/relatorios', icon: BarChart3, visible: false },
+    { name: 'Admin', href: '/admin', icon: Database, visible: false, adminOnly: true },
+    { name: 'Configurações', href: '/configuracoes', icon: Settings, visible: false, adminOnly: true },
 ];
 
 /**
@@ -115,26 +117,29 @@ export const MainLayout = ({ children }) => {
 
                         {/* Navigation */}
                         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-                            {navigation.map((item) => {
-                                const isActive = location.pathname === item.href;
-                                const Icon = item.icon;
+                            {navigation
+                                .filter(item => item.visible)
+                                .filter(item => !item.adminOnly || user?.role === 'admin')
+                                .map((item) => {
+                                    const isActive = location.pathname === item.href;
+                                    const Icon = item.icon;
 
-                                return (
-                                    <Link
-                                        key={item.name}
-                                        to={item.href}
-                                        className={cn(
-                                            'flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all group',
-                                            isActive
-                                                ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20'
-                                                : 'text-slate-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary-600'
-                                        )}
-                                    >
-                                        <Icon className={cn("h-5 w-5", isActive ? "text-white" : "group-hover:text-primary-600")} />
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
+                                    return (
+                                        <Link
+                                            key={item.name}
+                                            to={item.href}
+                                            className={cn(
+                                                'flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all group',
+                                                isActive
+                                                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-600/20'
+                                                    : 'text-slate-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary-600'
+                                            )}
+                                        >
+                                            <Icon className={cn("h-5 w-5", isActive ? "text-white" : "group-hover:text-primary-600")} />
+                                            {item.name}
+                                        </Link>
+                                    );
+                                })}
                         </nav>
 
                         {/* User Section */}
