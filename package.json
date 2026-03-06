@@ -48,6 +48,6 @@
     "vitest": "^3.0.1",
     "@testing-library/react": "^16.1.0",
     "@testing-library/jest-dom": "^6.6.3",
-    "@firebase/rules-unit-testing": "^3.0.2"
+    "@firebase/rules-unit-testing": "^5.0.0"
   }
 }
