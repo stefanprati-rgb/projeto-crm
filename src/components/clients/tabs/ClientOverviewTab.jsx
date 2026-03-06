@@ -12,7 +12,7 @@ import { Labels } from '../../../types/client.types';
 import { ClientTimeline } from '../ClientTimeline';
 import { Badge } from '../../Badge';
 
-export const ClientOverviewTab = ({ client, onUpdate }) => {
+export const ClientOverviewTab = ({ client }) => {
     return (
         <div className="space-y-6">
             {/* Informações Principais */}

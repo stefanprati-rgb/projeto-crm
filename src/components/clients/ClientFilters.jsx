@@ -14,7 +14,6 @@
 import { useState, useEffect } from 'react';
 import { Filter, X, Save, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '../';
-import { cn } from '../../utils/cn';
 import { ClientStatus, ProjectStatus, Labels, StatusColors } from '../../types/client.types';
 
 export const ClientFilters = ({ onFilterChange, plants = [], projects = [] }) => {
@@ -48,7 +47,8 @@ export const ClientFilters = ({ onFilterChange, plants = [], projects = [] }) =>
         const saved = localStorage.getItem('clientFilters');
         if (saved) {
             try {
-                setSavedFilters(JSON.parse(saved));
+                const parsed = JSON.parse(saved);
+                setSavedFilters(parsed);
             } catch (e) {
                 console.error('Erro ao carregar filtros salvos:', e);
             }

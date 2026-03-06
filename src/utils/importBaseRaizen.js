@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx';
 import { clientService } from '../services/clientService';
-import { plantService } from '../services/plantService';
 import { cleanDocument } from './formatters';
 import CryptoJS from 'crypto-js';
 

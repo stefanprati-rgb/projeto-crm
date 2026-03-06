@@ -198,8 +198,6 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
             if (result?.success) {
                 reset();
                 setSelectedClientId(null);
-                setSelectedProjectId(null);
-                setSelectedProject(null);
                 onClose();
             }
         } catch (error) {
@@ -213,8 +211,6 @@ export const TicketModal = ({ isOpen, onClose, onSubmit, ticket = null, clientId
         reset();
         setSelectedClientId(null);
         setClientError(null);
-        setSelectedProjectId(null);
-        setSelectedProject(null);
         onClose();
     };
 

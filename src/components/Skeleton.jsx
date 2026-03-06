@@ -90,11 +90,11 @@ export const ChartSkeleton = () => {
             <Skeleton className="h-6 w-32 mb-4" />
             <div className="space-y-3">
                 <div className="flex items-end gap-2 h-48">
-                    {Array.from({ length: 7 }).map((_, i) => (
+                    {[60, 80, 45, 90, 70, 55, 85].map((height, i) => (
                         <Skeleton
                             key={i}
                             className="flex-1"
-                            style={{ height: `${Math.random() * 60 + 40}%` }}
+                            style={{ height: `${height}%` }}
                         />
                     ))}
                 </div>

@@ -110,7 +110,7 @@ export const useDashboardMetrics = () => {
 
         tickets.forEach((ticket) => {
             const status = ticket.status || 'open';
-            if (statusCount.hasOwnProperty(status)) {
+            if (Object.prototype.hasOwnProperty.call(statusCount, status)) {
                 statusCount[status] += 1;
             } else {
                 statusCount[status] = 1;
@@ -127,7 +127,7 @@ export const useDashboardMetrics = () => {
         };
 
         return Object.entries(statusCount)
-            .filter(([_, count]) => count > 0) // Apenas status com tickets
+            .filter(([, count]) => count > 0) // Apenas status com tickets
             .map(([status, count]) => ({
                 name: statusLabels[status] || status,
                 value: count,

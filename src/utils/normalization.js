@@ -12,7 +12,7 @@ export const normalization = {
         if (!uc) return '';
 
         // Converte para string e remove espaços, barras, traços e pontos
-        let clean = String(uc).replace(/[\s\/\.\-]/g, '');
+        let clean = String(uc).replace(/[\s/.-]/g, '');
 
         // Remove zeros à esquerda para padronização (opcional, conforme regra de negócio)
         clean = clean.replace(/^0+/, '');
