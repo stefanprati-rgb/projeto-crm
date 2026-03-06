@@ -224,6 +224,8 @@ export const consolidationService = {
             database,
             stats,
             executedBy: user?.email || 'system',
+            createdBy: user?.uid || 'system_imported',
+            createdAt: serverTimestamp(),
             timestamp: serverTimestamp()
         });
 

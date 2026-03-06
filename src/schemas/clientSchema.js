@@ -20,7 +20,11 @@ import {
     InteractionType,
     InvoiceStatus,
     ContactType,
-    PaymentMethod
+    PaymentMethod,
+    EnergyDistributor,
+    ConsumptionClass,
+    PortalAccessStatus,
+    InstallationRateioStatus
 } from '../types/client.types';
 
 /**
@@ -41,11 +45,49 @@ export const createEmptyClient = () => ({
     // DOCUMENTAÇÃO
     // ─────────────────────────────────────────────────────────
     document: '', // CPF ou CNPJ (campo legado, manter compatibilidade)
-    cnpj: '',
+    cnpj: '', // Referência principal
     cpf: '',
     inscricaoEstadual: '',
     inscricaoMunicipal: '',
     dataConstituicao: null,
+
+    // CNPJs Específicos do modelo Raízen
+    cnpjAssinante: '',
+    cnpjPagador: '',
+    cnpjDistribuidora: '',
+
+    // ─────────────────────────────────────────────────────────
+    // DADOS COMERCIAIS E CONTRATUAIS
+    // ─────────────────────────────────────────────────────────
+    idContaAcc: '', // ID Conta Salesforce
+    idUcNegociada: '',
+    consorcio: '',
+    grupoContas: '',
+    canalEntrada: '',
+    dataAdesao: null,
+    fidelidadeMeses: 0,
+
+    // ─────────────────────────────────────────────────────────
+    // CANCELAMENTO E DESLIGAMENTO
+    // ─────────────────────────────────────────────────────────
+    dadosCancelamento: {
+        dataSolicitacao: null,
+        avisoPrevio: '',
+        motivo: '',
+        dataFinalizacao: null
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // ACESSO AO PORTAL E SEGURANÇA
+    // ─────────────────────────────────────────────────────────
+    portal: {
+        onboarding: false,
+        status: PortalAccessStatus.PENDENTE,
+        login: '',
+        senhaOfuscada: '',
+        fraudeMapeada: false,
+        pendenciaCadastral: false
+    },
 
     // ─────────────────────────────────────────────────────────
     // LOCALIZAÇÃO PRINCIPAL
@@ -381,9 +423,13 @@ export const createEmptyInstallation = () => ({
     medidor: '',
     numeroMedidor: '',
     distribuidora: '',
+    distribuidoraEnum: EnergyDistributor.OUTRA,
+    mediaConsumo: 0,
+    classe: ConsumptionClass.OUTRA,
     dataInstalacao: null,
     dataAtivacao: null,
     status: InstallationStatus.PLANEJAMENTO,
+    statusRateio: InstallationRateioStatus.NAO_SE_APLICA,
     observacoes: ''
 });
 

@@ -4,12 +4,13 @@
  * Exibe informações cadastrais, contatos, endereço e timeline.
  */
 
-import { Mail, Phone, MapPin, FileText, Calendar, User, Building2, Tag } from 'lucide-react';
+import { Mail, Phone, MapPin, FileText, Calendar, User, Building2, Tag, Shield, FileSignature, LogIn } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatDocument, formatPhone, formatZipCode } from '../../../utils/formatters';
 import { Labels } from '../../../types/client.types';
 import { ClientTimeline } from '../ClientTimeline';
+import { Badge } from '../../Badge';
 
 export const ClientOverviewTab = ({ client, onUpdate }) => {
     return (
@@ -58,6 +59,39 @@ export const ClientOverviewTab = ({ client, onUpdate }) => {
                     )}
                 </div>
             </Section>
+
+            {/* Dados Comerciais Raízen */}
+            {(client.idContaAcc || client.consorcio || client.grupoContas) && (
+                <Section title="Dados Comerciais (Raízen)">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {client.idContaAcc && (
+                            <InfoRow icon={FileText} label="ID Conta (__acc)" value={client.idContaAcc} />
+                        )}
+                        {client.idUcNegociada && (
+                            <InfoRow icon={FileText} label="ID UC Negociada" value={client.idUcNegociada} />
+                        )}
+                        {client.consorcio && (
+                            <InfoRow icon={Building2} label="Consórcio" value={client.consorcio} />
+                        )}
+                        {client.grupoContas && (
+                            <InfoRow icon={FileText} label="Grupo de Contas" value={client.grupoContas} />
+                        )}
+                        {client.canalEntrada && (
+                            <InfoRow icon={Tag} label="Canal de Entrada" value={client.canalEntrada} />
+                        )}
+                        {client.fidelidadeMeses !== undefined && client.fidelidadeMeses !== '' && (
+                            <InfoRow icon={Calendar} label="Fidelidade" value={`${client.fidelidadeMeses} meses`} />
+                        )}
+                        {client.dataAdesao && (
+                            <InfoRow
+                                icon={Calendar}
+                                label="Data de Adesão"
+                                value={format(new Date(client.dataAdesao), 'dd/MM/yyyy', { locale: ptBR })}
+                            />
+                        )}
+                    </div>
+                </Section>
+            )}
 
             {/* Contatos */}
             <Section title="Contatos">
@@ -193,6 +227,50 @@ export const ClientOverviewTab = ({ client, onUpdate }) => {
                     <p className="text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">
                         {client.notes || client.observacoes}
                     </p>
+                </Section>
+            )}
+
+            {/* Acesso ao Portal */}
+            {client.portal && (
+                <Section title="Acesso e Segurança (Portal)">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center gap-3">
+                            <LogIn className="h-5 w-5 text-gray-400" />
+                            <div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Status de Acesso</p>
+                                <div className="mt-1">
+                                    <Badge variant={client.portal.status === 'CADASTRADO' ? 'success' : client.portal.status === 'BLOQUEADO' ? 'danger' : 'warning'}>
+                                        {Labels.PortalAccessStatus?.[client.portal.status] || client.portal.status}
+                                    </Badge>
+                                </div>
+                            </div>
+                        </div>
+
+                        {(client.portal.login) && (
+                            <div className="flex items-center gap-3">
+                                <Shield className="h-5 w-5 text-gray-400" />
+                                <div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">Login (Portal)</p>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{client.portal.login}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="col-span-full grid grid-cols-2 gap-4 mt-2 border-t border-gray-200 dark:border-gray-700 pt-4">
+                            {client.portal.pendenciaCadastral && (
+                                <div className="flex items-center gap-2 text-warning-600 text-sm font-medium">
+                                    <FileSignature className="h-4 w-4" />
+                                    Possui Pendência Cadastral
+                                </div>
+                            )}
+                            {client.portal.fraudeMapeada && (
+                                <div className="flex items-center gap-2 text-danger-600 text-sm font-medium">
+                                    <Shield className="h-4 w-4" />
+                                    Fraude Mapeada
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </Section>
             )}
 

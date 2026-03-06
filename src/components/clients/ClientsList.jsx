@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Mail, Phone, MapPin, Building2, AlertCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, Building2, AlertCircle, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { usePrivacyMode } from '../../stores/useStore';
 import { maskEmail, maskPhone, maskValue } from '../../utils/masker';
 import { Badge } from '../Badge';
@@ -87,15 +87,25 @@ export const ClientsList = ({ clients, onSelectClient, selectedClientId, classNa
                                         {/* Nome e Status */}
                                         <div className="flex items-center gap-2 mb-1">
                                             <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-                                                {client.name || 'Sem nome'}
+                                                {client.name || client.nome || 'Sem nome'}
                                             </h3>
                                             <Badge variant={isActive ? 'success' : 'default'}>
                                                 {isActive ? 'Ativo' : 'Inativo'}
                                             </Badge>
-                                            {client.database && (
+
+                                            {/* Consórcio Tag */}
+                                            {client.consorcio && (
                                                 <Badge variant="info" className="hidden sm:inline-flex">
                                                     <Building2 className="h-3 w-3 mr-1" />
-                                                    {client.database}
+                                                    {client.consorcio}
+                                                </Badge>
+                                            )}
+
+                                            {/* Portal Status Tag */}
+                                            {client.portal?.status === 'CADASTRADO' && (
+                                                <Badge variant="success" className="hidden md:inline-flex">
+                                                    <ShieldCheck className="h-3 w-3 mr-1" />
+                                                    Portal
                                                 </Badge>
                                             )}
                                         </div>
@@ -124,6 +134,14 @@ export const ClientsList = ({ clients, onSelectClient, selectedClientId, classNa
                                                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                                                     <MapPin className="h-3 w-3 flex-shrink-0" />
                                                     <span className="truncate">{client.address}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Alerta de Fraude do Portal */}
+                                            {client.portal?.fraudeMapeada && (
+                                                <div className="flex items-center gap-2 text-xs text-danger-600 font-medium mt-1">
+                                                    <ShieldAlert className="h-3 w-3 flex-shrink-0" />
+                                                    <span>Alerta de Fraude (Portal)</span>
                                                 </div>
                                             )}
                                         </div>

@@ -18,25 +18,25 @@
         ],
         "headers": [
             {
-                "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+                "source": "/assets/**",
                 "headers": [
                     {
                         "key": "Cache-Control",
-                        "value": "max-age=31536000"
+                        "value": "max-age=31536000, immutable"
                     }
                 ]
             },
             {
-                "source": "**/*.@(js|css)",
+                "source": "/index.html",
                 "headers": [
                     {
                         "key": "Cache-Control",
-                        "value": "max-age=31536000"
+                        "value": "no-cache, no-store, must-revalidate"
                     }
                 ]
             },
             {
-                "source": "**/*.@(woff|woff2|ttf|eot)",
+                "source": "**/*.@(woff|woff2|ttf|eot|jpg|jpeg|gif|png|svg|webp|ico)",
                 "headers": [
                     {
                         "key": "Cache-Control",

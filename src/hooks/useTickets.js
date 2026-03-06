@@ -25,9 +25,10 @@ export const useTickets = (clientId = null) => {
             setError(null);
 
             try {
+                const fetchOptions = { ...options, database: currentBase?.id };
                 const result = clientId
                     ? await ticketService.getByClient(clientId, options)
-                    : await ticketService.getAll(options);
+                    : await ticketService.getAll(fetchOptions);
 
                 setTickets(result.tickets);
 
@@ -75,7 +76,7 @@ export const useTickets = (clientId = null) => {
 
         const unsubscribe = clientId
             ? ticketService.listenToClient(clientId, handleData, handleError)
-            : ticketService.listen(handleData, handleError);
+            : ticketService.listen(currentBase?.id, handleData, handleError);
 
         return unsubscribe;
     }, [clientId, setTickets]);
@@ -106,7 +107,10 @@ export const useTickets = (clientId = null) => {
         addTicket(optimisticTicket);
 
         try {
-            const newTicket = await ticketService.create(targetClientId, ticketData);
+            const newTicket = await ticketService.create(targetClientId, {
+                ...ticketData,
+                database: currentBase?.id
+            });
 
             // Substituir ticket temporário pelo real
             updateTicket(tempId, { ...newTicket, pending: false });

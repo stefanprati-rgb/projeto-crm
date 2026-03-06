@@ -9,8 +9,26 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "name",
+          "fieldPath": "onboarding.pipelineStatus",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "onboarding.updatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "clients",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "database",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "onboarding.updatedAt",
+          "order": "DESCENDING"
         }
       ]
     },
@@ -29,7 +47,7 @@
       ]
     },
     {
-      "collectionGroup": "clients",
+      "collectionGroup": "client_events",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -37,7 +55,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "status",
+          "fieldPath": "clientId",
           "order": "ASCENDING"
         },
         {
@@ -47,21 +65,7 @@
       ]
     },
     {
-      "collectionGroup": "clients",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "tickets",
+      "collectionGroup": "client_events",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -76,10 +80,10 @@
     },
     {
       "collectionGroup": "tickets",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
-          "fieldPath": "status",
+          "fieldPath": "database",
           "order": "ASCENDING"
         },
         {
@@ -90,7 +94,7 @@
     },
     {
       "collectionGroup": "tickets",
-      "queryScope": "COLLECTION",
+      "queryScope": "COLLECTION_GROUP",
       "fields": [
         {
           "fieldPath": "database",
@@ -107,20 +111,5 @@
       ]
     }
   ],
-  "fieldOverrides": [
-    {
-      "collectionGroup": "tickets",
-      "fieldPath": "createdAt",
-      "indexes": [
-        {
-          "order": "DESCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        },
-        {
-          "order": "ASCENDING",
-          "queryScope": "COLLECTION_GROUP"
-        }
-      ]
-    }
-  ]
+  "fieldOverrides": []
 }

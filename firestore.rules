@@ -144,10 +144,32 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // CONFIGURAÇÕES: Apenas admins
+    // CONFIGURAÇÕES: Apenas admins para segurança global
     match /settings/{settingId} {
-      allow read: if isAuth();
+      allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    // EVENTOS DE CLIENTE: Timeline de CRM com isolamento de tenancy
+    match /client_events/{eventId} {
+      allow read: if isAuth() && (isAdmin() || isAllowedBase(resource.data.database));
+
+      allow create: if isAuth()
+        && isAllowedBase(request.resource.data.database)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt is timestamp;
+
+      allow update, delete: if isAdmin();
+    }
+
+    // LOGS DE IMPORTAÇÃO: Auditoria de processamento por tenant
+    match /import_logs/{logId} {
+      allow read: if isAllowedBase(resource.data.database);
+      allow create: if isAllowedBase(request.resource.data.database)
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isAllowedBase(resource.data.database)
+        && request.resource.data.database == resource.data.database;
+      allow delete: if false;
     }
 
     // FATURAS: Imutável

@@ -6,12 +6,14 @@ import { formatCurrency } from '../utils/formatters';
 import { cn } from '../utils/cn';
 import { OperationsDashboardSkeleton } from '../components/OperationsDashboardSkeleton';
 import { EmptyState } from '../components/EmptyState';
+import { useCurrentBase } from '../stores/useStore';
 
 /**
  * Dashboard Operacional - Hub de Operação GD
  * Visão consolidada de faturas, inadimplência e performance por usina
  */
 export const OperationsDashboard = () => {
+    const currentBase = useCurrentBase();
     const [loading, setLoading] = useState(true);
     const [clients, setClients] = useState([]);
     const [plants, setPlants] = useState([]);
@@ -25,15 +27,17 @@ export const OperationsDashboard = () => {
     });
 
     useEffect(() => {
-        loadData();
-    }, []);
+        if (currentBase?.id) {
+            loadData();
+        }
+    }, [currentBase]);
 
     const loadData = async () => {
         setLoading(true);
         try {
             // Carrega clientes e usinas
             const [clientsData, plantsData] = await Promise.all([
-                clientService.getAllForDashboard(null, 2000),
+                clientService.getAllForDashboard(currentBase.id, 2000),
                 plantService.getAll(),
             ]);
 

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Users, UserCheck, UserX } from 'lucide-react';
+import { Plus, Search, Users, UserCheck, UserX, Database } from 'lucide-react';
 import { useClients } from '../hooks/useClients';
 import { useAdvancedSearch } from '../hooks/useAdvancedSearch';
 import { ClientsList } from '../components/clients/ClientsList';
 import { ClientModal } from '../components/clients/ClientModal';
 import { ClientDetailsModal } from '../components/clients/ClientDetailsModal';
 import { ClientFilters } from '../components/clients/ClientFilters';
+import { ClientImporter } from '../components/import/ClientImporter';
 import { LocalErrorBoundary } from '../components/LocalErrorBoundary';
 import { Button, ListPageSkeleton, ConfirmDialog, Pagination } from '../components';
 import { cn } from '../utils/cn';
@@ -25,6 +26,7 @@ export const ClientsPage = () => {
 
     const [selectedClient, setSelectedClient] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [importModalOpen, setImportModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
 
@@ -149,10 +151,16 @@ export const ClientsPage = () => {
                         Gerencie todos os seus clientes de Geração Distribuída
                     </p>
                 </div>
-                <Button onClick={handleCreateClient}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Cliente
-                </Button>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={() => setImportModalOpen(true)}>
+                        <Database className="h-4 w-4 mr-2" />
+                        Importar Base (Raízen)
+                    </Button>
+                    <Button onClick={handleCreateClient}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Novo Cliente
+                    </Button>
+                </div>
             </div>
 
             {/* Métricas */}
@@ -256,6 +264,39 @@ export const ClientsPage = () => {
                 onSubmit={handleSubmit}
                 client={editingClient}
             />
+
+            {/* Modal de Importação (Usando uma sobreposição simples para o Importer) */}
+            {importModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 overflow-y-auto">
+                    <div className="relative w-full max-w-2xl bg-white dark:bg-gray-900 rounded-lg shadow-xl outline-none focus:outline-none">
+                        <div className="flex items-start justify-between p-5 border-b border-solid border-gray-200 dark:border-gray-700 rounded-t">
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                                Importar Dados
+                            </h3>
+                            <button
+                                className="p-1 ml-auto bg-transparent border-0 text-gray-900 dark:text-gray-100 float-right text-3xl leading-none font-semibold outline-none focus:outline-none"
+                                onClick={() => setImportModalOpen(false)}
+                            >
+                                <span className="text-gray-500 h-6 w-6 text-2xl block outline-none focus:outline-none hover:text-gray-800 dark:hover:text-gray-200">
+                                    ×
+                                </span>
+                            </button>
+                        </div>
+                        <div className="relative p-6 flex-auto max-h-[80vh] overflow-y-auto">
+                            <ClientImporter onComplete={(results) => {
+                                if (results && results.success > 0) {
+                                    fetchClients({ pageSize }); // Recarrega a lista
+                                }
+                            }} />
+                        </div>
+                        <div className="flex items-center justify-end p-6 border-t border-solid border-gray-200 dark:border-gray-700 rounded-b">
+                            <Button variant="ghost" onClick={() => setImportModalOpen(false)}>
+                                Fechar
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Modal de Confirmação de Deleção */}
             <ConfirmDialog

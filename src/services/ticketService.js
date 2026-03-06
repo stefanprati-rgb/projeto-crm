@@ -212,6 +212,9 @@ export const ticketService = {
             priority: this.shouldForceHighPriority(ticketData.category) ? 'high' : (ticketData.priority || 'medium'),
             status: 'open',
 
+            // Multi-tenant Isolamento
+            database: ticketData.database || null,
+
             // SLA - considera categoria para forçar prioridade
             dueDate: ticketData.dueDate || this.calculateDueDate(ticketData.priority || 'medium', ticketData.category),
             overdue: false,
@@ -301,13 +304,19 @@ export const ticketService = {
     },
 
     /**
-     * Busca todos os tickets (usando collectionGroup)
+     * Busca todos os tickets (usando collectionGroup) com isolamento Multi-tenant
      */
     async getAll(options = {}) {
-        const { pageSize = 50, lastDoc = null, status = null } = options;
+        const { pageSize = 50, lastDoc = null, status = null, database = null } = options;
+
+        if (!database) {
+            console.error('[SECURITY] Risco Multi-tenant evitado: Consulta massiva sem database negada.');
+            return { tickets: [], hasMore: false };
+        }
 
         let q = query(
             collectionGroup(db, 'tickets'),
+            where('database', '==', database),
             orderBy('createdAt', 'desc'),
             limit(pageSize)
         );
@@ -366,10 +375,20 @@ export const ticketService = {
     },
 
     /**
-     * Listener em tempo real para todos os tickets
+     * Listener em tempo real para todos os tickets de uma base (Multi-tenant Safe)
      */
-    listen(onData, onError) {
-        const q = query(collectionGroup(db, 'tickets'), orderBy('createdAt', 'desc'));
+    listen(database, onData, onError) {
+        if (!database) {
+            console.error('[SECURITY] Risco Multi-tenant evitado: Listener global sem database negado.');
+            return null;
+        }
+
+        const q = query(
+            collectionGroup(db, 'tickets'),
+            where('database', '==', database),
+            orderBy('createdAt', 'desc'),
+            limit(500)
+        );
 
         return onSnapshot(
             q,

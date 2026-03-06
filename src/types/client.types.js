@@ -13,6 +13,35 @@ export const ClientType = {
     PESSOA_JURIDICA: 'PESSOA_JURIDICA'
 };
 
+/**
+ * Distribuidores de Energia (Adicionados para CRM Raízen)
+ */
+export const EnergyDistributor = {
+    CEMIG: 'CEMIG',
+    ENEL_SP: 'ENEL_SP',
+    ENEL_RJ: 'ENEL_RJ',
+    ENEL_CE: 'ENEL_CE',
+    CPFL: 'CPFL',
+    EQUATORIAL: 'EQUATORIAL',
+    LIGHT: 'LIGHT',
+    NEOENERGIA: 'NEOENERGIA',
+    OUTRA: 'OUTRA'
+};
+
+export const ConsumptionClass = {
+    B1_RESIDENCIAL: 'B1_RESIDENCIAL',
+    B2_RURAL: 'B2_RURAL',
+    B3_DEMAIS_CLASSES: 'B3_DEMAIS_CLASSES',
+    A4_MEDIA_TENSAO: 'A4_MEDIA_TENSAO',
+    OUTRA: 'OUTRA'
+};
+
+export const PortalAccessStatus = {
+    PENDENTE: 'PENDENTE',
+    CADASTRADO: 'CADASTRADO',
+    BLOQUEADO: 'BLOQUEADO'
+};
+
 export const ClientSegment = {
     RESIDENCIAL: 'RESIDENCIAL',
     COMERCIAL: 'COMERCIAL',
@@ -64,6 +93,15 @@ export const InstallationStatus = {
     ATIVO: 'ATIVO',
     MANUTENCAO: 'MANUTENCAO',
     DESATIVADO: 'DESATIVADO'
+};
+
+export const InstallationRateioStatus = {
+    AGUARDANDO_ENVIO: 'AGUARDANDO_ENVIO',
+    ENVIADO: 'ENVIADO',
+    APROVADO: 'APROVADO',
+    REJEITADO: 'REJEITADO',
+    SUSPENSO: 'SUSPENSO',
+    NAO_SE_APLICA: 'NAO_SE_APLICA'
 };
 
 /**
@@ -164,6 +202,37 @@ export const PaymentMethod = {
  * Labels amigáveis para exibição
  */
 export const Labels = {
+    EnergyDistributor: {
+        CEMIG: 'CEMIG',
+        ENEL_SP: 'Enel SP',
+        ENEL_RJ: 'Enel RJ',
+        ENEL_CE: 'Enel CE',
+        CPFL: 'CPFL',
+        EQUATORIAL: 'Equatorial',
+        LIGHT: 'Light',
+        NEOENERGIA: 'Neoenergia',
+        OUTRA: 'Outra'
+    },
+    ConsumptionClass: {
+        B1_RESIDENCIAL: 'B1 - Residencial',
+        B2_RURAL: 'B2 - Rural',
+        B3_DEMAIS_CLASSES: 'B3 - Demais Classes',
+        A4_MEDIA_TENSAO: 'A4 - Média Tensão',
+        OUTRA: 'Outra'
+    },
+    PortalAccessStatus: {
+        PENDENTE: 'Pendente',
+        CADASTRADO: 'Cadastrado',
+        BLOQUEADO: 'Bloqueado'
+    },
+    InstallationRateioStatus: {
+        AGUARDANDO_ENVIO: 'Aguardando Envio',
+        ENVIADO: 'Enviado à Distribuidora',
+        APROVADO: 'Aprovado (Ativo)',
+        REJEITADO: 'Rejeitado',
+        SUSPENSO: 'Suspenso',
+        NAO_SE_APLICA: 'Não se Aplica'
+    },
     ClientType: {
         PESSOA_FISICA: 'Pessoa Física',
         PESSOA_JURIDICA: 'Pessoa Jurídica'
@@ -283,6 +352,19 @@ export const Labels = {
  * Cores para badges de status
  */
 export const StatusColors = {
+    PortalAccessStatus: {
+        PENDENTE: 'warning',
+        CADASTRADO: 'success',
+        BLOQUEADO: 'danger'
+    },
+    InstallationRateioStatus: {
+        AGUARDANDO_ENVIO: 'default',
+        ENVIADO: 'info',
+        APROVADO: 'success',
+        REJEITADO: 'danger',
+        SUSPENSO: 'warning',
+        NAO_SE_APLICA: 'default'
+    },
     ClientStatus: {
         ATIVO: 'success',
         INATIVO: 'default',

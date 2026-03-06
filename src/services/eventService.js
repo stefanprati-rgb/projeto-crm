@@ -22,7 +22,7 @@ export const eventService = {
      * @param {string} description - Descrição do evento
      * @param {object} metaData - Dados adicionais (opcional)
      */
-    async addEvent(clientId, type, description, metaData = {}) {
+    async addEvent(clientId, type, description, metaData = {}, database = null) {
         const user = auth.currentUser;
 
         const event = {
@@ -30,6 +30,7 @@ export const eventService = {
             type,
             description,
             metaData,
+            database, // Tenant isolation
             createdAt: serverTimestamp(),
             createdBy: user?.uid || null,
             createdByEmail: user?.email || 'Sistema',

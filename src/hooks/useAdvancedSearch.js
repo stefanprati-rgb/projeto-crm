@@ -60,6 +60,16 @@ export const useAdvancedSearch = (clients, filters = {}) => {
                 if (client.cnpj?.replace(/\D/g, '').includes(cleanTerm)) return true;
                 if (client.cpf?.replace(/\D/g, '').includes(cleanTerm)) return true;
                 if (client.document?.replace(/\D/g, '').includes(cleanTerm)) return true;
+                if (client.cpfCnpj?.replace(/\D/g, '').includes(cleanTerm)) return true;
+
+                // Busca por Raízen / Comercial
+                if (client.consorcio?.toLowerCase().includes(term)) return true;
+                if (client.idContaAcc?.toLowerCase().includes(term)) return true;
+                if (client.idUcNegociada?.toLowerCase().includes(term)) return true;
+                if (client.grupoContas?.toLowerCase().includes(term)) return true;
+
+                // Busca no Acesso ao portal
+                if (client.portal?.login?.toLowerCase().includes(term)) return true;
 
                 // Busca em projetos
                 if (client.projetos?.some(p =>
@@ -177,6 +187,19 @@ export const useAdvancedSearch = (clients, filters = {}) => {
                 const total = c.faturamento?.totalFaturado || 0;
                 return total <= maxValue;
             });
+        }
+
+        // Filtro por Consórcio
+        if (filters.consorcio && filters.consorcio.trim() !== '') {
+            const consorcioSearch = filters.consorcio.toLowerCase().trim();
+            result = result.filter(c =>
+                c.consorcio?.toLowerCase().includes(consorcioSearch)
+            );
+        }
+
+        // Filtro por Status do Portal
+        if (filters.portalStatus && filters.portalStatus !== 'TODOS') {
+            result = result.filter(c => c.portal?.status === filters.portalStatus);
         }
 
         // Filtro por data de cadastro (de)

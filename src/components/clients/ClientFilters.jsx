@@ -25,6 +25,8 @@ export const ClientFilters = ({ onFilterChange, plants = [], projects = [] }) =>
         plantId: 'TODOS',
         state: 'TODOS',
         segment: 'TODOS',
+        consorcio: '',
+        portalStatus: 'TODOS',
         overdue: false,
         minRevenue: '',
         maxRevenue: '',
@@ -65,6 +67,8 @@ export const ClientFilters = ({ onFilterChange, plants = [], projects = [] }) =>
             plantId: 'TODOS',
             state: 'TODOS',
             segment: 'TODOS',
+            consorcio: '',
+            portalStatus: 'TODOS',
             overdue: false,
             minRevenue: '',
             maxRevenue: '',
@@ -308,6 +312,33 @@ export const ClientFilters = ({ onFilterChange, plants = [], projects = [] }) =>
                         </select>
                     </div>
 
+                    {/* Consórcio */}
+                    <div>
+                        <label className="label">Consórcio</label>
+                        <input
+                            type="text"
+                            className="input"
+                            value={filters.consorcio}
+                            onChange={(e) => handleFilterChange('consorcio', e.target.value)}
+                            placeholder="Buscar por consórcio..."
+                        />
+                    </div>
+
+                    {/* Status do Portal */}
+                    <div>
+                        <label className="label">Acesso ao Portal</label>
+                        <select
+                            className="input"
+                            value={filters.portalStatus}
+                            onChange={(e) => handleFilterChange('portalStatus', e.target.value)}
+                        >
+                            <option value="TODOS">Todos os Status</option>
+                            <option value="CADASTRADO">Cadastrado</option>
+                            <option value="PENDENTE">Pendente</option>
+                            <option value="BLOQUEADO">Bloqueado</option>
+                        </select>
+                    </div>
+
                     {/* Faturamento Mínimo */}
                     <div>
                         <label className="label">Faturamento Mínimo (R$)</label>
@@ -428,6 +459,20 @@ export const ClientFilters = ({ onFilterChange, plants = [], projects = [] }) =>
                                 label="Faturamento Máx"
                                 value={`R$ ${filters.maxRevenue}`}
                                 onRemove={() => handleFilterChange('maxRevenue', '')}
+                            />
+                        )}
+                        {filters.consorcio && (
+                            <FilterBadge
+                                label="Consórcio"
+                                value={filters.consorcio}
+                                onRemove={() => handleFilterChange('consorcio', '')}
+                            />
+                        )}
+                        {filters.portalStatus !== 'TODOS' && (
+                            <FilterBadge
+                                label="Portal"
+                                value={filters.portalStatus}
+                                onRemove={() => handleFilterChange('portalStatus', 'TODOS')}
                             />
                         )}
                     </div>

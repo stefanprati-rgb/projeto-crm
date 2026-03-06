@@ -87,7 +87,7 @@ export const useClientTimeline = (client) => {
             if (!client?.id) return;
 
             try {
-                await eventService.addEvent(client.id, type, description, metaData);
+                await eventService.addEvent(client.id, type, description, metaData, client.database);
                 // Recarrega timeline para incluir o novo evento
                 await loadTimeline();
             } catch (err) {
