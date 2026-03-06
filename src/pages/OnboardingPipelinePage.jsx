@@ -12,7 +12,7 @@ import {
     SearchX
 } from 'lucide-react';
 import { clientService } from '../services/clientService';
-import { useStore } from '../stores/useStore';
+import useStore from '../stores/useStore';
 import { Badge, Button, Input, Spinner } from '../components';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
