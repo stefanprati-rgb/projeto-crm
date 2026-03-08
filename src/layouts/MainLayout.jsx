@@ -26,7 +26,7 @@ import { useAuth } from '../hooks/useAuth';
 // As rotas que não possuem 'visible: true' existem no react-router mas sumiram do menu
 const navigation = [
     { name: 'Dashboard', href: '/', icon: Home, visible: false },
-    { name: 'Clientes', href: '/clientes', icon: Users, visible: false },
+    { name: 'Clientes', href: '/clientes', icon: Users, visible: true },
     { name: 'Esteira Onboarding', href: '/onboarding', icon: Activity, visible: true },
     { name: 'Dashboard Onboarding', href: '/onboarding/dashboard', icon: BarChart3, visible: true },
     { name: 'Tickets', href: '/tickets', icon: Ticket, visible: false },

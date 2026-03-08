@@ -7,8 +7,7 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    Cell,
-    RefreshCw
+    Cell
 } from 'recharts';
 import {
     Send,
@@ -18,6 +17,7 @@ import {
     AlertTriangle,
     TrendingUp,
     RefreshCcw,
+    RefreshCw,
     Database
 } from 'lucide-react';
 import { useOnboardingAggregations } from '../hooks/useOnboardingAggregations';
