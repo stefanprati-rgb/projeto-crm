@@ -1,5 +1,7 @@
 import * as XLSX from 'xlsx';
 import { clientService } from '../services/clientService';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 /**
  * Mapeamento das colunas da planilha de Rateio Raízen
@@ -135,18 +137,28 @@ export const updateRateioBase = async (records, options = {}) => {
                 throw new Error("Registro sem UC de identificação.");
             }
 
-            // 1. Procurar cliente na base (na função original, procura pelo 'installations' ou 'instalacoes.uc')
-            // Vamos testar usando o search original.
+            // 1. Procurar cliente na base (verificando pela array instalacoes)
             let existingClient = null;
-            const searchByUc = await clientService.search(numUc, 'Raízen'); // Ou tira o 'Raízen' se o banco tiver clientes mistos. Supondo raizen:
 
-            if (searchByUc && searchByUc.length > 0) {
-                existingClient = searchByUc[0];
-            } else {
-                // Fallback: Busca genérica no banco pela array 'installations'
-                const genericSearchByUc = await clientService.query({ filters: [{ field: 'installations', operator: 'array-contains', value: numUc }] });
-                if (genericSearchByUc.data && genericSearchByUc.data.length > 0) {
-                    existingClient = genericSearchByUc.data[0];
+            // Busca clientes que contenham essa UC na array de instalações
+            // Nota: O Firebase não suporta array-contains em propriedades de objetos dentro de uma array,
+            // então vamos buscar todos os clientes da base Raízen (ou todos se preferir) e filtrar localmente,
+            // ou assumir que o sistema salva numa array simples `installations` por compatibilidade.
+
+            // Usando getDocs direto para buscar
+            const q = query(collection(db, 'clients'), where('installations', 'array-contains', numUc));
+            const snapshot = await getDocs(q);
+
+            if (!snapshot.empty) {
+                existingClient = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+            }
+
+            if (!existingClient) {
+                // Tenta buscar no fallback
+                const fallbackQ = query(collection(db, 'clients'), where('installationId', '==', numUc));
+                const fallbackSnap = await getDocs(fallbackQ);
+                if (!fallbackSnap.empty) {
+                    existingClient = { id: fallbackSnap.docs[0].id, ...fallbackSnap.docs[0].data() };
                 }
             }
 
@@ -154,7 +166,7 @@ export const updateRateioBase = async (records, options = {}) => {
                 results.notFoundCount++;
                 results.errors.push({
                     record,
-                    error: `Pendente de cruzamento: Cliente com UC ${numUc} não foi encontrado na base local.`,
+                    error: `Pendência: Cliente com UC ${numUc} não encontrado na base.`,
                     row: i + 2
                 });
             } else {
