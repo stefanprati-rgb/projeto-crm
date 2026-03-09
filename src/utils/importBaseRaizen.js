@@ -75,13 +75,15 @@ export const readRaizenFile = async (file) => {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
 
-                // Pega a primeira planilha
-                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                // Pega a planilha 'base_clientes' ou a primeira se não existir
+                const targetSheetName = workbook.SheetNames.includes('base_clientes') ? 'base_clientes' : workbook.SheetNames[0];
+                const targetSheet = workbook.Sheets[targetSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(targetSheet, { header: 1 });
 
-                // Primeira linha: Headers
-                const headers = jsonData[0];
-                const rows = jsonData.slice(1);
+                // Header está na linha 3 (índice 2) para a aba base_clientes
+                const headerRowIndex = targetSheetName === 'base_clientes' ? 2 : 0;
+                const headers = jsonData[headerRowIndex];
+                const rows = jsonData.slice(headerRowIndex + 1);
 
                 // Mapeia colunas
                 const columnMapping = {};
