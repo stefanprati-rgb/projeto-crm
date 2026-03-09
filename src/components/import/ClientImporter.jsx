@@ -77,7 +77,7 @@ export const ClientImporter = ({ onComplete }) => {
                 <Database className="h-6 w-6 text-primary-600" />
                 <div>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                        Importar Base de Clientes (Padrão Raízen)
+                        Importar Base de Clientes
                     </h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         Faça upload da "BASE DE CLIENTES - Raizen.xlsx" para atualizar o CRM.
@@ -236,7 +236,7 @@ export const ClientImporter = ({ onComplete }) => {
                     ) : (
                         <>
                             <Database className="h-4 w-4 mr-2" />
-                            Importar {records.length} Clientes Raízen
+                            Importar {records.length} Clientes
                         </>
                     )}
                 </Button>

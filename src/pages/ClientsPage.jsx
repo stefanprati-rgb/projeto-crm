@@ -160,7 +160,7 @@ export const ClientsPage = () => {
                     </Button>
                     <Button variant="outline" onClick={() => setImportModalOpen(true)}>
                         <Database className="h-4 w-4 mr-2" />
-                        Importar Base (Raízen)
+                        Importar Base de Clientes
                     </Button>
                     <Button onClick={handleCreateClient}>
                         <Plus className="h-4 w-4 mr-2" />
