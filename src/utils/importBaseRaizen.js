@@ -196,18 +196,15 @@ export const importBaseRaizen = async (records, options = {}) => {
             }
 
             // 1. Verificar se cliente já existe
-            // Ordem de busca: idContaAcc -> cpfCnpj -> uc
-            let existingClient = null;
-
             if (record.idContaAcc) {
-                const searchByAcc = await clientService.query({ filters: [{ field: 'idContaAcc', operator: '==', value: record.idContaAcc }] });
-                if (searchByAcc.data && searchByAcc.data.length > 0) existingClient = searchByAcc.data[0];
+                // Fetch using custom method or fallback to getAll and filter
+                // We'll add this to clientService.js next.
+                existingClient = await clientService.findByField('idContaAcc', record.idContaAcc);
             }
 
             if (!existingClient && cleanCpfCnpj) {
                 // Fallback para CPF/CNPJ
-                const searchByDoc = await clientService.query({ filters: [{ field: 'cpfCnpj', operator: '==', value: cleanCpfCnpj }] });
-                if (searchByDoc.data && searchByDoc.data.length > 0) existingClient = searchByDoc.data[0];
+                existingClient = await clientService.findByField('cpfCnpj', cleanCpfCnpj);
             }
 
             if (!existingClient && numUc) {

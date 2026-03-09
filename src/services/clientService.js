@@ -234,6 +234,22 @@ export const clientService = {
     },
 
     /**
+     * Busca um cliente por um campo específico (ex: cpfCnpj, idContaAcc)
+     * Retorna o primeiro cliente encontrado ou null
+     */
+    async findByField(field, value) {
+        if (!value) return null;
+        const constraints = [where(field, '==', value), limit(1)];
+        const q = query(collection(db, 'clients'), ...constraints);
+        const snapshot = await getDocs(q);
+
+        if (!snapshot.empty) {
+            return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+        }
+        return null;
+    },
+
+    /**
      * Deleta todos os clientes de uma base
      */
     async deleteAll(baseFilter) {
