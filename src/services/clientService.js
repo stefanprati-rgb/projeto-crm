@@ -203,11 +203,11 @@ export const clientService = {
         const term = searchTerm.toLowerCase();
         return allClients.filter((client) => {
             return (
-                client.name?.toLowerCase().includes(term) ||
-                client.email?.toLowerCase().includes(term) ||
-                client.phone?.toLowerCase().includes(term) ||
-                client.cpfCnpj?.toLowerCase().includes(term) ||
-                client.address?.toLowerCase().includes(term)
+                String(client.name || '').toLowerCase().includes(term) ||
+                String(client.email || '').toLowerCase().includes(term) ||
+                String(client.phone || '').toLowerCase().includes(term) ||
+                String(client.cpfCnpj || '').toLowerCase().includes(term) ||
+                String(client.address || '').toLowerCase().includes(term)
             );
         });
     },
@@ -375,8 +375,8 @@ export const clientService = {
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             clients = clients.filter(c =>
-                c.uc?.toLowerCase().includes(term) ||
-                c.name?.toLowerCase().includes(term)
+                String(c.uc || '').toLowerCase().includes(term) ||
+                String(c.name || '').toLowerCase().includes(term)
             );
         }
 

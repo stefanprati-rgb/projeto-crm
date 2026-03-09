@@ -24,24 +24,18 @@ export const clientServiceV2 = {
     // ==========================================
 
     /**
-     * Busca clientes com paginação (Somente dados cadastrais PII)
+     * Busca clientes com paginação (Somente dados cadastrais PII) - QUERY ABERTA PARA DIAGNÓSTICO
      */
     async getClientes(options = {}) {
         const {
-            baseFilter = null,
             pageSize = 25,
             lastDoc = null,
-            orderField = 'createdAt',
-            orderDir = 'desc',
         } = options;
 
         const constraints = [];
 
-        if (baseFilter && baseFilter !== 'TODOS') {
-            constraints.push(where('database', '==', baseFilter));
-        }
-
-        constraints.push(orderBy(orderField, orderDir));
+        // Filtros restritivos removidos (database, status, etc) para diagnóstico
+        // Ordenação também removida temporariamente para evitar falhas em dados incompletos
         constraints.push(limit(pageSize));
 
         if (lastDoc) {
@@ -176,8 +170,8 @@ export const clientServiceV2 = {
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             instalacoes = instalacoes.filter(i =>
-                i.uc?.toLowerCase().includes(term) ||
-                i.clienteNome?.toLowerCase().includes(term)
+                String(i.uc || '').toLowerCase().includes(term) ||
+                String(i.clienteNome || '').toLowerCase().includes(term)
             );
         }
 

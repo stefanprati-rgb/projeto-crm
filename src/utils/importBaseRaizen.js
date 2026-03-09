@@ -92,9 +92,11 @@ export const readRaizenFile = async (file) => {
                         const record = {};
                         Object.keys(columnMapping).forEach((key) => {
                             const colIndex = columnMapping[key];
-                            // Mantém o valor original, se for string aplica trim
+                            // Conversão defensiva para string e trim para evitar erros de tipagem em campos como telefone/documento vindos como Number do Excel
                             let val = row[colIndex];
-                            if (typeof val === 'string') val = val.trim();
+                            if (val !== null && val !== undefined) {
+                                val = String(val).trim();
+                            }
                             record[key] = val;
                         });
                         return record;

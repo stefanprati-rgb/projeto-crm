@@ -85,8 +85,11 @@ export const readRateioFile = async (file) => {
                         const record = {};
                         Object.keys(columnMapping).forEach((key) => {
                             const colIndex = columnMapping[key];
+                            // Conversão defensiva para string e trim para evitar erros de tipagem em campos como UC/Instalação vindos como Number do Excel
                             let val = row[colIndex];
-                            if (typeof val === 'string') val = val.trim();
+                            if (val !== null && val !== undefined) {
+                                val = String(val).trim();
+                            }
                             record[key] = val;
                         });
 
