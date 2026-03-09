@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Users, UserCheck, UserX, Database } from 'lucide-react';
-import { useClients } from '../hooks/useClients';
+import { useClientsV2 } from '../hooks/useClientsV2';
 import { useAdvancedSearch } from '../hooks/useAdvancedSearch';
 import { ClientsList } from '../components/clients/ClientsList';
 import { ClientModal } from '../components/clients/ClientModal';
@@ -13,17 +13,16 @@ import { Button, ListPageSkeleton, ConfirmDialog, Pagination } from '../componen
 import { cn } from '../utils/cn';
 
 export const ClientsPage = () => {
-    // Hooks e Estados
+    // Hooks e Estados V2
     const {
-        clients,
+        clientes: clients,
         loading,
         error,
-        metrics,
-        fetchClients,
-        createClient,
-        updateClient,
-        deleteClient,
-    } = useClients();
+        fetchClientes,
+        createCliente,
+        updateCliente,
+        deleteCliente,
+    } = useClientsV2();
 
     const [selectedClient, setSelectedClient] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
@@ -31,6 +30,9 @@ export const ClientsPage = () => {
     const [rateioModalOpen, setRateioModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState(null);
     const [confirmDelete, setConfirmDelete] = useState(null);
+
+    // TODO: Ajustar métricas para V2 (as métricas antigas eram processadas no hook useClients)
+    const metrics = { total: clients.length, ativos: clients.filter(c => c.status === 'active').length, inativos: clients.filter(c => c.status !== 'active').length };
 
     // -- FILTROS E BUSCA AVANÇADA --
     const [filters, setFilters] = useState({});
@@ -53,7 +55,7 @@ export const ClientsPage = () => {
     useEffect(() => {
         const loadData = async () => {
             const currentCursor = currentPage === 1 ? null : cursorStack[currentPage - 2];
-            const result = await fetchClients({
+            const result = await fetchClientes({
                 pageSize,
                 lastDoc: currentCursor,
             });
@@ -67,8 +69,7 @@ export const ClientsPage = () => {
         if (!isSearching && !hasFilters) {
             loadData();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentPage, pageSize, isSearching, hasFilters]);
+    }, [currentPage, pageSize, isSearching, hasFilters, fetchClientes, cursorStack]);
 
     // Resetar paginação quando buscar/filtrar
     useEffect(() => {
@@ -105,15 +106,12 @@ export const ClientsPage = () => {
 
     const handleSubmit = async (data) => {
         const result = editingClient
-            ? await updateClient(editingClient.id, data)
-            : await createClient(data);
+            ? await updateCliente(editingClient.id, data)
+            : await createCliente(data);
 
         if (result?.success) {
             setModalOpen(false);
             setEditingClient(null);
-            if (!editingClient) {
-                fetchClients({ pageSize });
-            }
         }
 
         return result;
@@ -125,7 +123,7 @@ export const ClientsPage = () => {
 
     const handleConfirmDelete = async () => {
         if (confirmDelete) {
-            await deleteClient(confirmDelete.id);
+            await deleteCliente(confirmDelete.id);
             setConfirmDelete(null);
             setSelectedClient(null);
         }
@@ -255,7 +253,7 @@ export const ClientsPage = () => {
                 client={selectedClient}
                 isOpen={!!selectedClient}
                 onClose={() => setSelectedClient(null)}
-                onUpdate={updateClient}
+                onUpdate={updateCliente}
                 onDelete={handleDeleteClick}
                 onEdit={handleEditClient}
             />

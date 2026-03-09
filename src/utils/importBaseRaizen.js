@@ -1,19 +1,11 @@
-import * as XLSX from 'xlsx';
-import { clientService } from '../services/clientService';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../services/firebase';
 import { cleanDocument } from './formatters';
-import CryptoJS from 'crypto-js';
-
-// Chave secreta mockada (em um ambiente real, deve vir das variáveis de ambiente)
-// process.env.VITE_ENCRYPTION_KEY || ...
-const SECRET_KEY = import.meta.env?.VITE_ENCRYPTION_KEY || 'chave_secreta_padrao_gd_crm';
 
 /**
- * Função para ofuscar (criptografar) a senha
+ * processRaizenImport (Backend)
  */
-const encryptPassword = (password) => {
-    if (!password) return null;
-    return CryptoJS.AES.encrypt(String(password), SECRET_KEY).toString();
-};
+const backendImport = httpsCallable(functions, 'processRaizenImport');
 
 /**
  * Mapeamento das colunas da planilha Raízen
@@ -122,7 +114,7 @@ export const readRaizenFile = async (file) => {
 };
 
 /**
- * Processa os dados mapeados e insere/atualiza no Firestore.
+ * Processa os dados mapeados enviando para a Cloud Function (Backend).
  */
 export const importBaseRaizen = async (records, options = {}) => {
     const { onProgress } = options;
@@ -135,120 +127,44 @@ export const importBaseRaizen = async (records, options = {}) => {
         updatedCount: 0
     };
 
-    for (let i = 0; i < records.length; i++) {
-        const record = records[i];
+    // Dividimos em pedaços de 100 para o backend não dar timeout e podermos mostrar progresso
+    const CHUNK_SIZE = 100;
+    const chunks = [];
+    for (let i = 0; i < records.length; i += CHUNK_SIZE) {
+        chunks.push(records.slice(i, i + CHUNK_SIZE));
+    }
 
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
         try {
-            // Limpa Documento
-            const cleanCpfCnpj = record.cpfCnpj ? cleanDocument(record.cpfCnpj) : null;
+            // Chama a Cloud Function
+            const response = await backendImport({
+                records: chunk,
+                baseName: "Raízen"
+            });
 
-            // Tratamento do Portal
-            const portalStatus = (record.portalLogin || record.portalSenha) ? 'CADASTRADO' : 'PENDENTE';
-            const senhaOfuscada = record.portalSenha ? encryptPassword(record.portalSenha) : null;
+            const { data } = response;
 
-            // Tratamento da UC (Garantir string)
-            const numUc = record.uc ? String(record.uc).trim() : null;
-
-            // Define o Objeto Cliente usando o design pattern do Schema (Parcial, para o Merge da Update ou completude pro Create)
-            const clientData = {
-                idContaAcc: record.idContaAcc || null,
-                idUcNegociada: record.idUcNegociada || null,
-                nome: record.nome || 'Sem Razão Social',
-                cpfCnpj: cleanCpfCnpj,
-
-                // Comercial
-                consorcio: record.consorcio || null,
-                canalEntrada: record.canalEntrada || null,
-                grupoContas: record.grupoContas || null,
-
-                // Contatos e Enderecos
-                email: record.email || null,
-                phone: record.telefone || null,
-                address: record.endereco || null,
-                city: record.cidade || null,
-                state: record.estado || null,
-                zipCode: record.cep || null,
-
-                database: 'Raízen', // Marcador fixo desta base
-                status: 'active',
-
-                // Portal (Mesclar com existente se UPDATE, novo objeto se CREATE)
-                portal: {
-                    status: portalStatus,
-                    login: record.portalLogin || null,
-                    senhaOfuscada: senhaOfuscada,
-                    fraudeMapeada: false,
-                    pendenciaCadastral: false,
-                    onboarding: null
-                }
-            };
-
-            // Prepara Instalação se houver UC
-            if (numUc) {
-                clientData.instalacoes = [{
-                    uc: numUc,
-                    distribuidoraEnum: record.distribuidora || null,
-                    statusRateio: 'PENDING_PORTAL'
-                }];
-                // Backward compatibility
-                clientData.installations = [numUc];
-                clientData.installationId = numUc;
+            results.success += data.success;
+            results.createdCount += data.created;
+            results.updatedCount += data.updated;
+            if (data.errors && data.errors.length > 0) {
+                results.errors.push(...data.errors);
             }
-
-            // 1. Verificar se cliente já existe
-            let existingClient = null;
-
-            if (record.idContaAcc) {
-                // Fetch using custom method or fallback to getAll and filter
-                // We'll add this to clientService.js next.
-                existingClient = await clientService.findByField('idContaAcc', record.idContaAcc);
-            }
-
-            if (!existingClient && cleanCpfCnpj) {
-                // Fallback para CPF/CNPJ
-                existingClient = await clientService.findByField('cpfCnpj', cleanCpfCnpj);
-            }
-
-            if (!existingClient && numUc) {
-                // Fallback para UC usando busca customizada
-                const searchByUc = await clientService.search(numUc, 'Raízen');
-                if (searchByUc && searchByUc.length > 0) existingClient = searchByUc[0];
-            }
-
-            if (existingClient) {
-                // Atualizar
-                // Previne de sobrescrever senhas existentes caso não venha na planilha
-                if (existingClient.portal && !record.portalSenha) {
-                    clientData.portal.senhaOfuscada = existingClient.portal.senhaOfuscada;
-                    clientData.portal.status = existingClient.portal.status;
-                }
-
-                await clientService.update(existingClient.id, clientData);
-                results.updatedCount++;
-                console.log(`✏️ Cliente Raízen atualizado: ${clientData.nome} (${existingClient.id})`);
-            } else {
-                // Criar
-                await clientService.create(clientData);
-                results.createdCount++;
-                console.log(`✅ Cliente Raízen criado: ${clientData.nome}`);
-            }
-
-            results.success++;
 
             // Callback de progresso
             if (onProgress) {
+                const totalProcessed = Math.min((i + 1) * CHUNK_SIZE, records.length);
                 onProgress({
-                    current: i + 1,
+                    current: totalProcessed,
                     total: records.length,
-                    percent: Math.round(((i + 1) / records.length) * 100),
+                    percent: Math.round((totalProcessed / records.length) * 100),
                 });
             }
         } catch (error) {
-            console.error(`❌ Erro ao importar registro na linha ${i + 2}:`, error);
+            console.error(`❌ Erro crítico no lote ${i}:`, error);
             results.errors.push({
-                record,
-                error: error.message,
-                row: i + 2
+                error: `Falha no lote ${i}: ${error.message}`
             });
         }
     }

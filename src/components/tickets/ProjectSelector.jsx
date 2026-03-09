@@ -145,7 +145,7 @@ export const ProjectSelector = ({
                             : 'text-gray-400'
                     )}>
                         {loading
-                            ? 'Carregando projetos...'
+                            ? '...'
                             : selectedProject
                                 ? selectedProject.nome || selectedProject.codigo || 'Projeto selecionado'
                                 : projects.length === 0

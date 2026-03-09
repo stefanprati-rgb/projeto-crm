@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, enableIndexedDbPersistence, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 // Configuração do Firebase
 const firebaseConfig = {
@@ -21,6 +22,9 @@ export const auth = getAuth(app);
 // Inicializar Firestore
 export const db = getFirestore(app);
 
+// Inicializar Functions
+export const functions = getFunctions(app, 'southamerica-east1'); // Ou sua região padrão
+
 // Ativar persistência offline (CRÍTICO para funcionamento offline)
 if (typeof window !== 'undefined') {
     enableIndexedDbPersistence(db).catch((err) => {
@@ -38,7 +42,8 @@ if (typeof window !== 'undefined') {
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectFirestoreEmulator(db, 'localhost', 8080);
-    console.log('🔧 Conectado aos emuladores Firebase');
+    connectFunctionsEmulator(functions, 'localhost', 5001);
+    console.log('🔧 Conectado aos emuladores Firebase (Auth, Firestore, Functions)');
 }
 
 export default app;

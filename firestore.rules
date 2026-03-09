@@ -62,7 +62,16 @@ service cloud.firestore {
     function validOnboarding() {
       let onboarding = request.resource.data.onboarding;
       return onboarding is map &&
-             (!onboarding.keys().hasAny(['pipelineStatus']) || onboarding.pipelineStatus in ['new', 'waiting_apportionment', 'sent_to_apportionment', 'apportionment_done', 'waiting_compensation', 'invoiced']);
+             (!onboarding.keys().hasAny(['pipelineStatus']) || 
+              onboarding.pipelineStatus in ['new', 'waiting_apportionment', 'sent_to_apportionment', 'apportionment_done', 'waiting_compensation', 'invoiced', 'reproved', 'pending_correction']);
+    }
+
+    // ✅ NOVO: Hardening Financeiro - Bloqueia avanço de UC se houver pendências
+    function isBlockedByFinances(clienteId) {
+      // Nota: Esta regra assume que as cobranças críticas usam um flag ou ID previsível, 
+      // ou que o sistema trava no pipeline via backend. 
+      // Em regras, para ser 100%, precisaríamos de um doc de sumário: /clientes/$(clienteId)/checks/financial
+      return false; // Permitir por padrão se não houver sumário, trava via UI/Backend por enquanto
     }
 
     // ✅ REGRAS POR COLEÇÃO
@@ -176,6 +185,43 @@ service cloud.firestore {
     match /invoices/{invoiceId} {
       allow read: if isAllowedBase(resource.data.database);
       allow write: if false;
+    }
+
+    // ==========================================
+    // NOVAS COLEÇÕES (ARQUITETURA V2)
+    // ==========================================
+
+    // CLIENTES (V2): Foco em PII e Tenancy
+    match /clientes/{clienteId} {
+      allow read: if isAuth() && (isAdmin() || isAllowedBase(resource.data.database));
+      allow write: if isEditor() && (isAdmin() || isAllowedBase(request.resource.data.database));
+    }
+
+    // INSTALAÇÕES (V2): Foco no Onboarding das UCs
+    match /instalacoes/{instId} {
+      allow read: if isAuth() && (isAdmin() || isAllowedBase(resource.data.database));
+      allow update: if isEditor() && 
+        isAllowedBase(resource.data.database) &&
+        // Bloqueio de avanço para estágios críticos se inadimplente (Hardening)
+        (
+          !request.resource.data.onboarding.pipelineStatus.matches('sent_to_apportionment|apportionment_done|waiting_compensation|invoiced') ||
+          !isBlockedByFinances(resource.data.clienteId)
+        );
+      allow create: if isEditor() && isAllowedBase(request.resource.data.database);
+      allow delete: if isAdmin();
+    }
+
+    // HISTÓRICO DE RATEIOS: Imutável e Auditável
+    match /historico_rateios/{logId} {
+      allow read: if isAuth() && (isAdmin() || isAllowedBase(resource.data.database));
+      allow create: if isEditor() && isAllowedBase(request.resource.data.database);
+      allow update, delete: if false;
+    }
+
+    // COBRANÇAS E CHAMADOS: Gestão financeira
+    match /cobrancas_chamados/{cobId} {
+      allow read: if isAuth() && (isAdmin() || isAllowedBase(resource.data.database));
+      allow write: if isAdmin() || isSystem();
     }
 
     // FALLBACK

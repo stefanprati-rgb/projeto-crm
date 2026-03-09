@@ -37,8 +37,8 @@ export const ClientOverviewTab = ({ client }) => {
                     {(client.cnpj || client.cpf || client.document) && (
                         <InfoRow
                             icon={FileText}
-                            label={client.cnpj ? 'CNPJ' : 'CPF'}
-                            value={formatDocument(client.cnpj || client.cpf || client.document)}
+                            label={client.cnpj ? 'CNPJ' : (client.cpf ? 'CPF' : 'Documento')}
+                            value={formatDocument(client.document || client.cnpj || client.cpf)}
                         />
                     )}
 
@@ -149,15 +149,20 @@ export const ClientOverviewTab = ({ client }) => {
                 ) : (
                     // Fallback para campos legados
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {client.email && (
-                            <InfoRow icon={Mail} label="E-mail" value={client.email} isLink={`mailto:${client.email}`} />
+                        {(client.email || client.contactInfo?.email) && (
+                            <InfoRow
+                                icon={Mail}
+                                label="E-mail"
+                                value={client.email || client.contactInfo?.email}
+                                isLink={`mailto:${client.email || client.contactInfo?.email}`}
+                            />
                         )}
-                        {(client.phone || client.telefone) && (
+                        {(client.phone || client.telefone || client.contactInfo?.phone) && (
                             <InfoRow
                                 icon={Phone}
                                 label="Telefone"
-                                value={formatPhone(client.phone || client.telefone)}
-                                isLink={`tel:${client.phone || client.telefone}`}
+                                value={formatPhone(client.phone || client.telefone || client.contactInfo?.phone)}
+                                isLink={`tel:${client.phone || client.telefone || client.contactInfo?.phone}`}
                             />
                         )}
                     </div>

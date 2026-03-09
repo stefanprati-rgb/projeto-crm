@@ -11,12 +11,7 @@ export const ProjectSelector = () => {
     const { projects, currentBase, setCurrentBase, loading } = useProjects();
 
     if (loading || projects.length === 0) {
-        return (
-            <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
-                <div className="h-2 w-2 rounded-full bg-gray-400 animate-pulse" />
-                <span>Carregando projetos...</span>
-            </div>
-        );
+        return null;
     }
 
     const activeProjects = projects.filter((p) => p.active);
@@ -63,8 +58,8 @@ export const ProjectSelector = () => {
                                         <div className="flex items-center gap-3">
                                             <div
                                                 className={`h-2 w-2 rounded-full ${currentBase?.id === project.id
-                                                        ? 'bg-primary-500'
-                                                        : 'bg-gray-400 dark:bg-gray-600'
+                                                    ? 'bg-primary-500'
+                                                    : 'bg-gray-400 dark:bg-gray-600'
                                                     }`}
                                             />
                                             <span className="font-medium">{project.name}</span>

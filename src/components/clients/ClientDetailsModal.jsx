@@ -67,7 +67,7 @@ export const ClientDetailsModal = ({
     const statusColor = StatusColors.ClientStatus[client.status] || 'default';
 
     const handleDelete = async () => {
-        if (!window.confirm(`Tem certeza que deseja remover ${client.nome}? Esta ação não pode ser desfeita.`)) {
+        if (!window.confirm(`Tem certeza que deseja remover ${client.name || client.nome}? Esta ação não pode ser desfeita.`)) {
             return;
         }
 
@@ -105,20 +105,19 @@ export const ClientDetailsModal = ({
                     <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 px-6 py-4 rounded-t-lg">
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-4 flex-1 min-w-0">
-                                {/* Avatar */}
                                 <div
                                     className={cn(
                                         'h-16 w-16 rounded-full flex items-center justify-center text-white font-bold text-2xl flex-shrink-0 shadow-lg',
                                         isActive ? 'bg-gradient-to-br from-primary-500 to-primary-700' : 'bg-gradient-to-br from-gray-400 to-gray-600'
                                     )}
                                 >
-                                    {client.nome?.[0]?.toUpperCase() || 'C'}
+                                    {(client.name || client.nome || 'C')[0].toUpperCase()}
                                 </div>
 
                                 {/* Info Principal */}
                                 <div className="flex-1 min-w-0">
                                     <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 truncate">
-                                        {client.nome}
+                                        {client.name || client.nome || 'Sem nome'}
                                     </h2>
                                     {client.nomeFantasia && client.nomeFantasia !== client.nome && (
                                         <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
@@ -266,7 +265,7 @@ export const ClientDetailsModal = ({
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

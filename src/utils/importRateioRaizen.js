@@ -1,7 +1,10 @@
-import * as XLSX from 'xlsx';
-import { clientService } from '../services/clientService';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../services/firebase';
+
+/**
+ * processRateioImport (Backend)
+ */
+const backendRateioImport = httpsCallable(functions, 'processRateioImport');
 
 /**
  * Mapeamento das colunas da planilha de Rateio Raízen
@@ -113,7 +116,7 @@ export const readRateioFile = async (file) => {
 };
 
 /**
- * Processa a atualização do Rateio no Cadastro de Clientes
+ * Processa a atualização do Rateio via Cloud Function (Backend).
  */
 export const updateRateioBase = async (records, options = {}) => {
     const { onProgress } = options;
@@ -126,85 +129,38 @@ export const updateRateioBase = async (records, options = {}) => {
         notFoundCount: 0
     };
 
-    for (let i = 0; i < records.length; i++) {
-        const record = records[i];
+    const CHUNK_SIZE = 100;
+    const chunks = [];
+    for (let i = 0; i < records.length; i += CHUNK_SIZE) {
+        chunks.push(records.slice(i, i + CHUNK_SIZE));
+    }
 
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
         try {
-            // Unifica o número da UC para busca string (pode vir como número do Excel)
-            const numUc = record.uc ? String(record.uc).trim() : (record.instalacaoPadraoAneel ? String(record.instalacaoPadraoAneel).trim() : null);
+            const response = await backendRateioImport({ records: chunk });
+            const { data } = response;
 
-            if (!numUc) {
-                throw new Error("Registro sem UC de identificação.");
-            }
+            results.success += data.success;
+            results.updatedCount += data.updated;
+            results.notFoundCount += data.notFound;
 
-            // 1. Procurar cliente na base (verificando pela array instalacoes)
-            let existingClient = null;
-
-            // Busca clientes que contenham essa UC na array de instalações
-            // Nota: O Firebase não suporta array-contains em propriedades de objetos dentro de uma array,
-            // então vamos buscar todos os clientes da base Raízen (ou todos se preferir) e filtrar localmente,
-            // ou assumir que o sistema salva numa array simples `installations` por compatibilidade.
-
-            // Usando getDocs direto para buscar
-            const q = query(collection(db, 'clients'), where('installations', 'array-contains', numUc));
-            const snapshot = await getDocs(q);
-
-            if (!snapshot.empty) {
-                existingClient = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
-            }
-
-            if (!existingClient) {
-                // Tenta buscar no fallback
-                const fallbackQ = query(collection(db, 'clients'), where('installationId', '==', numUc));
-                const fallbackSnap = await getDocs(fallbackQ);
-                if (!fallbackSnap.empty) {
-                    existingClient = { id: fallbackSnap.docs[0].id, ...fallbackSnap.docs[0].data() };
-                }
-            }
-
-            if (!existingClient) {
-                results.notFoundCount++;
-                results.errors.push({
-                    record,
-                    error: `Pendência: Cliente com UC ${numUc} não encontrado na base.`,
-                    row: i + 2
-                });
-            } else {
-                // Prepara os dados do Rateio
-                const updateData = {
-                    rateio: {
-                        statusBase: record.status || null,
-                        percentualAtual: record.percentualRateio || 0,
-                        nomeUsinaAssociada: record.nomeUsina || null,
-                        motivoRecusa: record.motivoRecusa || null,
-                        dataUltimoEnvioBase: record.dataEnvio || null,
-                        estimativaCompensacao: record.estimativaCompensacao || null,
-                        ultimaAtualizacaoRateio: new Date().toISOString()
-                    }
-                };
-
-                // Atualizar o cliente no firebase
-                await clientService.update(existingClient.id, updateData);
-                results.updatedCount++;
-                results.success++;
-                console.log(`✏️ Rateio de ${existingClient.nome} atualizado! Status: ${record.status}`);
+            if (data.errors && data.errors.length > 0) {
+                results.errors.push(...data.errors);
             }
 
             // Callback de progresso
             if (onProgress) {
+                const totalProcessed = Math.min((i + 1) * CHUNK_SIZE, records.length);
                 onProgress({
-                    current: i + 1,
+                    current: totalProcessed,
                     total: records.length,
-                    percent: Math.round(((i + 1) / records.length) * 100),
+                    percent: Math.round((totalProcessed / records.length) * 100),
                 });
             }
         } catch (error) {
-            console.error(`❌ Erro ao atualizar rateio do registro linha ${i + 2}:`, error);
-            results.errors.push({
-                record,
-                error: error.message || 'Erro desconhecido',
-                row: i + 2
-            });
+            console.error(`❌ Erro no processamento de rateio do lote ${i}:`, error);
+            results.errors.push({ error: error.message });
         }
     }
 

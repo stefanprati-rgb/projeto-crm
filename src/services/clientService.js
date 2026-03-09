@@ -18,14 +18,17 @@ import { db, auth } from './firebase';
 import { consolidationService } from './consolidationService';
 
 /**
+ * @deprecated Usar clientServiceV2.js para novos desenvolvimentos e telas refatoradas.
  * Serviço de Clientes - Adaptado do código original
  * Gerencia CRUD de clientes com paginação e filtros
  */
 export const clientService = {
     /**
+     * @deprecated Usar clientServiceV2.getClientes()
      * Busca clientes com paginação
      */
     async getAll(options = {}) {
+        console.warn("Aviso: Utilizando clientService.getAll legado!");
         const {
             baseFilter = null,
             pageSize = 25,
@@ -89,9 +92,11 @@ export const clientService = {
     },
 
     /**
+     * @deprecated Usar clientServiceV2.getClienteById()
      * Busca um cliente por ID
      */
     async getById(id) {
+        console.warn("Aviso: Utilizando clientService.getById legado!");
         const docRef = doc(db, 'clients', id);
         const docSnap = await getDoc(docRef);
 
@@ -102,9 +107,11 @@ export const clientService = {
     },
 
     /**
+     * @deprecated Usar clientServiceV2.createCliente()
      * Cria um novo cliente
      */
     async create(clientData) {
+        console.warn("Aviso: Utilizando clientService.create legado!");
         const user = auth.currentUser;
 
         const client = {
@@ -123,9 +130,11 @@ export const clientService = {
     },
 
     /**
+     * @deprecated Usar clientServiceV2.updateCliente()
      * Atualiza um cliente
      */
     async update(id, updates) {
+        console.warn("Aviso: Utilizando clientService.update legado!");
         const ref = doc(db, 'clients', id);
 
         const updateData = {
@@ -141,9 +150,11 @@ export const clientService = {
     },
 
     /**
+     * @deprecated Usar clientServiceV2.deleteCliente()
      * Deleta um cliente
      */
     async delete(id) {
+        console.warn("Aviso: Utilizando clientService.delete legado!");
         const ref = doc(db, 'clients', id);
         await deleteDoc(ref);
     },
