@@ -22,8 +22,8 @@ const RAIZEN_COLUMN_MAP = {
     // Identificação
     idContaAcc: ['id_conta__acc', 'ID Conta', 'ID_CONTA__ACC', 'ID_Conta__acc'],
     idUcNegociada: ['id_uc_negociada', 'ID UC Negociada'],
-    nome: ['RAZAO SOCIAL', 'NOME', 'Razão Social', 'Nome', 'Nome/Razão Social'],
-    cpfCnpj: ['CNPJ PAGADOR', 'CNPJ', 'CPF', 'CPF/CNPJ', 'Documento'],
+    nome: ['RAZÃO SOCIAL FATURAMENTO', 'RAZÃO SOCIAL CONTRATO', 'RAZAO SOCIAL', 'NOME', 'Razão Social', 'Nome', 'Nome/Razão Social'],
+    cpfCnpj: ['CNPJ FATURAMENTO', 'CNPJ CONTRATO', 'CNPJ PAGADOR', 'CNPJ', 'CPF', 'CPF/CNPJ', 'Documento'],
     numeroCliente: ['NUMERO CLIENTE', 'NUM IBM', 'Num Cliente', 'NUM_CLIENTE'],
 
     // Comercial / Contrato
@@ -34,9 +34,9 @@ const RAIZEN_COLUMN_MAP = {
     canalEntrada: ['CANAL DE ENTRADA', 'Canal', 'Canal de Entrada'],
 
     // Contato / Endereço
-    telefone: ['telefone', 'Telefone', 'CELULAR', 'Celular'],
-    email: ['email', 'E-mail', 'Email'],
-    endereco: ['Endereço', 'ENDERECO', 'ENDEREÇO'],
+    telefone: ['TELEFONE FATURAMENTO', 'TELEFONE CONTRATO', 'telefone', 'Telefone', 'CELULAR', 'Celular'],
+    email: ['E-MAIL FATURAMENTO', 'E-MAIL CONTRATO', 'email', 'E-mail', 'Email'],
+    endereco: ['ENDEREÇO COMPLETO', 'Endereço', 'ENDERECO', 'ENDEREÇO'],
     bairro: ['Bairro', 'BAIRRO'],
     cidade: ['Cidade', 'CIDADE'],
     estado: ['UF', 'Estado', 'ESTADO'],
