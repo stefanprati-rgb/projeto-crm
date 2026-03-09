@@ -10,7 +10,7 @@ const admin = require("firebase-admin");
  * ATENÇÃO: Deletar esta função após a execução bem-sucedida para economizar recursos
  * e evitar execuções acidentais.
  */
-exports.limparTipagemLegada = functions.https.onRequest(async (req, res) => {
+exports.limparTipagemLegada = functions.region('southamerica-east1').https.onRequest(async (req, res) => {
     const db = admin.firestore();
 
     try {

@@ -11,7 +11,7 @@ admin.initializeApp();
  * variáveis de ambiente do backend) para assumir o papel da chave
  * de encriptação que hoje reside no front-end.
  */
-exports.secureStoreCredential = functions.https.onCall(async (data, context) => {
+exports.secureStoreCredential = functions.region('southamerica-east1').https.onCall(async (data, context) => {
     // TODO: Implementar lógica de Secret Manager
 
     // Exemplo de verificação de autenticação:

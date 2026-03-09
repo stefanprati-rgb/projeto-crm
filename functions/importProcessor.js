@@ -14,7 +14,7 @@ const SECRET_KEY = process.env.ENCRYPTION_KEY || "chave_secreta_padrao_gd_crm";
  * 2. Performance: Operações de batch no Admin SDK são mais rápidas.
  * 3. Atomicidade: Garante que ou a UC e o Cliente são criados juntos ou nada.
  */
-exports.processRaizenImport = functions.https.onCall(async (data, context) => {
+exports.processRaizenImport = functions.region('southamerica-east1').https.onCall(async (data, context) => {
     // 1. Verificação de Autenticação e Permissão
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Acesso negado.");
@@ -134,7 +134,7 @@ exports.processRaizenImport = functions.https.onCall(async (data, context) => {
  * Atualiza registros de rateio baseado na UC com Estratégia "Lean".
  * Deduplica registros para que apenas o mais recente de cada UC seja processado no estado atual.
  */
-exports.processRateioImport = functions.https.onCall(async (data, context) => {
+exports.processRateioImport = functions.region('southamerica-east1').https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Acesso negado.");
     }

@@ -9,7 +9,7 @@ if (!admin.apps.length) {
  * Função de Dual-Write: Observa mudanças no "clients" (MVP front-end) e
  * replica estruturadamente para as novas coleções relacionais: "clientes", "instalacoes" e "historico_rateios".
  */
-exports.syncClientToRelationalModel = functions.firestore
+exports.syncClientToRelationalModel = functions.region('southamerica-east1').firestore
     .document("clients/{clientId}")
     .onWrite(async (change, context) => {
         const clientId = context.params.clientId;
