@@ -196,6 +196,8 @@ export const importBaseRaizen = async (records, options = {}) => {
             }
 
             // 1. Verificar se cliente já existe
+            let existingClient = null;
+
             if (record.idContaAcc) {
                 // Fetch using custom method or fallback to getAll and filter
                 // We'll add this to clientService.js next.
