@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../services/firebase';
 
