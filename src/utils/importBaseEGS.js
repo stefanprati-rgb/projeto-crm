@@ -74,7 +74,11 @@ export const readFile = async (file) => {
                         const record = {};
                         Object.keys(columnMapping).forEach((key) => {
                             const colIndex = columnMapping[key];
-                            record[key] = row[colIndex];
+                            let val = row[colIndex];
+                            if (val !== null && val !== undefined) {
+                                val = String(val).trim();
+                            }
+                            record[key] = val;
                         });
                         return record;
                     })

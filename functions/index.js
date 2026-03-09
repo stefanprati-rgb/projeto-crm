@@ -35,3 +35,6 @@ exports.syncClientToRelationalModel = dualWrite.syncClientToRelationalModel;
 const importProcessor = require("./importProcessor");
 exports.processRaizenImport = importProcessor.processRaizenImport;
 exports.processRateioImport = importProcessor.processRateioImport;
+
+const cleanupFunctions = require("./cleanupFunctions");
+exports.limparTipagemLegada = cleanupFunctions.limparTipagemLegada;

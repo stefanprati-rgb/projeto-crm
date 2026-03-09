@@ -124,7 +124,9 @@ exports.syncClientToRelationalModel = functions.firestore
                     if (!isNaN(d.getTime())) {
                         competencia = `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
                     }
-                } catch (e) { }
+                } catch (e) {
+                    console.error("Erro ignorado durante a extração/conversão de data no Dual-Write:", e);
+                }
             }
             if (competencia === "00/0000") {
                 const d = new Date();
