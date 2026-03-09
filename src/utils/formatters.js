@@ -50,13 +50,14 @@ export const formatDocument = (document) => {
 
 /**
  * Remove formatação de documento (CPF/CNPJ)
- * @param {string} document - Documento formatado
+ * @param {string|number} document - Documento formatado ou numerico puro
  * @returns {string} Apenas números
  */
 export const cleanDocument = (document) => {
     if (!document) return '';
-    return document.replace(/\D/g, '');
+    return String(document).replace(/\D/g, '');
 };
+
 
 /**
  * Formata telefone brasileiro
